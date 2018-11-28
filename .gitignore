@@ -1,12 +1,14 @@
-## Ignore everything
-*
+# Blacklist files/folders in same directory as the .gitignore file
+/*
 
-## But not
+# Whitelist some files
 !.gitignore
+!README.md
+**.log # ending with .log
 !image.plot.pre.r
 !leap_function.r
 !m2lat.r
 !m2lon.r
 !progress.r
-!colors/*
+!colors/ # trailing / optional if there is not a file 'colors'
 
