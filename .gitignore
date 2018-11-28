@@ -2,7 +2,6 @@
 /*
 
 # Whitelist some files
-!colors/ # trailing / optional if there is not a file 'colors'
 !.gitignore
 !README.md
 **.log # ending with .log
@@ -11,4 +10,5 @@
 !m2lat.r
 !m2lon.r
 !progress.r
+#!colors/ # trailing / optional if there is not a file 'colors'
 
