@@ -1,0 +1,11 @@
+## Ignore everything
+*
+
+## But not
+!.gitignore
+!image.plot.pre.r
+!leap_function.r
+!m2lat.r
+!m2lon.r
+!progress.r
+!colors/
