@@ -9,7 +9,6 @@
 !leap_function.r
 !m2lat.r
 !m2lon.r
-!progress.r
 !colors/* # trailing / optional if there is not a file 'colors'
 colors/ncview.c
 
