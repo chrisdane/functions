@@ -337,6 +337,9 @@ image.plot.pre <- function(zlim,
                 axis.labels <- axis.labels[-length(axis.labels)]
             }
 
+            ## need to take 1e numbers into account here!!!
+
+
         } # if method == "exp" or not
     
     } # if is.null(axis.labels)   
@@ -428,37 +431,41 @@ image.plot.pre <- function(zlim,
     }
 
     # apply axis.round: "5.0" instead of "5" depending on 'axis.round'
-    #if (method != "exp" && !is.null(axis.round)) {
     if (method != "exp") {
-        
-        if (T) {
-            axis.labels <- sprintf(paste0("%.", axis.round, "f"), axis.labels)
-        
-        } else {
-            axis.labels <- format(axis.labels) # format() better than as.character()
-            if (verbose) {
-                cat("here1 axis.labels=")
-                dput(axis.labels)
-            }
-
-            # decimals
-            if (any(regexpr("\\.", axis.labels) != -1)) {
-                pos <- regexpr("\\.", axis.labels)
-                inds <- which(pos != -1)
-                pos <- pos[inds]
-                axis.round <- max(nchar(substr(axis.labels[inds],
-                                               pos + 1,
-                                               nchar(axis.labels[inds]))))
+       
+        if (!is.null(axis.round)) {
             
-            # no decimals
+            if (T) {
+                if (verbose) {
+                    cat(paste0("axis.round=", axis.round, "\n"))
+                }
+                axis.labels <- sprintf(paste0("%.", axis.round, "f"), axis.labels)
+            
             } else {
-                axis.round <- 0
+                axis.labels <- format(axis.labels) # format() better than as.character()
+                if (verbose) {
+                    cat("here1 axis.labels=")
+                    dput(axis.labels)
+                }
+
+                # decimals
+                if (any(regexpr("\\.", axis.labels) != -1)) {
+                    pos <- regexpr("\\.", axis.labels)
+                    inds <- which(pos != -1)
+                    pos <- pos[inds]
+                    axis.round <- max(nchar(substr(axis.labels[inds],
+                                                   pos + 1,
+                                                   nchar(axis.labels[inds]))))
+                
+                # no decimals
+                } else {
+                    axis.round <- 0
+                }
             }
-        }
+        } # if !is.null(axis.round)
  
     } else if (method == "exp") {
         axis.labels <- as.expression(axis.labels)
-        axis.round <- NULL
     }
     if (verbose) {
         cat("******** here ********\n")
