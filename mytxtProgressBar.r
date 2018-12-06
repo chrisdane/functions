@@ -61,9 +61,9 @@ mytxtProgressBar <- function (min = 0, max = 1, initial = 0, char = "=", width =
             return()
         # change
         #cat(paste0("\r  |", strrep(" ", nw * width + 6)), file = file)
-        cat(paste0("\r", indent, , strrep(" ", nw * width + 6)), file = file)
+        cat(paste0("\r", indent, strrep(" ", nw * width + 6)), file = file)
         #cat(paste(c("\r  |", rep.int(char, nb), rep.int(" ", 
-        cat(paste(c("\r", indent, , rep.int(char, nb), rep.int(" ",
+        cat(paste(c("\r", indent, rep.int(char, nb), rep.int(" ",
             nw * (width - nb)), sprintf(" %3d%%", pc)), collapse = ""), 
             file = file)
         flush.console()
