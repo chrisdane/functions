@@ -61,10 +61,10 @@ mytxtProgressBar <- function (min = 0, max = 1, initial = 0, char = "=", width =
             return()
         # change
         #cat(paste0("\r  |", strrep(" ", nw * width + 6)), file = file)
-        cat(paste0("\r", indent, strrep(" ", nw * width + 6)), file = file)
+        cat(paste0("\r", indent, "[", strrep("-", nw * width + 6)), file = file)
         #cat(paste(c("\r  |", rep.int(char, nb), rep.int(" ", 
-        cat(paste(c("\r", indent, rep.int(char, nb), rep.int(" ",
-            nw * (width - nb)), sprintf(" %3d%%", pc)), collapse = ""), 
+        cat(paste(c("\r", indent, "[", rep.int(char, nb), rep.int("-",
+            nw * (width - nb)), sprintf("] %3d%%", pc)), collapse = ""), 
             file = file)
         flush.console()
         .nb <<- nb
@@ -81,3 +81,16 @@ mytxtProgressBar <- function (min = 0, max = 1, initial = 0, char = "=", width =
     structure(list(getVal = getVal, up = up, kill = kill), class = "txtProgressBar")
 }
 
+# for testing
+if (F) {
+    n <- 100
+    pb <- mytxtProgressBar(min=0, max=n, style=3,
+                            char="#", width=30,
+                            indent="   ") # 5 " " for default print()
+    n <- 100
+    for (i in 1:n) {
+        Sys.sleep(0.05)
+        setTxtProgressBar(pb, i)
+    }
+    close(pb)
+}
