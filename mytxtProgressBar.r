@@ -1,4 +1,4 @@
-function (min = 0, max = 1, initial = 0, char = "=", width = NA, 
+mytxtProgressBar <- function (min = 0, max = 1, initial = 0, char = "=", width = NA, 
     title, label, style = 1, file = "", indent = "") 
 {
     if (!identical(file, "") && !(inherits(file, "connection") && 
@@ -63,7 +63,7 @@ function (min = 0, max = 1, initial = 0, char = "=", width = NA,
         #cat(paste0("\r  |", strrep(" ", nw * width + 6)), file = file)
         cat(paste0("\r", indent, "|", strrep(" ", nw * width + 6)), file = file)
         #cat(paste(c("\r  |", rep.int(char, nb), rep.int(" ", 
-        cat(paste(("\r", indent, "|", rep.int(char, nb), rep.int(" ",
+        cat(paste(c("\r", indent, "|", rep.int(char, nb), rep.int(" ",
             nw * (width - nb)), sprintf("| %3d%%", pc)), collapse = ""), 
             file = file)
         flush.console()
@@ -80,6 +80,4 @@ function (min = 0, max = 1, initial = 0, char = "=", width = NA,
     up(initial)
     structure(list(getVal = getVal, up = up, kill = kill), class = "txtProgressBar")
 }
-<bytecode: 0xa6106b0>
-<environment: namespace:utils>
 
