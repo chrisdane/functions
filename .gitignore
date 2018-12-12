@@ -10,7 +10,7 @@
 !m2lat.r
 !m2lon.r
 !mytxtProgressBar.r
-!get_memory_of_workspace_gb.r
+!get_memory_of_workspace.r
 !colors/* # trailing / optional if there is not a file 'colors'
 colors/ncview.c
 
