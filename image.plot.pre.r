@@ -59,6 +59,11 @@ image.plot.pre <- function(zlim,
         
         if (method == "pretty") {
             zlevels <- pretty(zlim, n=nlevels)
+            if (verbose) {
+                cat("hereeeeee\n")
+                cat("zlevels=")
+                dput(zlevels)
+            }
 
             ## remove zlevels outside of zlim (due to pretty)
             if (zlevels[1] < zlim[1]) {
@@ -266,7 +271,16 @@ image.plot.pre <- function(zlim,
             if (nlevels <= max_labels) {
 
                 # nicer labels without zlims
-                axis.labels <- as.numeric(formatC(zlevels[-c(1, nlevels)]))
+                if (length(zlevels) > 2) {
+                    axis.labels <- as.numeric(formatC(zlevels[-c(1, nlevels)]))
+                } else {
+                    axis.labels <- as.numeric(formatC(zlevels))
+                }
+                if (verbose) {
+                    cat("h3r3\n")
+                    cat("axis.labels=")
+                    dput(axis.labels)
+                }
 
             } else { # nlevels > max_labels
 
@@ -307,7 +321,31 @@ image.plot.pre <- function(zlim,
 
                     } else if (!axis.zoom) {
 
+                        # nicer labels without zlims
                         axis.labels <- pretty(zlevels[-c(1, nlevels)], n=max_labels) 
+                        if (verbose) {
+                            print("fooo")
+                            cat("zlim<-")
+                            dput(zlim)
+                            cat("zlevels<-")
+                            dput(zlevels)
+                            print(max_labels)
+                            cat("axis.labels=")
+                            dput(axis.labels)
+                        }
+
+                        if (length(zlevels) > 2) {
+                            axis.labels <- as.numeric(formatC(zlevels[-c(1, nlevels)]))
+                        } else {
+                            axis.labels <- as.numeric(formatC(zlevels))
+                        }
+                        if (verbose) {
+                            cat("h3r3\n")
+                            cat("axis.labels=")
+                            dput(axis.labels)
+                        }
+
+                        #stop("asdasdasds")
 
                     } # if axis.zoom
                     
