@@ -11,7 +11,7 @@
 !m2lon.r
 !mytxtProgressBar.r
 !gcd.r
-!lsos.r
+!ls2.r
 !colors/* # trailing / optional if there is not a file 'colors'
 colors/ncview.c
 
