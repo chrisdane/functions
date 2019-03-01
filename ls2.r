@@ -2,6 +2,24 @@
 # improved list of objects
 ls.objects <- function (pos = 1, pattern, order.by,
                         decreasing=FALSE, head=FALSE, n=5, ndim=5) {
+    
+    # print session PID and memory usage
+    # https://github.com/tdhock/dotfiles/blob/master/.Rprofile
+    cmd <- paste0("ps -o rss,vsz ", Sys.getpid())
+    mem <- system(cmd, intern=T)
+    mem <- read.table(text=mem, header=T)
+    mem <- unlist(mem)*1024 # kilobytes --> bytes
+    names(mem) <- c("RSS physical mem", # non-swapped
+                    "VSZ virtual mem")
+    prettyMem <- sapply(mem, function(x) {
+                        class(x) <- "object_size"
+                        format(x, units="auto") })
+    mem <- data.frame(mem, prettyMem)
+    names(mem) <- c("Mem [B]", "PrettyMem") 
+    message("$ ", cmd)
+    print(mem)
+   
+    # sizes of objects loaded in current work-space
     napply <- function(names, fn) sapply(names, function(x)
                                          fn(get(x, pos = pos)))
     names <- ls(pos = pos, pattern = pattern)
@@ -38,7 +56,7 @@ ls.objects <- function (pos = 1, pattern, order.by,
             out <- head(out[,1:(4+ndim)], n)
         out
     } else {
-        message("No objects in search()[pos=", pos, "] = ", search()[pos])
+        #message("No objects in search()[pos=", pos, "] = ", search()[pos])
     } # if there are objects
 } # ls.objects
 

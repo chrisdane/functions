@@ -76,6 +76,14 @@ gcd.vif <- function(long1, lat1, long2, lat2) {
     return(s) # Distance in km
 }
 
+## FESOMs dist_on_earth() function from gen_support.F90 
+gcd.fesom <- function(lon1, lat1, lon2, lat2) {
+    r_earth <- 6.3675e6 # m; oce_modules.F90
+    alpha <- acos(cos(lat1)*cos(lat2)*cos(lon1-lon2)+sin(lat1)*sin(lat2))
+    dist <- r_earth*abs(alpha)/1000 # m --> km
+    return(dist)
+}
+
 # Calculates the geodesic distance between two points specified by degrees (DD) latitude/longitude using
 # Haversine formula (hf), Spherical Law of Cosines (slc) and Vincenty inverse formula for ellipsoids (vif)
 gcd <- function(long1_deg, lat1_deg, long2_deg, lat2_deg) {
@@ -93,11 +101,13 @@ gcd <- function(long1_deg, lat1_deg, long2_deg, lat2_deg) {
                     vincenty=gcd.vif(long1_rad, lat1_rad, long2_rad, lat2_rad),
                     rdist.earth=fields::rdist.earth(matrix(c(long1_deg, lat1_deg), ncol=2), 
                                                     matrix(c(long2_deg, lat2_deg), ncol=2), 
-                                                    miles=F, R=6371)[1,]) )
+                                                    miles=F, R=6371)[1,],
+                    fesom.dist_on_earth=gcd.fesom(long1_rad, lat1_rad, long2_rad, lat2_rad)))
     } else {
         return(list(haversine=gcd.hf(long1_rad, lat1_rad, long2_rad, lat2_rad),
                     sphere=gcd.slc(long1_rad, lat1_rad, long2_rad, lat2_rad),
-                    vincenty=gcd.vif(long1_rad, lat1_rad, long2_rad, lat2_rad)) )
+                    vincenty=gcd.vif(long1_rad, lat1_rad, long2_rad, lat2_rad),
+                    fesom.dist_on_earth=gcd.fesom(long1_rad, lat1_rad, long2_rad, lat2_rad)))
     }
 }
 
