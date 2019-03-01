@@ -16,8 +16,6 @@ ls.objects <- function (pos = 1, pattern, order.by,
                         format(x, units="auto") })
     mem <- data.frame(mem, prettyMem)
     names(mem) <- c("Mem [B]", "PrettyMem") 
-    message("$ ", cmd)
-    print(mem)
    
     # sizes of objects loaded in current work-space
     napply <- function(names, fn) sapply(names, function(x)
@@ -54,10 +52,12 @@ ls.objects <- function (pos = 1, pattern, order.by,
             out <- out[order(out[[order.by]], decreasing=decreasing), 1:(4+ndim)]
         if (head)
             out <- head(out[,1:(4+ndim)], n)
-        out
-    } else {
-        #message("No objects in search()[pos=", pos, "] = ", search()[pos])
     } # if there are objects
+    
+    message("$ ", cmd)
+    print(mem)
+    if (exists("out")) out
+
 } # ls.objects
 
 # shorthand
