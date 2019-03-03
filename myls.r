@@ -9,8 +9,8 @@ ls.objects <- function (pos = 1, pattern, order.by,
     mem <- system(cmd, intern=T)
     mem <- read.table(text=mem, header=T)
     mem <- unlist(mem)*1024 # kilobytes --> bytes
-    names(mem) <- c("RSS physical mem", # non-swapped
-                    "VSZ virtual mem")
+    names(mem) <- c("RSS physical", # non-swapped
+                    "VSZ virtual")
     prettyMem <- sapply(mem, function(x) {
                         class(x) <- "object_size"
                         format(x, units="auto") })
