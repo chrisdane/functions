@@ -1,6 +1,6 @@
 ## R
 # if colorout package is used, load my default colors
-my_setOutputColors <- function(normal=0, stderror=0,
+mysetOutputColors <- function(normal=0, stderror=0,
                                number=20, negnum=20, zero=20,
                                date=39, string=39, const=35, false=203, true=40,
                                infinite=39, index=30, warn=202, error=c(160, 231),
@@ -21,5 +21,5 @@ my_setOutputColors <- function(normal=0, stderror=0,
         setOutputColors(normal, negnum, zero, number, date, string,
                         const, false, true, infinite, index, stderror,
                         warn, error, zero.limit=zero.limit, verbose)
-} # my_setOutputColors function
+} # mysetOutputColors function
 

@@ -61,7 +61,7 @@ ls.objects <- function (pos = 1, pattern, order.by,
 } # ls.objects
 
 # shorthand
-ls2 <- function(..., n=10) {
+myls <- function(..., n=10) {
     ls.objects(..., order.by="RelSize", decreasing=TRUE, head=TRUE, n=n)
 }
 
