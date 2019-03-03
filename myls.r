@@ -1,12 +1,12 @@
 # https://stackoverflow.com/questions/1358003/tricks-to-manage-the-available-memory-in-an-r-session
 # improved list of objects
 ls.objects <- function (pos = 1, pattern, order.by,
-                        decreasing=FALSE, head=FALSE, n=5, ndim=5) {
+                        decreasing=FALSE, head=FALSE, n=5, ndim=5, verbose=F) {
     
     # print session PID and memory usage
     # https://github.com/tdhock/dotfiles/blob/master/.Rprofile
-    cmd <- paste0("ps -o rss,vsz ", Sys.getpid())
-    mem <- system(cmd, intern=T)
+    pscmd <- paste0("ps -o rss,vsz ", Sys.getpid())
+    mem <- system(pscmd, intern=T)
     mem <- read.table(text=mem, header=T)
     mem <- unlist(mem)*1024 # kilobytes --> bytes
     names(mem) <- c("RSS physical", # non-swapped
@@ -54,7 +54,7 @@ ls.objects <- function (pos = 1, pattern, order.by,
             out <- head(out[,1:(4+ndim)], n)
     } # if there are objects
     
-    message("$ ", cmd)
+    if (verbose) message("$ ", pscmd)
     print(mem)
     if (exists("out")) out
 
