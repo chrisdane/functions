@@ -37,12 +37,13 @@ myRPrompt <- function(...) {
     # apply color in bash style
     # unfortunately, this breaks arrow up/down behavior in R terminal:
     # https://github.com/jalvesaq/colorout/issues/7#issuecomment-207849620
-    if (F) p <- paste0("\x1b[34m", p, "\x1b[0m") # blue
-    
-    # apply color from crayon package
-    if (T) {
-        #library(crayon)
-        if (any(search() == "package:crayon")) p <- crayon::blue(p)
+    if (F) {
+        if (F) { # bash style
+            p <- paste0("\x1b[34m", p, "\x1b[0m") # blue
+        } else if (T) { # # apply color from crayon package
+            #library(crayon)
+            if (any(search() == "package:crayon")) p <- crayon::blue(p)
+        }
     }
 
     # attach trailing space
