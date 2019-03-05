@@ -7,9 +7,9 @@ update.check <- function() {
         print(inst$inst[inds,c("Package", "Version", "Status", "LibPath")])
         message("")
         yn <- menu(choices=c("yes", "no"), 
-                   title="Run update.packages(instlib=.libPaths()[1], ask=F, checkBuild=T) now?")
+                   title="Run update.packages(instlib=.libPaths()[1], ask=F, checkBuilt=T) now?")
         if (yn == 1) {
-            update.packages(instlib=.libPaths()[1], ask=F, checkBuild=T)
+            update.packages(instlib=.libPaths()[1], ask=F, checkBuilt=T)
         }
     } else {
         message("All packages uptodate.")
