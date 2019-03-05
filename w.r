@@ -16,7 +16,7 @@ whats <- sapply(df, function(x) paste0(x[8:length(x)], collapse=" "))
 
 users_unique <- unique(users)
 li <- vector("list")
-default_whats <- c("-bash", "bash", "tcsh")
+default_whats <- c("-bash", "bash", "-tcsh", "tcsh")
 li_cnt <- 0
 for (i in 1:length(users_unique)) {
     inds <- which(users == users_unique[i])
