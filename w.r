@@ -1,4 +1,4 @@
-###!/bin/Rscript --vanilla
+#!/bin/Rscript --vanilla
 
 message("********** w.r **********")
 
