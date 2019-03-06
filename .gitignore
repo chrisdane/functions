@@ -17,7 +17,6 @@
 !mysetOutputColors.r
 !myRPrompt.r
 !ps.r
-!mytimes.r
 !inertial.r
 !colors/* # trailing / optional if there is not a file 'colors'
 colors/ncview.c
