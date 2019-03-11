@@ -32,7 +32,8 @@ myRPrompt <- function(...) {
     if (substr(p, nchar(p), nchar(p)) != "/") p <- paste0(p, "/")
 
     # add machine and trailing R>
-    p <- paste0(Sys.info()[4], ":", p, " R>")
+    #p <- paste0(Sys.info()[4], ":", p, " R>")
+    p <- paste0(Sys.info()[4], ":", p, ">")
 
     # apply color in bash style
     # unfortunately, this breaks arrow up/down behavior in R terminal:

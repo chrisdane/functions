@@ -18,6 +18,7 @@
 !myRPrompt.r
 !ps.r
 !inertial.r
+!convb.r
 !colors/* # trailing / optional if there is not a file 'colors'
 colors/ncview.c
 
