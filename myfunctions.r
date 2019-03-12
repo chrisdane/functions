@@ -9,10 +9,10 @@ hh <- function(d) d[1:5, 1:5]
 rsq <- function(predicted, actual) 1-sum((actual-predicted)^2)/sum((actual-mean(actual))^2)
 
 # Get month names in specific locale
-mymonth.abb <- function(inds, locales=Sys.getlocale("LC_TIME")) {
+mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
   
     if (any(!(inds %in% 1:12))) {
-        stop("mymonth.abb(): 'inds' must be in 1:12")
+        stop("mymonth.name(): 'inds' must be in 1:12")
     }
 
     months <- vector("list", l=length(locales))
@@ -53,4 +53,4 @@ mymonth.abb <- function(inds, locales=Sys.getlocale("LC_TIME")) {
 
     return(months)
 
-} # mymonth.abb function
+} # mymonth.name function
