@@ -24,7 +24,7 @@ ls.objects <- function (pos = 1, pattern, order.by,
     obj.class <- napply(names, function(x) as.character(class(x))[1])
     if (length(obj.class) != 0) {
         obj.mode <- napply(names, mode)
-        obj.type <- ifelse(is.na(obj.class), obj.mode, obj.class)
+        obj.class <- ifelse(is.na(obj.class), obj.mode, obj.class)
         obj.prettysize <- napply(names, function(x) {
                                format(utils::object.size(x), units = "auto") })
         obj.size <- napply(names, object.size)
@@ -43,10 +43,10 @@ ls.objects <- function (pos = 1, pattern, order.by,
             }
         }
         obj.dim <- tmp
-        vec <- apply(obj.dim, 1, function(x) all(is.na(x))) & (obj.type != "function")
+        vec <- apply(obj.dim, 1, function(x) all(is.na(x))) & (obj.class != "function")
         obj.dim[vec, 1] <- napply(names, length)[vec]
-        out <- data.frame(obj.type, obj.size, obj.prettysize, obj.relsize, obj.dim)
-        names(out) <- c("Type", "Size [B]", "PrettySize", "RelSize", paste0("dim", 1:maxdim))
+        out <- data.frame(obj.class, obj.size, obj.prettysize, obj.relsize, obj.dim)
+        names(out) <- c("Class", "Size [B]", "PrettySize", "RelSize", paste0("dim", 1:maxdim))
         ndim <- min(ndim, maxdim)
         if (!missing(order.by))
             out <- out[order(out[[order.by]], decreasing=decreasing), 1:(4+ndim)]
