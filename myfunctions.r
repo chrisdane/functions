@@ -172,6 +172,50 @@ mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
 } # mymonth.name function
 
 
+find_encoding <- function(test_symbol="ä", test_ctype="de") {
+    
+    # find and possibly :
+    # value so that "test_symbol" in interpreted in 
+    # a good way.
+    encoding <- iconvlist()
+    encoding <- sapply(encoding, function(x) iconv(test_letter, from=x))
+    encoding <- encoding[!is.na(encoding)]
+    if (any(encoding == test_letter)) {
+        encoding <- encoding[which(encoding == test_letter)]
+        message(paste0("encoding ", names(encoding), ": ", encoding, collapse="\n"))
+        encoding <- names(encoding[1])
+        message("use encoding ", encoding)
+    } else {
+        message("Could not find a encoding to evaluate 'test_letter'=", test_letter)
+    }
+	ctype <- Sys.getlocale("LC_CTYPE")
+	if (regexpr(test_ctype_pattern, ctype, ignore.case=T) == -1) {
+		
+		# get available langs
+		locs <- system("locale -a", intern=T)
+		# check if german character type is possible
+		if (!any(regexpr(test_ctype_pattern, locs, ignore.case=T) != -1)) {
+			message("Could not find a locale contaning the pattern '", test_ctype_pattern, "' (case is ignored)")
+		} else {
+			locs <- locs[which(regexpr(test_ctype_pattern, locs, ignore.case=T) != -1)]
+			message("Sys.getlocalte(\"LC_CTYPE\"): ", ctype)
+			message("Run Sys.setlocale(\"LC_CTYPE\", \"", locs[1], "\")")
+			Sys.setlocale("LC_CTYPE", locs[1])
+			message("Sys.getlocale(\"LC_CTYPE\"): ", Sys.getlocale("LC_CTYPE"))
+		
+			# get available encodings
+			encoding <- iconvlist()
+			encoding <- sapply(encoding, function(x) iconv(test_letter, from=x))
+			if (any(encoding == test_letter)) {
+				encoding <- encoding[which(encoding == test_letter)[1]]
+				message("encoding '", names(encoding), "': ", encoding)
+			} else {
+				message("Could not find a encoding to evaluate 'test_letter'=", test_letter)
+			}
+		} # if pattern test_ctype_pattern is contained in locale -a
+	} # if current LC_CTYPE does not contain test_ctype_pattern
+} # not ready
+
 # paste stuff that I always forget
 myhelp <- function() {
 	tmp <- c("   Built-in constants ...",
@@ -181,6 +225,14 @@ myhelp <- function() {
              "      embed_fonts(\"plot.pdf\", outfile=\"plot_embed.pdf\") (PostScript knows only 14 base fonts)",
              "      evince -> File -> Properties -> Fonts -> \"Embedded subset\"",
              "      library(extrafontdb) (reset)",
+             "   available locales ...",
+             "      locs <- system(\"locale -a\", intern=T)",
+             "   read file with specific encoding ...",
+             "      iconvlist <- iconvlist()",
+             "   POSIX ...",
+             "      d <- as.POSIXct(\"2000-01-30\", format=\"%Y-%m-%d\", tz=\"CET\") # = \"2000-01-30 CET\"",
+             "      n <- as.numeric(d) # = 949186800",
+             "      dd <- as.POSIXct(n, origin=\"1970-01-01\",tz=\"CET\") # = \"2000-01-30 CET\"",
              "   Package options ...",
              "      install: install.packages(\"packagename\", lib=\"lib\", configure.args=c('--with-packagename-lib=/path/', 'include'))",
              "               devtools::install_github(\"user/package\", args=\"--with-keep.source\")",
@@ -190,8 +242,9 @@ myhelp <- function() {
              "               install.packages(\"packagename.tar.gz\", repos=NULL)",
              "      load:    library(packagename, lib=\"lib\")",
              "      unload:  detach(package:packagename, unload=T)",
-             "      update:  update.packages(instlib=\"lib\", repos=\"package\", ask=F, checkBuilt=T)",
+             "      update:  update.packages(lib=\"lib/to/update\", instlib=\"lib/to/put/updates\", ask=F, checkBuilt=T)",
              "               update.packages(instlib=.libPaths()[1], ask=F, checkBuilt=T)",
+             "               old <- old.packages(lib=.libPaths()[1])",
              "               dtupdate::github_update(auto.install=T, ask=T, dependencies=T)",
              "      remove:  remove.packages(\"packagename\", lib=\"lib\")",
              "      which:   find.package(\"packagename\")",
