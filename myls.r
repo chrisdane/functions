@@ -1,35 +1,38 @@
 # https://stackoverflow.com/questions/1358003/tricks-to-manage-the-available-memory-in-an-r-session
 # improved list of objects
 ls.objects <- function (pos = 1, pattern, order.by,
-                        decreasing=FALSE, head=FALSE, n=5, ndim=5, verbose=F) {
+                        decreasing=FALSE, head=FALSE, n=5, ndim=5, show_mem=T) {
     
     # print session PID and memory usage
     # https://github.com/tdhock/dotfiles/blob/master/.Rprofile
-    pscmd <- paste0("ps -o rss,vsz ", Sys.getpid())
-    mem <- system(pscmd, intern=T)
-    mem <- read.table(text=mem, header=T)
-    mem <- unlist(mem)*1024 # kilobytes --> bytes
-    names(mem) <- c("RSS physical", # non-swapped
-                    "VSZ virtual")
-    prettyMem <- sapply(mem, function(x) {
-                        class(x) <- "object_size"
-                        format(x, units="auto") })
-    mem <- data.frame(mem, prettyMem)
-    names(mem) <- c("Mem [B]", "PrettyMem") 
-   
+    if (show_mem) {
+        pscmd <- paste0("ps -o rss,vsz ", Sys.getpid())
+        mem <- system(pscmd, intern=T)
+        mem <- read.table(text=mem, header=T)
+        mem <- unlist(mem)*1024 # kilobytes --> bytes
+        prettyMem <- sapply(mem, function(x) {
+                            class(x) <- "object_size"
+                            format(x, units="auto") })
+        mem <- data.frame(c("RSS physical", "VSZ virtual"), 
+                          mem, prettyMem)
+        names(mem) <- c(paste0("$ ", pscmd), "Mem [B]", "PrettyMem") 
+    }
+
     # sizes of objects loaded in current work-space
-    napply <- function(names, fn) sapply(names, function(x)
+    snapply <- function(names, fn) sapply(names, function(x)
+                                         fn(get(x, pos = pos)))
+    lnapply <- function(names, fn) lapply(names, function(x)
                                          fn(get(x, pos = pos)))
     names <- ls(pos = pos, pattern = pattern)
-    obj.class <- napply(names, function(x) as.character(class(x))[1])
+    obj.class <- snapply(names, function(x) as.character(class(x))[1])
     if (length(obj.class) != 0) {
-        obj.mode <- napply(names, mode)
+        obj.mode <- snapply(names, mode)
         obj.class <- ifelse(is.na(obj.class), obj.mode, obj.class)
-        obj.prettysize <- napply(names, function(x) {
+        obj.prettysize <- snapply(names, function(x) {
                                format(utils::object.size(x), units = "auto") })
-        obj.size <- napply(names, object.size)
+        obj.size <- snapply(names, object.size)
         obj.relsize <- round(obj.size/max(obj.size), 3)
-        obj.dim <- t(napply(names, function(x) dim(x) ))
+        obj.dim <- lnapply(names, function(x) dim(x) )
         maxdim <- max(sapply(obj.dim, length))
         if (maxdim == 0) { # all vectors or functions
             maxdim <- 1
@@ -44,7 +47,7 @@ ls.objects <- function (pos = 1, pattern, order.by,
         }
         obj.dim <- tmp
         vec <- apply(obj.dim, 1, function(x) all(is.na(x))) & (obj.class != "function")
-        obj.dim[vec, 1] <- napply(names, length)[vec]
+        obj.dim[vec, 1] <- snapply(names, length)[vec]
         out <- data.frame(obj.class, obj.size, obj.prettysize, obj.relsize, obj.dim)
         names(out) <- c("Class", "Size [B]", "PrettySize", "RelSize", paste0("dim", 1:maxdim))
         ndim <- min(ndim, maxdim)
@@ -54,9 +57,8 @@ ls.objects <- function (pos = 1, pattern, order.by,
             out <- head(out[,1:(4+ndim)], n)
     } # if there are objects
     
-    if (verbose) message("$ ", pscmd)
-    print(mem)
-    if (exists("out")) out
+    if (show_mem) print(mem, row.names=F)
+    if (exists("out")) print(out)
 
 } # ls.objects
 
