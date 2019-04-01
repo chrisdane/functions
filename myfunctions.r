@@ -22,7 +22,7 @@ speeds <- function(x, unit="cm/s") {
     for (i in 1:length(vec)) vec[i] <- set_units(x, value=vec[i], mode="standard")
     mat <- matrix(as.numeric(vec), nrow=length(lengths))
     rownames(mat) <- lengths; colnames(mat) <- times
-    oo <- getOption("scipen")
+    oo <- getOption("scipen") # oldoption
     options("scipen"=100); message("scipen=", getOption("scipen"))
     print(mat)
     options("scipen"=oo); message("scipen=", getOption("scipen"))
