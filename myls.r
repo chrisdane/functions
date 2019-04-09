@@ -26,7 +26,7 @@ ls.objects <- function (pos = 1, pattern, order.by,
     names <- ls(pos = pos, pattern = pattern)
     obj.class <- snapply(names, function(x) as.character(class(x))[1])
     if (length(obj.class) != 0) {
-        obj.mode <- snapply(names, mode)
+        obj.mode <- snapply(names, base::mode)
         obj.class <- ifelse(is.na(obj.class), obj.mode, obj.class)
         obj.prettysize <- snapply(names, function(x) {
                                format(utils::object.size(x), units = "auto") })
