@@ -216,6 +216,19 @@ find_encoding <- function(test_symbol="ä", test_ctype="de") {
 	} # if current LC_CTYPE does not contain test_ctype_pattern
 } # not ready
 
+myErrorFun <- function() {
+    # weird bug: When running a script from the command line you will have to skip one or two traceback() calls
+    # https://stackoverflow.com/questions/1445964/r-script-line-numbers-at-error
+    # https://stackoverflow.com/questions/13116099/traceback-for-interactive-and-non-interactive-r-sessions
+    # #traceback(2) #recover() #rlang::last_trace(); rlang::last_error(); # library(rlang)
+    tmp <- .traceback(2)
+    if (!is.null(tmp) && # if e.g. not ctrl+c
+        #regexpr("stop\\(", tmp[[1]]) != -1 && # if stop() was called last
+        !is.null(srcref <- attr(tmp[[1]], "srcref"))) { # if attribute exists
+        message("in line ", srcref[1], " in ", basename(attr(srcref, "srcfile")$filename))
+    }
+}
+
 # paste stuff that I always forget
 myhelp <- function() {
 	tmp <- c("   Built-in constants ...",
