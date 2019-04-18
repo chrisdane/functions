@@ -4,6 +4,8 @@ pals <- function(name="demo", n=64, alpha=1,
                  rgb_path=paste0(getwd(), "/functions/colors/"), 
                  rgb_mat=NULL) {
     
+    message(rgb_path)
+
     ## rgb: 3 column matrix (R, G, B)
 
     ## R built-in colormaps
