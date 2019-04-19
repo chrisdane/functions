@@ -1,8 +1,7 @@
 ## R
 
 color_function <- function(palname="demo", n=64, alpha=1, 
-                           rgb_path=paste0(getSrcDirectory(sys.function(sys.nframe())), "/"), 
-                           rgb_mat=NULL) {
+                           rgb_path, rgb_mat=NULL) {
     
     ## rgb: 3 column matrix (R, G, B)
     if (F) {
@@ -13,6 +12,11 @@ color_function <- function(palname="demo", n=64, alpha=1,
         print(getSrcDirectory(sys.function(sys.nframe())))
         #cat("sys.frame(", sys.nframe(), ")$ofile = ", sys.frame(i)$ofile)
         cat("names(sys.frame(", sys.nframe(), ") = ", names(sys.frame(sys.nframe())), "\n")
+    }
+
+    if (missing(rgb_path)) {
+        rgb_path <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/")
+        message("rgb_path: ", rgb_path)
     }
 
     ## R built-in colormaps
