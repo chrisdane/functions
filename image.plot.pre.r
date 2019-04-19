@@ -623,8 +623,8 @@ image.plot.pre <- function(zlim,
                 } else {
                     stop("file colors_script=", colors_script, " is not readable.")
                 }
-                cols <- color_function(palname,
-                             n=ifelse(nlevels %% 2 == 0, nlevels, nlevels + 1)) 
+                cols <- color_function(palname, n=ifelse(nlevels %% 2 == 0, nlevels, nlevels + 1),
+                                       rgb_path=dirname(colorsscript)) 
                              # use even colors here, include 1 additional for zero later
                 #cat("pal=")
                 #dput(pal)
@@ -654,7 +654,7 @@ image.plot.pre <- function(zlim,
             } else {
                 stop("file colors_script=", colors_script, " is not readable.")
             }
-            cols <- color_function(palname)
+            cols <- color_function(palname, rgb_path=dirname(colorsscript))
            
             if (axis.zoom) {
                 if (zoom[1] > zlim[1] && zoom[2] < zlim[2]) {
