@@ -3,8 +3,7 @@ image.plot.pre <- function(zlim,
                            zlevels=NULL, axis.labels=NULL, axis.round=NULL,
                            axis.zoom=F, axis.addzlims=F, power_min=NULL,
                            cols=NULL, pos_cols=NULL, neg_cols=NULL,
-                           palname=NULL, 
-                           colors_script=paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r"),
+                           palname=NULL, colors_script,
                            anom_colorbar=NULL, 
                            center_around=0, center_col="white", center_include=F,
                            verbose=F) {
@@ -12,6 +11,10 @@ image.plot.pre <- function(zlim,
     ## Check input
     if (missing(zlim)) {
         stop("error: 'zlim' is missing")
+    }
+    if (missing(colors_script)) {
+        colors_script <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r")
+        message("colors_script: ", colors_script)
     }
     if (verbose) {
         cat("zlim=")
@@ -618,7 +621,7 @@ image.plot.pre <- function(zlim,
                 if (file.exists(colors_script)) {
                     source(colors_script)
                 } else {
-                    stop("you need to provide a color_function.r file ...")
+                    stop("file colors_script=", colors_script, " is not readable.")
                 }
                 cols <- color_function(palname,
                              n=ifelse(nlevels %% 2 == 0, nlevels, nlevels + 1)) 
@@ -649,7 +652,7 @@ image.plot.pre <- function(zlim,
             if (file.exists(colors_script)) {
                 source(colors_script)
             } else {
-                stop("you need to provide a color_function.r file ...")
+                stop("file colors_script=", colors_script, " is not readable.")
             }
             cols <- color_function(palname)
            
