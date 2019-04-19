@@ -680,7 +680,16 @@ image.plot.pre <- function(zlim,
             }
 
         } # if anom_colorbar
-    } # if is.null(cols)
+    
+    } else {
+
+        # check if provided cols have correct length
+        if (length(cols) != nlevels - 1) {
+            if (verbose) message("reorganize cols to correct length ...")
+            cols <- colorRampPalette(cols)(nlevels - 1)
+        }
+        
+    } # if is.null(cols) or not
 
     if (verbose) {
         print(paste0("length(cols) = ", length(cols)))
