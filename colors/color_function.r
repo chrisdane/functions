@@ -4,8 +4,6 @@ color_function <- function(palname="demo", n=64, alpha=1,
                            rgb_path=paste0(getSrcDirectory(sys.function(sys.nframe())), "/"), 
                            rgb_mat=NULL) {
     
-    message(rgb_path)
-
     ## rgb: 3 column matrix (R, G, B)
     if (F) {
         message("getwd(): ", getwd())
