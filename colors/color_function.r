@@ -259,7 +259,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
              xaxs="i", yaxs="i")
         axis(1, at=pretty(x, n=10), labels=pretty(x, n=10))
         axis(2, at=y, labels=y, las=2)
-        title("this is the 'cols()' demo")
+        title("this is the 'color_function()' demo")
         image(x, y, z, col=unlist(cols_list), breaks=0:max(z),
               add=T, axes=F, useRaster=T,
               xlab=NA, ylab=NA)
