@@ -1,7 +1,7 @@
 # https://stackoverflow.com/questions/1358003/tricks-to-manage-the-available-memory-in-an-r-session
 # improved list of objects
-ls.objects <- function (pos = 1, pattern, order.by,
-                        decreasing=FALSE, head=FALSE, n=5, ndim=5, show_mem=T) {
+ls.objects <- function (pos=1, pattern, order.by,
+                        decreasing=F, head=F, n=5, ndim=5, show_mem) {
     
     # print session PID and memory usage
     # https://github.com/tdhock/dotfiles/blob/master/.Rprofile
@@ -63,7 +63,7 @@ ls.objects <- function (pos = 1, pattern, order.by,
 } # ls.objects
 
 # shorthand
-myls <- function(..., n=10) {
-    ls.objects(..., order.by="RelSize", decreasing=TRUE, head=TRUE, n=n)
+myls <- function(..., n=10, show_mem=T) {
+    ls.objects(..., order.by="RelSize", decreasing=T, head=T, n=n, show_mem=show_mem)
 }
 

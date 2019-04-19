@@ -21,6 +21,6 @@
 !convb.r
 !myfunctions.r
 !colors/* # trailing / optional if there is not a file 'colors'
-colors/ncview.c
+colors/ncview.c # ignore this one
 
 ## git rm -r -f --cached
