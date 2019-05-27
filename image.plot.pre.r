@@ -46,11 +46,8 @@ image.plot.pre <- function(zlim,
             length(cols) < 3) { # but provides less than 3 colors
             stop("error: provide at least 3 colors (needed for zoom)")
         }
-        if (nlevels < 4) {
-            if (verbose) {
-                print("warning: set 'nlevels' to 4 (minimum number needed for zoom)")
-            }
-            nlevels <- 4
+        if (!is.null(cols)) {
+            nlevels <- length(cols)
         }
         if (is.null(zlevels) && is.null(axis.labels)) {
             stop("error: provide 'zlevels' (length=2) and/or 'axis.labels' for zoom")
@@ -191,8 +188,7 @@ image.plot.pre <- function(zlim,
             zoom.l <- length(zoomlevels)
             #zoom.b <- diff(zoom)/zoom.l
 
-            ## Fill space between zlim and zoom at 
-            ## beginning and end of colorbar
+            # Fill space between zlim and zoom at beginning and end of colorbar
             nlevplab <- max(zoom.l/max_labels, 1)
             if (zoom[1] > zlim[1] && zoom[2] < zlim[2]) {
                 zlevels <- c(seq(zlim[1], zoom[1], l=nlevplab),
@@ -612,9 +608,13 @@ image.plot.pre <- function(zlim,
             ncolors_pos <- nlevels - centerind
             # both zoom and equal spacing in both neg and pos colors
             ncolors_oneside <- max(ncolors_neg, ncolors_pos) 
+            if (verbose) {
+                message("ncolors_neg=", ncolors_neg)
+                message("ncolors_pos=", ncolors_pos)
+                message("ncolors_oneside=", ncolors_oneside)
+            }
 
             if (is.null(pos_cols) || is.null(neg_cols)) {
-      
                 if (is.null(palname)) { # default colors for anomaly colorbar
                     palname <- "grads_anomaly"
                 }
@@ -623,22 +623,23 @@ image.plot.pre <- function(zlim,
                 } else {
                     stop("file colors_script=", colors_script, " is not readable.")
                 }
-                cols <- color_function(palname, n=ifelse(nlevels %% 2 == 0, nlevels, nlevels + 1),
-                                       rgb_path=dirname(colorsscript)) 
+                cols <- color_function(palname, 
+                                       n=ifelse(nlevels %% 2 == 0, 
+                                                nlevels, nlevels - 1),
+                                       rgb_path=dirname(colors_script)) 
                              # use even colors here, include 1 additional for zero later
                 #cat("pal=")
                 #dput(pal)
                 neg_cols <- cols[1:(length(cols)/2)]
                 pos_cols <- cols[(length(cols)/2 + 1):length(cols)]
-            
-            }
+            } # is.null(pos_cols) || is.null(neg_cols)
 
             if (center_include) {
                 neg_cols <- c(neg_cols[2:length(neg_cols)], center_col)
                 pos_cols <- c(center_col, pos_cols[1:(length(pos_cols) - 1)])
             }
            
-            # make color vector
+            # make anomaly color vector
             neg_cols_rgb <- colorRampPalette(neg_cols)(ncolors_oneside)
             pos_cols_rgb <- colorRampPalette(pos_cols)(ncolors_oneside)
             cols <- c(neg_cols_rgb[(length(pos_cols_rgb) - ncolors_neg + 1):length(pos_cols_rgb)],
@@ -654,7 +655,7 @@ image.plot.pre <- function(zlim,
             } else {
                 stop("file colors_script=", colors_script, " is not readable.")
             }
-            cols <- color_function(palname, rgb_path=dirname(colorsscript))
+            cols <- color_function(palname, rgb_path=dirname(colors_script))
            
             if (axis.zoom) {
                 if (zoom[1] > zlim[1] && zoom[2] < zlim[2]) {
