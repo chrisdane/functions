@@ -11,6 +11,15 @@ ht <- function(d, n=7) {
 # http://www.gettinggeneticsdone.com/2011/08/sync-your-rprofile-across-multiple-r.html
 rsq <- function(predicted, actual) 1-sum((actual-predicted)^2)/sum((actual-mean(actual))^2)
 
+# color2rgb
+col2rgba <- function(x, alpha) {
+    if (missing(alpha)) {
+        apply(col2rgb(x)/255, 2, function(x) rgb(matrix(x, ncol=3)))
+    } else {
+        apply(col2rgb(x)/255, 2, function(x) rgb(matrix(x, ncol=3), alpha=alpha))
+    }
+}
+
 # convert velocities with units package
 speeds <- function(x, unit="cm/s") {
 
