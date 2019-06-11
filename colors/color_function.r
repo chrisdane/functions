@@ -1,12 +1,24 @@
-## R-function for loading colorbars
+## R
 
-pals <- function(name="demo", n=64, alpha=1, 
-                 rgb_path=paste0(getwd(), "/functions/colors/"), 
-                 rgb_mat=NULL) {
+color_function <- function(palname="demo", n=64, alpha=1, 
+                           rgb_path, rgb_mat=NULL) {
     
-    message(rgb_path)
-
     ## rgb: 3 column matrix (R, G, B)
+    if (F) {
+        message("getwd(): ", getwd())
+        cat("current frame is", sys.nframe(), "\n")
+        cat("parents are", sys.parents(), "\n")
+        cat("sys.function(", sys.nframe(), ") =\n")
+        print(getSrcDirectory(sys.function(sys.nframe())))
+        #cat("sys.frame(", sys.nframe(), ")$ofile = ", sys.frame(i)$ofile)
+        cat("names(sys.frame(", sys.nframe(), ") = ", names(sys.frame(sys.nframe())), "\n")
+    }
+
+    if (missing(rgb_path)) {
+        rgb_path <- getSrcDirectory(sys.function(sys.nframe()))
+    }
+    rgb_path <- paste0(rgb_path, "/")
+    message("rgb_path: ", rgb_path)
 
     ## R built-in colormaps
     rs <- c("heat", "rainbow", "topo", "cm", "terrain")
@@ -46,10 +58,10 @@ pals <- function(name="demo", n=64, alpha=1,
 
     ##########################################################
 
-    if (name == "demo") {
+    if (palname == "demo") {
         names <- all
     } else {
-        names <- name
+        names <- palname
     }
     nnames <- length(names)
 
@@ -60,7 +72,7 @@ pals <- function(name="demo", n=64, alpha=1,
 
         for (i in 1:nnames) {
 
-            if (any(rs == names[i])) {
+            if (names[i] %in% rs) {
 
                 if (names[i] == "heat") {
                     rgb <- t(col2rgb(heat.colors(n)))
@@ -78,7 +90,7 @@ pals <- function(name="demo", n=64, alpha=1,
                     rgb <- t(col2rgb(terrain.colors(n)))
                 }
 
-            } else if (any(matlabs == names[i])) {
+            } else if (names[i] %in% matlabs) {
 
                 if (names[i] == "jet") {
                     ## adapted from fields::jet.colors()
@@ -103,7 +115,7 @@ pals <- function(name="demo", n=64, alpha=1,
                     print("not implemented")
                 } 
 
-            } else if (any(pythons == names[i])) {
+            } else if (names[i] %in% pythons) {
                 
                 library(viridis)
 
@@ -120,7 +132,7 @@ pals <- function(name="demo", n=64, alpha=1,
                     rgb <- t(col2rgb(plasma(n=n, alpha=alpha)))
                 }
 
-            } else if (any(ncviews == names[i])) {
+            } else if (names[i] %in% ncviews) {
                 
                 rgb <- readLines(paste0(rgb_path, names[i], ".h"))
                 # remove possible header (not always there)
@@ -148,26 +160,26 @@ pals <- function(name="demo", n=64, alpha=1,
                 # reorder to 3 column matrix
                 rgb <- t(matrix(unlist(rgb), nrow=3))
 
-            } # ncview colormap
+            } else if (names[i] == "mpl_gist_ncar") {
 
-            if (names[i] == "mpl_gist_ncar") {
+                rgb <- as.matrix(read.table(paste0(rgb_path, "MPL_gist_ncar.rgb"), skip=2))
 
-                rgb <- read.table(paste0(rgb_path, "MPL_gist_ncar.rgb"), skip=2)
+            } else if (names[i] == "grads_anomaly") {
+                neg_col <- c("#0000a3", "#0000cc", "#0000fe", "#0041fe", "#0083fe", "#00bcfe")
+                pos_col <- c("#fefe00", "#febc00", "#fe8300", "#fe0000", "#bc0000", "#830000")
+                rgb <- t(col2rgb(c(neg_col, "white", pos_col)))
 
-            } # mpl_gist_ncar
-
-            if (names[i] == "grads_anomaly") {
-                neg_pal <- c("#0000a3", "#0000cc", "#0000fe", "#0041fe", "#0083fe", "#00bcfe")
-                pos_pal <- c("#fefe00", "#febc00", "#fe8300", "#fe0000", "#bc0000", "#830000")
-                rgb <- t(col2rgb(c(neg_pal, "white", pos_pal)))
-
-            } else if (any(colorbrewers == names[i])) {
+            } else if (names[i] %in% colorbrewers) {
 
                 library(RColorBrewer)
                 rgb <- t(col2rgb(brewer.pal(n=min(n, 11), name=names[i]))) # 11 is maximum n of the package
 
-            } # which color is desired?
+            }
 
+            if (class(rgb) == "function") { # built-in function was not overwritten
+                stop("palette name '", names[i], "' not known. choose one of\n", 
+                     paste0(all, collapse=","))
+            }
             rgb_list[[i]] <- rgb
 
         } # for i names
@@ -187,11 +199,11 @@ pals <- function(name="demo", n=64, alpha=1,
     ##########################################################
 
     ## Make colorbar
-    npal <- length(rgb_list)
-    cols_list <- vector("list", l=npal)
+    ncol <- length(rgb_list)
+    cols_list <- vector("list", l=ncol)
     names(cols_list) <- names
 
-    for (i in 1:npal) {
+    for (i in 1:ncol) {
 
         rgb <- rgb_list[[i]]
 
@@ -200,16 +212,18 @@ pals <- function(name="demo", n=64, alpha=1,
         } else {
             maxColorValue <- 255
         }
-        #print(names[i])
-        #print(maxColorValue)
-        #print(str(rgb))
+        if (F) {
+            print(names[i])
+            print(maxColorValue)
+            print(str(rgb))
+        }
 
         ## adapted from fields::jet.colors()
         temp <- matrix(NA, ncol = 3, nrow = n)
         x <- seq(0, maxColorValue, l=dim(rgb)[1])
         xg <- seq(0, maxColorValue, l=n)
         for (k in 1:3) {
-            hold <- splint(x, rgb[, k], xg)
+            hold <- fields::splint(x=x, y=rgb[, k], xgrid=xg)
             hold[hold < 0] <- 0
             hold[hold > maxColorValue] <- maxColorValue
             if (maxColorValue == 255) {
@@ -230,15 +244,15 @@ pals <- function(name="demo", n=64, alpha=1,
 
     } # for i nnames
 
-    if (name == "demo") {
+    if (palname == "demo") {
 
         ## plot demo
         #graphics.off()
         dev.new()
         par(mar=c(5, 4, 4, 8)) # space for names
         x <- 1:n
-        y <- 1:npal
-        z <- array(1:(n*npal), c(n, npal))
+        y <- 1:ncol
+        z <- array(1:(n*ncol), c(n, ncol))
         xp <- seq(0.5, dim(z)[1] + 0.5, l=100)
         yp <- seq(0.5, dim(z)[2] + 0.5, l=100)
         plot(xp, yp, t="n", axes=F,
@@ -246,11 +260,11 @@ pals <- function(name="demo", n=64, alpha=1,
              xaxs="i", yaxs="i")
         axis(1, at=pretty(x, n=10), labels=pretty(x, n=10))
         axis(2, at=y, labels=y, las=2)
-        title("this is the 'pals()' demo")
+        title("this is the 'color_function()' demo")
         image(x, y, z, col=unlist(cols_list), breaks=0:max(z),
               add=T, axes=F, useRaster=T,
               xlab=NA, ylab=NA)
-        abline(h=seq(1.5, npal - 0.5, b=1))
+        abline(h=seq(1.5, ncol - 0.5, b=1))
         box()
 
         # add names

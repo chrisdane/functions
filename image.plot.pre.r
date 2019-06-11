@@ -1,10 +1,9 @@
 image.plot.pre <- function(zlim, 
                            nlevels=11, max_labels=15, method="pretty",
                            zlevels=NULL, axis.labels=NULL, axis.round=NULL,
-                           axis.zoom=F, axis.addzlims=F, power_thr=NULL,
-                           pal=NULL, cols=NULL, pos_pal=NULL, neg_pal=NULL,
-                           pal_name=NULL, 
-                           pal_script="~/scripts/r/functions/colors/pals.r",
+                           axis.zoom=F, axis.addzlims=F, power_min=NULL,
+                           cols=NULL, pos_cols=NULL, neg_cols=NULL,
+                           palname=NULL, colors_script,
                            anom_colorbar=NULL, 
                            center_around=0, center_col="white", center_include=F,
                            verbose=F) {
@@ -12,6 +11,10 @@ image.plot.pre <- function(zlim,
     ## Check input
     if (missing(zlim)) {
         stop("error: 'zlim' is missing")
+    }
+    if (missing(colors_script)) {
+        colors_script <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r")
+        message("colors_script: ", colors_script)
     }
     if (verbose) {
         cat("zlim=")
@@ -38,16 +41,13 @@ image.plot.pre <- function(zlim,
     }
 
     if (axis.zoom) {
-        if (!is.null(pal) && # user colors
+        if (!is.null(cols) && # user colors
             axis.addzlims && # user wants to add zlims to colorbar
-            length(pal) < 3) { # but provides less than 3 colors
+            length(cols) < 3) { # but provides less than 3 colors
             stop("error: provide at least 3 colors (needed for zoom)")
         }
-        if (nlevels < 4) {
-            if (verbose) {
-                print("warning: set 'nlevels' to 4 (minimum number needed for zoom)")
-            }
-            nlevels <- 4
+        if (!is.null(cols)) {
+            nlevels <- length(cols)
         }
         if (is.null(zlevels) && is.null(axis.labels)) {
             stop("error: provide 'zlevels' (length=2) and/or 'axis.labels' for zoom")
@@ -92,47 +92,54 @@ image.plot.pre <- function(zlim,
         
         } else if (method == "exp") {
 
-            power_lims <- c() # -20.34705  29.78989 --> 1 1
+            power_lims <- c(0, 0) # -20.34705  29.78989 --> 1 (i.e. 10^1)
+            # as.integer(log10(abs(zlim)))
             if (zlim[1] != 0) { 
                 power_lims[1] <- as.integer(log10(abs(zlim[1])))
-            } else {
-                power_lims[1] <- 0
             }
             if (zlim[2] != 0) {
                 power_lims[2] <- as.integer(log10(abs(zlim[2])))
-            } else {
-                power_lims[2] <- 0
             } 
 
-            if (is.null(power_thr)) { # default
-                if (min(power_lims) < 0) {
-                    power_thr <- min(power_lims) - 1
+            # provide power_min
+            if (is.null(power_min)) { # default
+                if (all(power_lims == 0)) {
+                    power_min <- -2 # power 0 --> powers -2, -1, 0
                 } else {
-                    power_thr <- min(power_lims)
+                    if (min(power_lims) < 0) {
+                        power_min <- min(power_lims) - 1 # include 0.1 if zlim = 1.x
+                    } else {
+                        power_min <- min(power_lims)
+                    }
                 }
             }
             if (verbose) { 
-                print("power_lims")
-                print(power_lims)
-                print(paste0("power_thr=", power_thr))
+                cat("power_lims=")
+                dput(power_lims)
+                cat("power_min=")
+                dput(power_min)
             }
 
             if (anom_colorbar) {
 
                 #  zlevels = c(zlim[1], -1e1, -1e0, -1e-1, -1e-2, 0, 1e-2, 1e-1, 1e0, 1e1, zlim[2])
-                if (min(power_lims) > 0) { # e.g. zlim=c(-20.34705, 29.78989)
-                    powers <- c(power_lims[1]:power_thr, 0, power_thr:power_lims[2])
-                    signs <- c(rep(-1, t=length(power_lims[1]:power_thr)), 0, rep(1, t=length(power_thr:power_lims[2])))
+                if (min(power_lims) == 0) {
+                    powers <- c(0:power_min, 0, power_min:0)
+                    signs <- c(rep(-1, t=floor(length(powers)/2)), 0, rep(1, t=floor(length(powers)/2))) 
+
+                } else if (min(power_lims) > 0) { # e.g. zlim=c(-20.34705, 29.78989)
+                    powers <- c(power_lims[1]:power_min, 0, power_min:power_lims[2])
+                    signs <- c(rep(-1, t=length(power_lims[1]:power_min)), 0, rep(1, t=length(power_min:power_lims[2])))
                 
                 } else if (min(power_lims) < 0) { # e.g. zlim=c(-0.0002034705, 0.0002978989)
-                    powers <- c((power_lims[1] - 1):power_thr, 0, power_thr:(power_lims[2] - 1))
-                    signs <- c(rep(-1, t=length((power_lims[1] - 1):power_thr)), 0, rep(1, t=length(power_thr:(power_lims[2] - 1))))    
+                    powers <- c((power_lims[1] - 1):power_min, 0, power_min:(power_lims[2] - 1))
+                    signs <- c(rep(-1, t=length((power_lims[1] - 1):power_min)), 0, rep(1, t=length(power_min:(power_lims[2] - 1))))    
                 }
                 
             } else if (!anom_colorbar) {
 
                 if (all(zlim >= 0)) { # both zlim positive
-                    powers <- power_thr:(power_lims[2] + 1)
+                    powers <- power_min:(power_lims[2] + 1)
                     signs <- rep(1, t=length(powers)) 
                 
                 } else if (all(zlim < 0)) { # both zlim negative
@@ -181,8 +188,7 @@ image.plot.pre <- function(zlim,
             zoom.l <- length(zoomlevels)
             #zoom.b <- diff(zoom)/zoom.l
 
-            ## Fill space between zlim and zoom at 
-            ## beginning and end of colorbar
+            # Fill space between zlim and zoom at beginning and end of colorbar
             nlevplab <- max(zoom.l/max_labels, 1)
             if (zoom[1] > zlim[1] && zoom[2] < zlim[2]) {
                 zlevels <- c(seq(zlim[1], zoom[1], l=nlevplab),
@@ -216,11 +222,10 @@ image.plot.pre <- function(zlim,
 
     ## Number of z levels
     nlevels <- length(zlevels)
-    if (nlevels < max_labels) {
+    if (F && nlevels < max_labels) {
         if (F) {
-            print(paste0("note: your 'nlevels' < 'max_labels' (", 
-                         nlevels, " < ", max_labels,
-                         "). set 'max_labels' to ", nlevels))
+            message("note: your 'nlevels' < 'max_labels' (",  nlevels, " < ", max_labels,
+                         "). set 'max_labels' to ", nlevels)
         }
         max_labels <- nlevels
     }
@@ -240,7 +245,7 @@ image.plot.pre <- function(zlim,
 
                 } else if (signs[i] != 0 && powers[i] == 0) {
                     if (signs[i] < 0) {
-                        axis.labels[i] <- substitute(-1)
+                        axis.labels[i] <- -1 #substitute(-1)
                     } else if (signs[i] > 0) {
                         axis.labels[i] <- substitute(1)
                     }
@@ -334,10 +339,12 @@ image.plot.pre <- function(zlim,
                             dput(axis.labels)
                         }
 
-                        if (length(zlevels) > 2) {
-                            axis.labels <- as.numeric(formatC(zlevels[-c(1, nlevels)]))
-                        } else {
-                            axis.labels <- as.numeric(formatC(zlevels))
+                        if (F) { # why did i put this?!
+                            if (length(zlevels) > 2) {
+                                axis.labels <- as.numeric(formatC(zlevels[-c(1, nlevels)]))
+                            } else {
+                                axis.labels <- as.numeric(formatC(zlevels))
+                            }
                         }
                         if (verbose) {
                             cat("h3r3\n")
@@ -441,13 +448,11 @@ image.plot.pre <- function(zlim,
         if ((!axis.zoom && length(unique(diff(axis.at.ind))) > 1) ||
             (axis.zoom && length(unique(diff(axis.at.ind[2:(length(axis.at.ind) - 1)]))) > 1)) {
             if (verbose) {
-                print(paste0("warning: the combination 'nlevels' = ", nlevels,
-                             " and 'max_labels' = ", max_labels, " yields bad 'axis.at.ind' ="))
-                print(axis.at.ind)
-                print("with diff(axis.at.ind) =")
-                print(diff(axis.at.ind))
+                cat("note: different diffs of axis.at.ind=")
+                dput(axis.at.ind)
+                cat(" --> diff(axis.at.ind)=")
+                cat(paste0(diff(axis.at.ind), collapse=", "), "\n")
             }
-            stop("try with different nlevels")
         }
 
     } else if (method == "exp") {
@@ -603,75 +608,89 @@ image.plot.pre <- function(zlim,
             ncolors_pos <- nlevels - centerind
             # both zoom and equal spacing in both neg and pos colors
             ncolors_oneside <- max(ncolors_neg, ncolors_pos) 
-
-            if (is.null(pos_pal) || is.null(neg_pal)) {
-      
-                if (is.null(pal_name)) {
-                    pal_name <- "grads_anomaly" # default
-                }
-                source("~/scripts/r/functions/colors/pals.r")
-                pal <- pals(pal_name,
-                            n=ifelse(nlevels %% 2 == 0, nlevels, nlevels + 1)) 
-                            # use even colors here, include 1 additional for zero later 
-                neg_pal <- pal[1:(length(pal)/2)]
-                pos_pal <- pal[(length(pal)/2 + 1):length(pal)]
-            
+            if (verbose) {
+                message("ncolors_neg=", ncolors_neg)
+                message("ncolors_pos=", ncolors_pos)
+                message("ncolors_oneside=", ncolors_oneside)
             }
+
+            if (is.null(pos_cols) || is.null(neg_cols)) {
+                if (is.null(palname)) { # default colors for anomaly colorbar
+                    palname <- "grads_anomaly"
+                }
+                if (file.exists(colors_script)) {
+                    source(colors_script)
+                } else {
+                    stop("file colors_script=", colors_script, " is not readable.")
+                }
+                cols <- color_function(palname, 
+                                       n=ifelse(nlevels %% 2 == 0, 
+                                                nlevels, nlevels - 1),
+                                       rgb_path=dirname(colors_script)) 
+                             # use even colors here, include 1 additional for zero later
+                #cat("pal=")
+                #dput(pal)
+                neg_cols <- cols[1:(length(cols)/2)]
+                pos_cols <- cols[(length(cols)/2 + 1):length(cols)]
+            } # is.null(pos_cols) || is.null(neg_cols)
 
             if (center_include) {
-                pos_pal <- c(center_col, pos_pal)
-                neg_pal <- c(neg_pal, center_col)
+                neg_cols <- c(neg_cols[2:length(neg_cols)], center_col)
+                pos_cols <- c(center_col, pos_cols[1:(length(pos_cols) - 1)])
             }
            
-            # make color vector
-            neg_pal_rgb <- colorRampPalette(neg_pal)(ncolors_oneside)
-            pos_pal_rgb <- colorRampPalette(pos_pal)(ncolors_oneside)
-            cols <- c(neg_pal_rgb[(length(pos_pal_rgb) - ncolors_neg + 1):length(pos_pal_rgb)],
-                      pos_pal_rgb[1:ncolors_pos])
+            # make anomaly color vector
+            neg_cols_rgb <- colorRampPalette(neg_cols)(ncolors_oneside)
+            pos_cols_rgb <- colorRampPalette(pos_cols)(ncolors_oneside)
+            cols <- c(neg_cols_rgb[(length(pos_cols_rgb) - ncolors_neg + 1):length(pos_cols_rgb)],
+                      pos_cols_rgb[1:ncolors_pos])
 
         } else if (!anom_colorbar) {
             
-            if (is.null(pal)) { # no pal given
-                if (is.null(pal_name)) { # no pal name given
-                    if (file.exists(pal_script)) {
-                        source(pal_script)
-                    } else {
-                        stop("you need to provide a pals.r file ...")
-                    }
-                    #pal <- pals("magma", n=nlevels - 1) # default colors
-                    pal <- pals("grads_anomaly", n=nlevels - 1)
-                
-                } else {
-                    source("~/scripts/r/functions/colors/pals.r")
-                    pal <- pals(pal_name)
-                }
+            if (is.null(palname)) { # default colors for non-anomaly-colorbar
+                palname <- "grads_anomaly"
             } 
+            if (file.exists(colors_script)) {
+                source(colors_script)
+            } else {
+                stop("file colors_script=", colors_script, " is not readable.")
+            }
+            cols <- color_function(palname, rgb_path=dirname(colors_script))
            
             if (axis.zoom) {
                 if (zoom[1] > zlim[1] && zoom[2] < zlim[2]) {
-                    cols <- c(colorRampPalette(pal[1])(nlevplab - 1),
-                              colorRampPalette(pal[2:(length(pal) - 1)])(zoom.l - 1),
-                              colorRampPalette(pal[length(pal)])(nlevplab - 1))
+                    cols <- c(colorRampPalette(cols[1])(nlevplab - 1),
+                              colorRampPalette(cols[2:(length(cols) - 1)])(zoom.l - 1),
+                              colorRampPalette(cols[length(cols)])(nlevplab - 1))
 
                 } else if (zoom[1] > zlim[1] && !(zoom[2] < zlim[2])) {
-                    cols <- c(colorRampPalette(pal[1])(nlevplab - 1),
-                              colorRampPalette(pal[2:length(pal)])(zoom.l - 1))
+                    cols <- c(colorRampPalette(cols[1])(nlevplab - 1),
+                              colorRampPalette(cols[2:length(cols)])(zoom.l - 1))
 
                 } else if (!(zoom[1] > zlim[1]) && zoom[2] < zlim[2]) {
-                    cols <- c(colorRampPalette(pal[1:(length(pal) - 1)])(zoom.l - 1),
-                              colorRampPalette(pal[length(pal)])(nlevplab - 1))
+                    cols <- c(colorRampPalette(cols[1:(length(cols) - 1)])(zoom.l - 1),
+                              colorRampPalette(cols[length(cols)])(nlevplab - 1))
 
                 } else if (!(zoom[1] > zlim[1]) && !(zoom[2] < zlim[2])) {
-                    cols <- c(colorRampPalette(pal)(zoom.l - 1))
+                    cols <- c(colorRampPalette(cols)(zoom.l - 1))
                 }
             
             } else {
-                cols <- colorRampPalette(pal)(nlevels - 1)
+                cols <- colorRampPalette(cols)(nlevels - 1)
             
             }
 
         } # if anom_colorbar
-    } # if is.null(cols)
+    
+    } else {
+
+        # check if provided cols have correct length
+        if (length(cols) != nlevels - 1) {
+            if (verbose) message("reorganize cols to correct length ...")
+            cols <- colorRampPalette(cols)(nlevels - 1)
+        }
+        
+    } # if is.null(cols) or not
 
     if (verbose) {
         print(paste0("length(cols) = ", length(cols)))
