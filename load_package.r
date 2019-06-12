@@ -12,8 +12,8 @@ load_package <- function(packagename) {
             message(paste0(indent, "         You can add library paths by providing"))
             message(paste0(indent, "            rpackagepaths='/path/to/installed/libraries/' or"))
             message(paste0(indent, "            rpackagepaths=c('/path1/to/packages/', 'path2/to/packages/')"))
-            message(paste0(indent, "         in namelist.rfesom.r or you can install the package with"))
-            message(paste0(indent, "            install.packages('", packagename, "')."))
+            message(paste0(indent, "         in the runscript or you can install the package with"))
+            message(paste0(indent, "            install.packages('", packagename, "')"))
             success <- F
         } else {
             if (verbose > 0) {
