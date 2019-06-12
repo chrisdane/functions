@@ -18,7 +18,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
         rgb_path <- getSrcDirectory(sys.function(sys.nframe()))
     }
     rgb_path <- paste0(rgb_path, "/")
-    message("rgb_path: ", rgb_path)
+    if (F) message("rgb_path: ", rgb_path)
 
     ## R built-in colormaps
     rs <- c("heat", "rainbow", "topo", "cm", "terrain")
