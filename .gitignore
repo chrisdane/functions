@@ -22,7 +22,8 @@
 !convb.r
 !myfunctions.r
 !rfesom_varlist2readme.r
+!gh-md-toc # update README.md TOC (used by ./git/pre-commit)
 !colors/* # trailing / optional if there is not a file 'colors'
-colors/ncview.c # ignore this one
+colors/ncview.c # but ignore this one
 
 ## git rm -r -f --cached
