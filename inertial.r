@@ -18,3 +18,7 @@ df <- data.frame(phi=phi, f=f,
                  year=inertial_period_year
                  )
 print(df, digits=3)
+
+message("diurnal:     0.87-1.05 cpd (K1)\n",
+        "semidiurnal: 1.86-2.05 cpd (M2)\n",
+        "supertidal:  >2.06 cpd (savage et al. 2017)")
