@@ -8,7 +8,9 @@ load_package <- function(packagename) {
             message(paste0(indent, "Load '", packagename, "' package ..."))
         }
         suppressMessages(suppressWarnings(require(packagename, character.only=T)))
-        
+        #tc <- tryCatch(suppressMessages(suppressWarnings(library(i, character.only=T))),
+        #               error=function(e) e, warning=function(w) w)
+ 
         # no success
         if (!any(search() == paste0("package:", packagename))) {
             message(paste0(indent, "****** load_package() ******"))
