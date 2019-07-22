@@ -1,4 +1,4 @@
-load_package <- function(packagename) {
+load_package <- function(packagename, indent="   ") {
         
     if (!exists("verbose")) verbose <- 1
 
