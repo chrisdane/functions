@@ -16,17 +16,18 @@ load_package <- function(packagename, indent="   ") {
             message(indent, "****** load_package() ******")
             message(indent, "Could not load '", packagename, "' package from")
             message(indent, "   .libPaths=", ifelse(length(.libPaths()) > 1, "c('", "'"),
-                         paste0(.libPaths(), collapse="','"), 
-                         ifelse(length(.libPaths()) > 1, "')", "'"), ".")
+                         paste0(.libPaths(), 
+                                collapse=paste0("',\n", paste0(rep(" ", t=nchar(indent)), collapse=""), paste0(rep(" ", t=15), collapse=""), "'")),
+                    ifelse(length(.libPaths()) > 1, "')", "'"), ".")
             message(indent, "If ", packagename, " is installed somewhere else, you can add library paths by providing")
-            message(indent, "   rpackagepaths='/path/to/installed/libraries/'")
+            message(indent, "   rpackagepaths='/path/to/installed/packages'")
             message(indent, "or")
-            message(indent, "   rpackagepaths=c('/path1/to/packages/', 'path2/to/packages/')")
-            message(indent, "to to the runscript and rerun the script")
-            message(indent, "or install the package know with")
+            message(indent, "   rpackagepaths=c('/path1/to/packages', 'path2/to/packages')")
+            message(indent, "to to the runscript and rerun the script.")
+            message(indent, "Or install the package now with")
             message(indent, "   install.packages('", packagename, "')")
             message(indent, "or")
-            message(indent, "   install.packagse('", packagename, "', lib=/where/the/package/should/be/installed')")
+            message(indent, "   install.packages('", packagename, "', lib=/where/the/package/should/be/installed')")
             message(indent, "****************************")
             success <- F
 
