@@ -24,7 +24,7 @@ load_package <- function(packagename, indent="   ") {
             message(indent, "or")
             message(indent, "   rpackagepaths=c('/path1/to/packages', 'path2/to/packages')")
             message(indent, "to to the runscript and rerun the script.")
-            message(indent, "Or install the package now with")
+            message(indent, "You can install the package now with")
             message(indent, "   install.packages('", packagename, "')")
             message(indent, "or")
             message(indent, "   install.packages('", packagename, "', lib=/where/the/package/should/be/installed')")
