@@ -23,7 +23,7 @@
 #       substr($0, match($0, "href=\"[^\"]+?\" ")+6, RLENGTH-8)
 #
 
-gh_toc_version="0.6.1"
+gh_toc_version="0.6.0"
 
 gh_user_agent="gh-md-toc v$gh_toc_version"
 
@@ -96,6 +96,7 @@ gh_toc(){
     local gh_src_copy=$1
     local gh_ttl_docs=$2
     local need_replace=$3
+    local no_backup=$4
 
     if [ "$gh_src" = "" ]; then
         echo "Please, enter URL or local path for a README.md"
@@ -143,12 +144,6 @@ gh_toc(){
         local toc=`echo "$rawhtml" | gh_toc_grab "$gh_src_copy"`
         echo "$toc"
         if [ "$need_replace" = "yes" ]; then
-            if grep -Fxq "<!--ts-->" $gh_src && grep -Fxq "<!--te-->" $gh_src; then
-                echo "Found markers"
-            else
-                echo "You don't have <!--ts--> or <!--te--> in your file...exiting"
-                exit 1
-            fi
             local ts="<\!--ts-->"
             local te="<\!--te-->"
             local dt=`date +'%F_%H%M%S'`
@@ -167,10 +162,13 @@ gh_toc(){
             else
                 sed -i "/${ts}/r ${toc_path}" "$gh_src"
             fi
+	    if [ $no_backup = "yes" ]; then
+		rm ${toc_path} ${gh_src}${ext}
+	    fi
             echo
             echo "!! TOC was added into: '$gh_src'"
-            echo "!! Origin version of the file: '${gh_src}${ext}'"
-            echo "!! TOC added into a separate file: '${toc_path}'"
+            if [ -z $no_backup ]; then echo "!! Origin version of the file: '${gh_src}${ext}'"; fi
+            if [ -z $no_backup ]; then echo "!! TOC added into a separate file: '${toc_path}'"; fi
             echo
         fi
     fi
@@ -217,17 +215,20 @@ gh_toc_get_filename() {
 # Options hendlers
 #
 gh_toc_app() {
+    local app_name=$(basename $0)
     local need_replace="no"
 
     if [ "$1" = '--help' ] || [ $# -eq 0 ] ; then
-        local app_name=$(basename "$0")
         echo "GitHub TOC generator ($app_name): $gh_toc_version"
         echo ""
         echo "Usage:"
-        echo "  $app_name [--insert] src [src]  Create TOC for a README file (url or local path)"
-        echo "  $app_name -                     Create TOC for markdown from STDIN"
-        echo "  $app_name --help                Show help"
-        echo "  $app_name --version             Show version"
+        echo "  $app_name [--insert] src [src]  		Create TOC for a README file (url or local path)"
+	echo "							requires <!--ts--> and <!--te--> placeholders."
+	echo "  $app_name [--nobackup-insert] src [src] 	Create TOC without generating a backup"
+	echo "							requires <!--ts--> and <!--te--> placeholders."
+        echo "  $app_name -                     		Create TOC for markdown from STDIN"
+        echo "  $app_name --help                		Show help"
+        echo "  $app_name --version             		Show version"
         return
     fi
 
@@ -265,10 +266,16 @@ gh_toc_app() {
         shift
     fi
 
+    if [ "$1" = '--nobackup-insert' ]; then
+        need_replace="yes"
+	no_backup="yes"
+        shift
+    fi
+
     for md in "$@"
     do
         echo ""
-        gh_toc "$md" "$#" "$need_replace"
+        gh_toc "$md" "$#" "$need_replace" "$no_backup"
     done
 
     echo ""
