@@ -1,4 +1,4 @@
-load_package <- function(packagename) {
+load_package <- function(packagename, indent="   ") {
         
     if (!exists("verbose")) verbose <- 1
 
@@ -12,17 +12,23 @@ load_package <- function(packagename) {
         #               error=function(e) e, warning=function(w) w)
  
         # no success
-        if (!any(search() == paste0("package:", packagename))) {
-            message(paste0(indent, "****** load_package() ******"))
-            message(paste0(indent, "Could not load '", packagename, "' package from"))
-            message(paste0(indent, "   .libPaths=", ifelse(length(.libPaths()) > 1, "c('", "'"),
-                         paste0(.libPaths(), collapse="','"), ifelse(length(.libPaths()) > 1, "')", "'"), "."))
-            message(paste0(indent, "You can add library paths by providing"))
-            message(paste0(indent, "   rpackagepaths='/path/to/installed/libraries/' or"))
-            message(paste0(indent, "   rpackagepaths=c('/path1/to/packages/', 'path2/to/packages/')"))
-            message(paste0(indent, "in namelist.rfesom.r or you can install the package with"))
-            message(paste0(indent, "   install.packages('", packagename, "')"))
-            message(paste0(indent, "****************************"))
+        if (!any(search() == paste0("package:", packagename))) { 
+            message(indent, "****** load_package() ******")
+            message(indent, "Could not load '", packagename, "' package from")
+            message(indent, "   .libPaths=", ifelse(length(.libPaths()) > 1, "c('", "'"),
+                         paste0(.libPaths(), 
+                                collapse=paste0("',\n", paste0(rep(" ", t=nchar(indent)), collapse=""), paste0(rep(" ", t=15), collapse=""), "'")),
+                    ifelse(length(.libPaths()) > 1, "')", "'"), ".")
+            message(indent, "If ", packagename, " is installed somewhere else, you can add library paths by providing")
+            message(indent, "   rpackagepaths='/path/to/installed/packages'")
+            message(indent, "or")
+            message(indent, "   rpackagepaths=c('/path1/to/packages', 'path2/to/packages')")
+            message(indent, "to to the runscript and rerun the script.")
+            message(indent, "You can install the package now with")
+            message(indent, "   install.packages('", packagename, "')")
+            message(indent, "or")
+            message(indent, "   install.packages('", packagename, "', lib=/where/the/package/should/be/installed')")
+            message(indent, "****************************")
             success <- F
 
         # success
