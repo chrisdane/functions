@@ -79,13 +79,17 @@ image.plot.pre <- function(zlim,
             if (zlevels[1] > zlim[1]) {
                 zlevels <- c(zlim[1], zlevels)
                 if (verbose) {
-                    print(zlevels)
+                    message("case1a")
+                    message("zlevels=", appendLF=F)
+                    dput(zlevels)
                 }
             }
             if (zlevels[length(zlevels)] < zlim[2]) {
                 zlevels <- c(zlevels, zlim[2])
                 if (verbose) {
-                    print(zlevels)
+                    message("case2a")
+                    message("zlevels=", appendLF=F)
+                    dput(zlevels)
                 }
             }
 
@@ -151,10 +155,10 @@ image.plot.pre <- function(zlim,
             }
 
             if (verbose) {
-                print("signs")
-                print(signs)
-                print("powers")
-                print(powers)
+                message("signs=", appendLF=F)
+                dput(signs)
+                message("powers=", appendLF=F)
+                dput(powers)
             }
 
             zlevels <- as.numeric(paste0(signs, "e", powers))
@@ -163,13 +167,17 @@ image.plot.pre <- function(zlim,
             if (zlevels[1] > zlim[1]) {
                 zlevels <- c(zlim[1], zlevels)
                 if (verbose) {
-                    print(zlevels)
+                    message("case1b")
+                    message("zlevels=", appendLF=F)
+                    dput(zlevels)
                 }
             }
             if (zlevels[length(zlevels)] < zlim[2]) {
                 zlevels <- c(zlevels, zlim[2])
                 if (verbose) {
-                    print(zlevels)
+                    message("case2b")
+                    message("zlevels=", appendLF=F)
+                    dput(zlevels)
                 }
             }
 
@@ -218,7 +226,7 @@ image.plot.pre <- function(zlim,
     } # is zlevels are given by user or not 
     if (verbose) {
         cat("here 1\n")
-        cat("zlevels=")
+        message("zlevels=", appendLF=F)
         dput(zlevels)
     }
 
@@ -273,7 +281,7 @@ image.plot.pre <- function(zlim,
                 }
             }
 
-        } else { # all other methods
+        } else { # not exp
 
             if (nlevels <= max_labels) {
 
@@ -292,7 +300,7 @@ image.plot.pre <- function(zlim,
             } else { # nlevels > max_labels
 
                 if (verbose) {
-                    print(paste0(nlevels, " nlevels > ", max_labels, " max_labels ..."))
+                    message(nlevels, " nlevels > ", max_labels, " max_labels ...")
                 }
 
                 if (method == "pretty") {
@@ -301,8 +309,8 @@ image.plot.pre <- function(zlim,
                         
                         if (zoom.l <= max_labels) {
                             if (verbose) {
-                                print("zoomlevels")
-                                print(zoomlevels)
+                                message("zoomlevels=", appendLF=F)
+                                dput(zoomlevels)
                             }
                             axis.labels <- zoomlevels
                         
@@ -443,20 +451,34 @@ image.plot.pre <- function(zlim,
 
     ## position of labels: axis.at
     if (is.null(axis.at)) {
+        
         if (method != "exp") {
             axis.at <- axis.labels
         } else if (method == "exp") {
             axis.at <- sapply(axis.labels, function(x) eval(parse(text=x)))
         }
+
+        # position in colorbar
         if (is.null(axis.at.ind)) {
-            if (is.numeric(axis.labels)) {
-                axis.at.ind <- apply(matrix(axis.labels, nrow=length(axis.labels)),
-                                     1, function(x) {
-                                         which(abs(zlevels - x) == min(abs(zlevels - x)))[1] })
+            if (method == "exp") {
+                # class(axis.labels[[1]]) = "call" !!
+                # the following does not yield precise inds
+                #axis.at.ind <- apply(matrix(as.numeric(sapply(axis.labels, eval)), nrow=length(axis.labels)),
+                #                     1, function(x) {
+                #                         which(abs(zlevels - x) == min(abs(zlevels - x)))[1] })
+                axis.at.ind <- 2:(nlevels-1)
+            
             } else {
-                axis.at.ind <- axis.at
+                if (is.numeric(axis.labels)) {
+                    axis.at.ind <- apply(matrix(axis.labels, nrow=length(axis.labels)),
+                                         1, function(x) {
+                                             which(abs(zlevels - x) == min(abs(zlevels - x)))[1] })
+                } else {
+                    stop("this is not allowed")
+                }
             }
         }
+
     } else { # if !is.null(axis.at)
         if (!is.numeric(axis.at)) {
             stop("your axis.at must be numeric")
