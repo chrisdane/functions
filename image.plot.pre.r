@@ -217,7 +217,7 @@ image.plot.pre <- function(zlim,
     
     } # is zlevels are given by user or not 
     if (verbose) {
-        cat("'''''''''''''' here ''''''''''''\n")
+        cat("here 1\n")
         cat("zlevels=")
         dput(zlevels)
     }
@@ -237,7 +237,7 @@ image.plot.pre <- function(zlim,
  
         if (method == "exp") {
 
-            # !!! paste0() not alloed here !!!
+            # !!! paste0() not allowed here !!!
             # zlims are added later to axis.labels
             axis.labels <- vector("list", l=length(powers))
 
@@ -390,7 +390,7 @@ image.plot.pre <- function(zlim,
     
     } # if is.null(axis.labels)   
     if (verbose) {
-        cat("$$$$$$$$$$ here $$$$$$$$$$$\n")
+        cat("here 2\n")
         cat("axis.labels=")
         dput(axis.labels)
     }
@@ -436,7 +436,7 @@ image.plot.pre <- function(zlim,
         } # if is.numeric(axis.labels)
     } # if is.null(axis.round)
     if (verbose) {
-        cat("§§§§§§§§§§§§ here §§§§§§§§§§§§§§§\n")
+        cat("here 3\n")
         cat("axis.round=")
         dput(axis.round)
     }
@@ -496,9 +496,13 @@ image.plot.pre <- function(zlim,
 
     # apply axis.round to axis.labels
     # --> "5.0" instead of "5" depending on 'axis.round'
-    if (is.numeric(axis.labels)) {
-        if (method != "exp") {
-           
+    if (method == "exp") {
+        axis.labels <- as.expression(axis.labels)
+    
+    } else {
+
+        if (is.numeric(axis.labels)) {
+        
             if (!is.null(axis.round)) {
                 
                 if (T) {
@@ -530,12 +534,12 @@ image.plot.pre <- function(zlim,
                 }
             } # if !is.null(axis.round)
      
-        } else if (method == "exp") {
-            axis.labels <- as.expression(axis.labels)
-        } # which method
-    } # if is.numeric(axis.labels)
+        } # if is.numeric(axis.labels)
+        
+    } # which method
+    
     if (verbose) {
-        cat("******** here ********\n")
+        cat("here 4\n")
         cat("axis.labels=")
         dput(axis.labels)
         cat("axis.round=")
@@ -560,7 +564,7 @@ image.plot.pre <- function(zlim,
                 axis.at.ind <- c(axis.at.ind, nlevels)
             }
             if (verbose) {
-                cat("###### here #######\n")
+                cat("here 5\n")
                 cat("axis.at.ind=")
                 dput(axis.at.ind)
                 cat("axis.labels=")
