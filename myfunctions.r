@@ -2,6 +2,12 @@
 
 ## my collection of small R functions
 
+# nicer default pars
+# attention: this overwrites the default par()
+par <- function(las=1, ...) {
+    graphics::par(las=las, ..., no.readonly = FALSE)
+} # usage: par(); plot(...)
+
 ht <- function(d, n=7) {
     print(head(d, n))
     message(system('bold=`tput bold`; printf "   ${bold}\u22ee"', intern=T))
