@@ -4,9 +4,39 @@
 
 # nicer default pars
 # attention: this overwrites the default par()
-par <- function(las=1, ...) {
-    graphics::par(las=las, ..., no.readonly = FALSE)
-} # usage: par(); plot(...)
+#par <- function(las=1, ...) {
+#    graphics::par(las=las, ..., no.readonly = FALSE)
+#} # usage: par(); plot(...)
+
+reorder_legend <- function(le) {
+    # check input
+    if (le$ncol < 1) {
+        warning("reorder_legend(): le$ncol=", ncol, ". set to 1")
+    }
+    le$ncol <- max(1, le$ncol)
+    n <- length(le$text)
+    nrow <- ceiling(n/le$ncol)
+    # https://stackoverflow.com/questions/39552682/base-r-horizontal-legend-with-multiple-rows
+    MyOrder <- as.vector(matrix(1:(nrow*le$ncol), nrow=nrow, ncol=le$ncol, byrow=T))
+    
+    # reorder every list element of length n
+    for (i in 1:length(le)) {
+        if (length(le[[i]]) == n) {
+            le[[i]] <- le[[i]][MyOrder]
+        }
+    }
+    return(le)
+} # reorder_legend
+
+myma <- function(x, order, verbose=F, ...) {
+    if (verbose) {
+        message("yields the same result as\n,
+                forecast::ma(x, order=order, centre=ifelse(order %% 2 == 0, F, T))\n
+                monthly ts --> order=36 --> 3a ma\n
+                daily   ts --> order=\n")
+    }
+    y <- stats::filter(x, filter=rep(1/order, t=order))
+}
 
 ht <- function(d, n=7) {
     print(head(d, n))
@@ -45,13 +75,50 @@ speeds <- function(x, unit="cm/s") {
 
 } # speeds function
 
+# set my default plot options
+setDefaultPlotOptions <- function(plot_type) {
+    if (!any(plot_type == c("png", "pdf"))) {
+        stop("setDefaultPlotOptions(): plot_type ", 
+             plot_type, " not defined.")
+    }
+    p <- list()
+    p$plot_type <- plot_type
+    p$bg_col <- "white"
+    p$NA_col <- "gray65"
+    p$contour_labcex <- 1 
+    p$ts_width <- 2666 #2000 #2666
+    p$ts_height <- 1600
+    p$ts_width_m <- 1600
+    p$ts_height_m <- p$ts_height
+    p$depth_width <- 2666
+    p$depth_height <- 1600
+    p$depth_mean_width <- 1600
+    p$depth_mean_height <- 1600 #2000 #2666
+    p$csec_depth_width <- 2666
+    p$csec_depth_height <- 2133
+    p$moc_depth_width <- 2666
+    p$moc_depth_height <- 2000
+    p$map_width <- 2666
+    p$map_height <- 2000
+    p$useRaster <- T
+    p$dpi <- 400 # for png
+    p$inch <- 7 # for pdf
+    p$family <- "Droid Sans Mono"
+    if (any(search() == "package:extrafont")) {
+        if (!any(fonts() == p$family)) {
+            p$family <- "sans" # the default 
+        }
+    }
+    p
+}
+
 # paste my relevant plot options
 par_show <- function() {
     
     if (is.null(dev.list())) {
-        yn <- askYesNo("par_show(): no plot open. would you like to run 'dev.new()'?", 
-                       default=F, prompts=c("Yes", "No", "Cancel"))
-        if (yn) {    
+        y <- askYesNo("par_show(): no plot open. would you like to run 'dev.new()'?", 
+                      default=F, prompts=c("Yes", "No", "Cancel"))
+        if (y) {    
             dev.new()
         }
     }
@@ -108,9 +175,7 @@ par_show <- function() {
     }
 } # par_show()
 
-# paste my relevant plot options
 par_px2in <- function(px) {
-    
     if (is.null(dev.list())) {
         stop("par_px2in(): no plot open.")
     } else { 
@@ -121,7 +186,6 @@ par_px2in <- function(px) {
         message("   1 px*", op$cin[2], "/", op$cra[2], " = ", op$cin[2]/op$cra[2], " inch high")
         inch
     }
-
 } # par_px2in 
 
 # load function for packages

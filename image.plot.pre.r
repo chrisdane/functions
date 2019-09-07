@@ -1,6 +1,8 @@
 image.plot.pre <- function(zlim, 
-                           nlevels=11, max_labels=15, method="pretty",
-                           zlevels=NULL, axis.labels=NULL, axis.round=NULL,
+                           nlevels=11, max_labels=15, zlevels=NULL,
+                           method="pretty",
+                           axis.at=NULL, axis.at.ind=NULL, axis.at.small=NULL, 
+                           axis.labels=NULL, axis.round=NULL,
                            axis.zoom=F, axis.addzlims=F, power_min=NULL,
                            cols=NULL, pos_cols=NULL, neg_cols=NULL,
                            palname=NULL, colors_script,
@@ -77,13 +79,17 @@ image.plot.pre <- function(zlim,
             if (zlevels[1] > zlim[1]) {
                 zlevels <- c(zlim[1], zlevels)
                 if (verbose) {
-                    print(zlevels)
+                    message("case1a")
+                    message("zlevels=", appendLF=F)
+                    dput(zlevels)
                 }
             }
             if (zlevels[length(zlevels)] < zlim[2]) {
                 zlevels <- c(zlevels, zlim[2])
                 if (verbose) {
-                    print(zlevels)
+                    message("case2a")
+                    message("zlevels=", appendLF=F)
+                    dput(zlevels)
                 }
             }
 
@@ -149,10 +155,10 @@ image.plot.pre <- function(zlim,
             }
 
             if (verbose) {
-                print("signs")
-                print(signs)
-                print("powers")
-                print(powers)
+                message("signs=", appendLF=F)
+                dput(signs)
+                message("powers=", appendLF=F)
+                dput(powers)
             }
 
             zlevels <- as.numeric(paste0(signs, "e", powers))
@@ -161,13 +167,17 @@ image.plot.pre <- function(zlim,
             if (zlevels[1] > zlim[1]) {
                 zlevels <- c(zlim[1], zlevels)
                 if (verbose) {
-                    print(zlevels)
+                    message("case1b")
+                    message("zlevels=", appendLF=F)
+                    dput(zlevels)
                 }
             }
             if (zlevels[length(zlevels)] < zlim[2]) {
                 zlevels <- c(zlevels, zlim[2])
                 if (verbose) {
-                    print(zlevels)
+                    message("case2b")
+                    message("zlevels=", appendLF=F)
+                    dput(zlevels)
                 }
             }
 
@@ -215,8 +225,8 @@ image.plot.pre <- function(zlim,
     
     } # is zlevels are given by user or not 
     if (verbose) {
-        cat("'''''''''''''' here ''''''''''''\n")
-        cat("zlevels=")
+        cat("here 1\n")
+        message("zlevels=", appendLF=F)
         dput(zlevels)
     }
 
@@ -235,7 +245,7 @@ image.plot.pre <- function(zlim,
  
         if (method == "exp") {
 
-            # !!! paste0() not alloed here !!!
+            # !!! paste0() not allowed here !!!
             # zlims are added later to axis.labels
             axis.labels <- vector("list", l=length(powers))
 
@@ -271,7 +281,7 @@ image.plot.pre <- function(zlim,
                 }
             }
 
-        } else { # all other methods
+        } else { # not exp
 
             if (nlevels <= max_labels) {
 
@@ -290,7 +300,7 @@ image.plot.pre <- function(zlim,
             } else { # nlevels > max_labels
 
                 if (verbose) {
-                    print(paste0(nlevels, " nlevels > ", max_labels, " max_labels ..."))
+                    message(nlevels, " nlevels > ", max_labels, " max_labels ...")
                 }
 
                 if (method == "pretty") {
@@ -299,8 +309,8 @@ image.plot.pre <- function(zlim,
                         
                         if (zoom.l <= max_labels) {
                             if (verbose) {
-                                print("zoomlevels")
-                                print(zoomlevels)
+                                message("zoomlevels=", appendLF=F)
+                                dput(zoomlevels)
                             }
                             axis.labels <- zoomlevels
                         
@@ -384,12 +394,11 @@ image.plot.pre <- function(zlim,
 
             ## need to take 1e numbers into account here!!!
 
-
         } # if method == "exp" or not
     
     } # if is.null(axis.labels)   
     if (verbose) {
-        cat("$$$$$$$$$$ here $$$$$$$$$$$\n")
+        cat("here 2\n")
         cat("axis.labels=")
         dput(axis.labels)
     }
@@ -397,51 +406,94 @@ image.plot.pre <- function(zlim,
     ## round axis.labels with precision axis.round
     if (is.null(axis.round)) {
 
-        if (method == "exp") {
-            axis.round <- NULL # do not round
-
+        if (!is.numeric(axis.labels)) {
+            axis.round <- NULL
+        
         } else {
 
-            # different orders of magnitude
-            if (any(regexpr("e", axis.labels) != -1)) {
-                
+            if (method == "exp") {
                 axis.round <- NULL # do not round
 
             } else {
 
-                # there are decimals
-                if (any(regexpr("\\.", axis.labels) != -1)) {
+                # different orders of magnitude
+                if (any(regexpr("e", axis.labels) != -1)) {
                     
-                    # find the necessary decimal place
-                    pos <- regexpr("\\.", axis.labels)
-                    inds <- which(pos != -1)
-                    pos <- pos[inds]
-                    axis.round <- max(nchar(substr(axis.labels[inds], 
-                                                   pos + 1, 
-                                                   nchar(axis.labels[inds]))))
-               
-                # no decimals
-                } else {
-                    axis.round <- 0
-                }
+                    axis.round <- NULL # do not round
 
-            } # there are decimal in labels
-        } # if method == "exp" or not
+                } else {
+
+                    # there are decimals
+                    if (any(regexpr("\\.", axis.labels) != -1)) {
+                        
+                        # find the necessary decimal place
+                        pos <- regexpr("\\.", axis.labels)
+                        inds <- which(pos != -1)
+                        pos <- pos[inds]
+                        axis.round <- max(nchar(substr(axis.labels[inds], 
+                                                       pos + 1, 
+                                                       nchar(axis.labels[inds]))))
+                   
+                    # no decimals
+                    } else {
+                        axis.round <- 0
+                    }
+
+                } # there are decimal in labels
+            } # if method == "exp" or not
+        } # if is.numeric(axis.labels)
     } # if is.null(axis.round)
     if (verbose) {
-        cat("§§§§§§§§§§§§ here §§§§§§§§§§§§§§§\n")
+        cat("here 3\n")
         cat("axis.round=")
         dput(axis.round)
     }
 
-    ## position of labels
-    if (method != "exp") {
-        axis.at <- axis.labels
-        axis.at.ind <- apply(matrix(axis.labels, nrow=length(axis.labels)),
-                             1, function(x) {
-                                 which(abs(zlevels - x) == min(abs(zlevels - x)))[1] })
-        ## small ticks
-        axis.at.small <- NA
+    ## position of labels: axis.at
+    if (is.null(axis.at)) {
+        
+        if (method != "exp") {
+            axis.at <- axis.labels
+        } else if (method == "exp") {
+            axis.at <- sapply(axis.labels, function(x) eval(parse(text=x)))
+        }
+
+        # position in colorbar
+        if (is.null(axis.at.ind)) {
+            if (method == "exp") {
+                # class(axis.labels[[1]]) = "call" !!
+                # the following does not yield precise inds
+                #axis.at.ind <- apply(matrix(as.numeric(sapply(axis.labels, eval)), nrow=length(axis.labels)),
+                #                     1, function(x) {
+                #                         which(abs(zlevels - x) == min(abs(zlevels - x)))[1] })
+                axis.at.ind <- 2:(nlevels-1)
+            
+            } else {
+                if (is.numeric(axis.labels)) {
+                    axis.at.ind <- apply(matrix(axis.labels, nrow=length(axis.labels)),
+                                         1, function(x) {
+                                             which(abs(zlevels - x) == min(abs(zlevels - x)))[1] })
+                } else {
+                    stop("this is not allowed")
+                }
+            }
+        }
+
+    } else { # if !is.null(axis.at)
+        if (!is.numeric(axis.at)) {
+            stop("your axis.at must be numeric")
+        }
+        if (is.null(axis.at.ind)) {
+            axis.at.ind <- axis.at
+        }
+    } # if is.null(axis.at)
+    if (method == "exp") {
+        ## small ticks 
+        if (is.null(axis.at.small)) {
+            axis.at.small <- 2:9 * rep(axis.at, e=length(2:9))
+        }
+
+    } else {
 
         ## no success: some nlevels and max_labels are too close 
         ## and so there are several axis.at.ind values doubled
@@ -454,16 +506,7 @@ image.plot.pre <- function(zlim,
                 cat(paste0(diff(axis.at.ind), collapse=", "), "\n")
             }
         }
-
-    } else if (method == "exp") {
-        axis.at <- sapply(axis.labels, function(x) eval(parse(text=x)))
-        axis.at.ind <- apply(matrix(axis.at, nrow=length(axis.labels)),
-                             1, function(x) {
-                                 which(abs(zlevels - x) == min(abs(zlevels - x)))[1] })
-
-        ## small ticks 
-        axis.at.small <- 2:9 * rep(axis.at, e=length(2:9))
-    }
+    } # if method == "exp"
     if (verbose) {
         cat("axis.at=")
         dput(axis.at)
@@ -473,45 +516,52 @@ image.plot.pre <- function(zlim,
         dput(axis.at.small)
     }
 
-    # apply axis.round: "5.0" instead of "5" depending on 'axis.round'
-    if (method != "exp") {
-       
-        if (!is.null(axis.round)) {
-            
-            if (T) {
-                if (verbose) {
-                    cat(paste0("axis.round=", axis.round, "\n"))
-                }
-                axis.labels <- sprintf(paste0("%.", axis.round, "f"), axis.labels)
-            
-            } else {
-                axis.labels <- format(axis.labels) # format() better than as.character()
-                if (verbose) {
-                    cat("here1 axis.labels=")
-                    dput(axis.labels)
-                }
-
-                # decimals
-                if (any(regexpr("\\.", axis.labels) != -1)) {
-                    pos <- regexpr("\\.", axis.labels)
-                    inds <- which(pos != -1)
-                    pos <- pos[inds]
-                    axis.round <- max(nchar(substr(axis.labels[inds],
-                                                   pos + 1,
-                                                   nchar(axis.labels[inds]))))
-                
-                # no decimals
-                } else {
-                    axis.round <- 0
-                }
-            }
-        } # if !is.null(axis.round)
- 
-    } else if (method == "exp") {
+    # apply axis.round to axis.labels
+    # --> "5.0" instead of "5" depending on 'axis.round'
+    if (method == "exp") {
         axis.labels <- as.expression(axis.labels)
-    }
+    
+    } else {
+
+        if (is.numeric(axis.labels)) {
+        
+            if (!is.null(axis.round)) {
+                
+                if (T) {
+                    if (verbose) {
+                        cat(paste0("axis.round=", axis.round, "\n"))
+                    }
+                    axis.labels <- sprintf(paste0("%.", axis.round, "f"), axis.labels)
+                
+                } else {
+                    axis.labels <- format(axis.labels) # format() better than as.character()
+                    if (verbose) {
+                        cat("here1 axis.labels=")
+                        dput(axis.labels)
+                    }
+
+                    # decimals
+                    if (any(regexpr("\\.", axis.labels) != -1)) {
+                        pos <- regexpr("\\.", axis.labels)
+                        inds <- which(pos != -1)
+                        pos <- pos[inds]
+                        axis.round <- max(nchar(substr(axis.labels[inds],
+                                                       pos + 1,
+                                                       nchar(axis.labels[inds]))))
+                    
+                    # no decimals
+                    } else {
+                        axis.round <- 0
+                    }
+                }
+            } # if !is.null(axis.round)
+     
+        } # if is.numeric(axis.labels)
+        
+    } # which method
+    
     if (verbose) {
-        cat("******** here ********\n")
+        cat("here 4\n")
         cat("axis.labels=")
         dput(axis.labels)
         cat("axis.round=")
@@ -524,7 +574,7 @@ image.plot.pre <- function(zlim,
         if (method != "exp") {
 
             ## it is possible that round(zlim, axis.round) equals axis.labels[1] 
-            ## and/or axis.labels[n]. than the labels are e.g. c(-50, -50, -40, ...)
+            ## and/or axis.labels[n]. then the labels would be e.g. c(-50, -50, -40, ...)
             if (as.numeric(sprintf(paste0("%.", axis.round, "f"), zlim[1])) < as.numeric(axis.labels[1])) {
                 axis.labels <- c(sprintf(paste0("%.", axis.round, "f"), zlim[1]), axis.labels)
                 axis.at <- c(as.numeric(sprintf(paste0("%.", axis.round, "f"), zlim[1])), axis.at)
@@ -536,7 +586,7 @@ image.plot.pre <- function(zlim,
                 axis.at.ind <- c(axis.at.ind, nlevels)
             }
             if (verbose) {
-                cat("###### here #######\n")
+                cat("here 5\n")
                 cat("axis.at.ind=")
                 dput(axis.at.ind)
                 cat("axis.labels=")
@@ -647,16 +697,25 @@ image.plot.pre <- function(zlim,
 
         } else if (!anom_colorbar) {
             
-            if (is.null(palname)) { # default colors for non-anomaly-colorbar
-                palname <- "grads_anomaly"
-            } 
             if (file.exists(colors_script)) {
                 source(colors_script)
             } else {
                 stop("file colors_script=", colors_script, " is not readable.")
             }
-            cols <- color_function(palname, rgb_path=dirname(colors_script))
-           
+
+            # default colors for non-anomaly-colorbar
+            if (is.null(palname)) { 
+                if (F) {
+                    palname <- "grads_anomaly"
+                    cols <- color_function(palname, rgb_path=dirname(colors_script))
+                } else if (T) {
+                    palname <- "mpl_gist_ncar"
+                    cols <- rev(color_function(palname, rgb_path=dirname(colors_script)))
+                }
+            } else { # user provided palname
+                cols <- color_function(palname, rgb_path=dirname(colors_script))
+            }
+
             if (axis.zoom) {
                 if (zoom[1] > zlim[1] && zoom[2] < zlim[2]) {
                     cols <- c(colorRampPalette(cols[1])(nlevplab - 1),

@@ -75,7 +75,11 @@ color_function <- function(palname="demo", n=64, alpha=1,
             if (names[i] %in% rs) {
 
                 if (names[i] == "heat") {
+                    # red -> white
                     rgb <- t(col2rgb(heat.colors(n)))
+                    if (T) { # white -> red
+                        rgb <- rgb[n:1,]
+                    }
                 
                 } else if (names[i] == "rainbow") {
                     rgb <- t(col2rgb(rainbow(n)))
