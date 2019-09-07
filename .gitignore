@@ -6,6 +6,7 @@
 !README.md
 !load_package.r
 !image.plot.pre.r
+!image.plot.nxm.r
 !leap_function.r
 !m2lat.r
 !m2lon.r
