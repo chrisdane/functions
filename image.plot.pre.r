@@ -16,7 +16,7 @@ image.plot.pre <- function(zlim,
     }
     if (missing(colors_script)) {
         colors_script <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r")
-        message("colors_script: ", colors_script)
+        if (F) message("colors_script: ", colors_script)
     }
     if (verbose) {
         cat("zlim=")
