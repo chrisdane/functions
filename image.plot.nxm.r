@@ -1,17 +1,18 @@
 image.plot.nxm <- function(x, y, z, n, m, ip,
-                           contour_list=NULL,
-                           horizontal=F, top_bottom=T, Ltitle=T,
+                           dry=F, image_list=NULL, contour_list=NULL,
+                           horizontal=F, top_bottom=F, add_title=T,
                            xlab="xaxis", ylab="yaxis", zlab="Variable [unit]",
-                           NAcol="gray", add_land=F, 
+                           cex.axis=1.25,
+                           bgcol="white", NAcol="gray", add_land=F,
                            type="active", plotname="testplot",
-                           add_contour=T, contour_only=F,
+                           add_contour=T, contour_only=F, contour_labcex=1,
                            useRaster=NULL,
                            cm_bottom=2, cm_left=2.5, cm_top=1, cm_right=4,
                            colorbar_width_cm=0.45, colorbar_dist_cm=0.2,
                            width_png=2000, height_png=1666, res=300, 
                            width_pdf=7, height_pdf=7,
-                           axis.args=NULL, add_name=F,
-                           legend.args=NULL, legend.line=7, legend.cex=1,
+                           axis.args=NULL, add_names_inset=F, add_names_topleft=T,
+                           legend.args=NULL, legend.line=7, legend.cex=1.25,
                            family="sans", lwd=0.5, lwd.ticks=0.5, 
                            verbose=F,
                            ...) {
@@ -53,11 +54,48 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
         } else {
             for (i in 1:length(z)) {
                 if (length(dim(z[[i]])) != 2) {
-                    stop("matrix z needs to have 2 dims.")
+                    stop("matrix z[", i, "] does not have 2 dims.")
                 }
             }
         }
+       
+        # figure out nrow and ncol aready here that dry run is faster
+        if (missing(n) && missing(m)) { # default
+            if (is.list(z)) {
+                if (verbose) message("z is list and length(z) = ", length(z))
+                if (length(z) == 1) {
+                    n <- 1
+                    m <- 1
+                } else if (length(z) == 2) {
+                    if (F) { # 1 row, 2 cols
+                        n <- 1
+                        m <- 2
+                    } else if (T) { # 2 rows, 1 col
+                        n <- 2
+                        m <- 1
+                    }
+                } else if (length(z) == 3) {
+                    n <- 3
+                    m <- 1
+                } else {
+                    n <- ceiling(sqrt(length(z)))
+                    m <- length(z) - n
+                }
+            } else if (!is.list(z)) {
+                n <- 1
+                m <- 1
+            }
+            if (verbose) message("automatically derived (nrow,ncol) = (n,m) = (", n, ",", m, ")") 
+        } # if n and m are missing
+        if (verbose) {
+            print(paste0("   n x m = ", n, " x ", m, " ..."))
+        }
         
+        # just return number of rows and columns
+        if (dry) {
+            return(list(nrow=n, ncol=m))
+        }
+
         # repeat x if no list and check if dimensions are correct
         if (!is.list(x)) {
             tmpx <- vector("list", l=length(z))
@@ -122,31 +160,27 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
                     }
                 }
             }
-        }   
+        }
+
+        # make sure that x and y are regular that image(..., useRaster=T) can be used
+        if (F) {
+            message("make regular x,y coords ...")
+            for (i in 1:length(z)) {
+                x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), l=length(x[[i]]))
+                y[[i]] <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), l=length(y[[i]]))
+            }
+        }
+
+        if (verbose) {
+            message("x")
+            message(str(x))
+            message("y")
+            message(str(y))
+        }
 
     } # if input is not missing
 
-    if (missing(n) && missing(m)) { # default
-        if (is.list(z)) {
-            if (length(z) == 1) {
-                n <- 1
-                m <- 1
-            } else if (length(z) == 2) {
-                n <- 1
-                m <- 2
-            } else {
-                n <- ceiling(sqrt(length(z)))
-                m <- length(z) - n
-            }
-        } else if (!is.list(z)) {
-            n <- 1
-            m <- 1
-        }
-        if (n*m < length(x)) stop("n, m incorrect")
-    }
-    if (verbose) {
-        print(paste0("   n x m = ", n, " x ", m, " ..."))
-    }
+
     if (missing(ip)) {
         stop("provide 'ip' object (result from image.plot.pre()).")
     }
@@ -157,9 +191,19 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
         }
     }
 
-    ## start
+    # derive nplots based on derived number of rows (n) and columns (m)
+    nplots <- n*m
+    if (nplots < length(z)) {
+        stop("this should not happen")
+    }
 
-    ## capture additional arguments (aka ellipsis, dots, ...)
+    if (add_names_inset && add_names_topleft) {
+        stop("decide where to put legend: either `add_names_inset` or `add_names_topleft` can be true")
+    }
+
+
+    ## start
+    # capture additional arguments (aka ellipsis, dots, ...)
     dot_list <- list(...)
     ndots <- length(dot_list)
     dot_names <- names(dot_list)
@@ -201,81 +245,90 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
     ## Prepare plot
     if (!any(dot_names == "xlim")) {
         xlim <- range(x, na.rm=T)
+        if (verbose) {
+            cat("automatic xlim =")
+            dput(xlim)
+        }
     } else if (any(dot_names == "xlim")) {
         xlim <- dot_list[["xlim"]]
+        if (verbose) {
+            cat("provided xlim =")
+            dput(xlim)
+        }
     }   
     if (!any(dot_names == "ylim")) {
         ylim <- range(y, na.rm=T)
+        if (verbose) {
+            cat("automatic ylim =")
+            dput(ylim)
+        }
     } else if (any(dot_names == "ylim")) {
         ylim <- dot_list[["ylim"]]
+        if (verbose) {
+            cat("provided ylim =")
+            dput(ylim)
+        }
     }   
     l <- max(c(sapply(x, length), 
                sapply(y, length)))
     x_plot <- seq(xlim[1], xlim[2], l=l)
     y_plot <- seq(ylim[1], ylim[2], l=l)
+    if (verbose) {
+        cat("x_plot = ")
+        message(str(x_plot))
+        cat("y_plot = ")
+        message(str(y_plot))
+    }
 	if (!any(dot_names == "x_at")) {
         x_at <- pretty(x_plot, n=10)
+        if (verbose) {
+            cat("automatic x_at step 1 =")
+            dput(x_at)
+        }
 	    x_at <- x_at[x_at >= min(x_plot) & x_at <= max(x_plot)]
+        if (verbose) {
+            cat("automatic x_at step 2 =")
+            dput(x_at)
+        }
     } else if (any(dot_names == "x_at")) {
         x_at <- dot_list[["x_at"]]
     }
     if (!any(dot_names == "y_at")) {
         y_at <- pretty(y_plot, n=10)
+        if (verbose) {
+            cat("automatic y_at step 1 =")
+            dput(y_at)
+        }
         y_at <- y_at[y_at >= min(y_plot) & y_at <= max(y_plot)]
+        if (verbose) {
+            cat("automatic y_at step 2 =")
+            dput(y_at)
+        }
     } else if (any(dot_names == "y_at")) {
         y_at <- dot_list[["y_at"]]
     }
 
     if (!any(dot_names == "x_labels")) {
-        x_labels <- x_at
-        if (any(regexpr("\\.", x_labels) != -1)) {
-            pos <- regexpr("\\.", x_labels)
-            inds <- which(pos != -1)
-            pos <- pos[inds]
-            x_round <- max(nchar(substr(x_labels[inds],
-                                        pos + 1,
-                                        nchar(x_labels[inds]))))
-        } else {
-            x_round <- 0
+        x_labels <- format(x_at, trim=T)
+        if (verbose) {
+            cat("automatic x_labels =")
+            dput(x_labels)
         }
-        x_labels <- sprintf(paste0("%.", x_round, "f"), x_labels)
     } else if (any(dot_names == "x_labels")) {
         x_labels <- dot_list[["x_labels"]]
     }
 
     if (!any(dot_names == "y_labels")) {
-        y_labels <- y_at
-        if (any(regexpr("\\.", y_labels) != -1)) {
-            pos <- regexpr("\\.", y_labels)
-            inds <- which(pos != -1)
-            pos <- pos[inds]
-            y_round <- max(nchar(substr(y_labels[inds],
-                                        pos + 1,
-                                        nchar(y_labels[inds]))))
-        } else {
-            y_round <- 0
+        y_labels <- format(y_at, trim=T)
+        if (verbose) {
+            cat("automatic y_labels =")
+            dput(y_labels)
         }
-        y_labels <- sprintf(paste0("%.", y_round, "f"), y_labels)
     } else if (any(dot_names == "y_labels")) {
         y_labels <- dot_list[["y_labels"]]
     }
 
-    if (verbose) {
-        print("x_plot")
-        print(str(x_plot))
-        print("y_plot")
-        print(str(y_plot))
-        print("x_at")
-        print(str(x_at))
-        print("y_at")
-        print(str(y_at))
-        print("x_labels")
-        print(str(x_labels))
-        print("y_labels")
-        print(str(y_labels))
-    }
-
-
+    # construct layout mat based on n x m; nrow x ncol
     if (top_bottom) { # plot figures from top to bottom and left to right
 	    layout_mat <- matrix(1:(n*m), nrow=n, ncol=m, byrow=F)
     } else { # plot figures from left to right and topto bottom
@@ -336,7 +389,10 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
     }
     layout(layout_mat2, widths=layout_widths, heights=layout_heights)
     #layout.show(n=max(layout_mat2))
-	par(mar=c(0.5, 0.5, 0.5, 0.5)) # space between sub-figures [rows]
+    par(mar=rep(0.5, t=4)) # distance between sub-figures [rows]
+	if (add_names_topleft) { # increase vertical distance between sub figures
+        par(mar=c(1.5, 0.5, 1.5, 0.5)) 
+    }
     if (verbose) {
         cat("fig=")
         dput(par("fig"))
@@ -358,12 +414,13 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
         dput(par("pty"))
     }
 
+    # for every plot 
 	for (i in 1:(n*m)) {
 
         # Open plot device
         if (verbose) message("plot()")
         plot(x_plot, y_plot, t="n",
-			 xlim=xlim, ylim=ylim, 
+			 #xlim=xlim, ylim=ylim, 
              axes=F, xlab=NA, ylab=NA,
 			 xaxs="i", yaxs="i")
        
@@ -373,28 +430,29 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
             # check useRaster
             err <- tryCatch(image(x[[i]], y[[i]], 
                                   array(1, c(length(x[[i]]), length(y[[i]]))),
-                                  add=T, col=NAcol,
-                                  axes=F, xlab="n", ylab="n", 
+                                  add=T, col=NAcol, axes=F, xlab=NA, ylab=NA, 
                                   useRaster=T),
                             error=function(e) e, warning=function(w) w)
             if (is.null(err)) {
                 useRaster <- T
             } else {
-                #if (i == 1) {
-                    #print(err)
-                #}
+                if (verbose) {
+                    if (i == 1) message("cannot use useRaster=T since:")
+                    print(err)
+                }
                 useRaster <- F
             }
             #print(paste0("useRaster=", useRaster))
             
             # add NA values
-            if (!useRaster) { # repeat the one before
+            if (!useRaster) { 
                 if (verbose) message("image() 1")
                 image(x[[i]], y[[i]], array(1, c(length(x[[i]]), length(y[[i]]))),
                       add=T, col=NAcol,
                       axes=F, xlab="n", ylab="n",
                       useRaster=useRaster)
             }
+
             # add actual data
             if (verbose) message("image() 2")
             image(x[[i]], y[[i]], z[[i]], 
@@ -402,33 +460,48 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
                   axes=F, xlab="n", ylab="n", 
                   useRaster=useRaster)
 
-            # Add contour to plot
+            # add contour to plot
             if (add_contour) {
-                if (verbose) message("contour() of axis.at")
                 tmp <- axis.at
-                if (T && any(tmp == 0)) { # do not show zero contour
+                if (F && any(tmp == 0)) { # do not show zero contour
+                    if (i == 1) message("add_contour = T --> add data contour without zero .. ....")
                     tmp <- tmp[-which(tmp == 0)]
+                } else {
+                    if (i == 1) message("add_contour = T --> add data contour with zero ...")
                 }
                 contour(x[[i]], y[[i]], z[[i]],
-                        levels=tmp, lwd=lwd, add=T)
+                        levels=tmp, lwd=lwd, add=T, labcex=contour_labcex)
             }
             
-            # Add special contour list if available
+            # add special contour list if available
             if (!is.null(contour_list)) {
-                if (verbose) message("contour() of contour_list")
+                if (i == 1) message("add contour() of contour_list")
                 contour(x[[i]], y[[i]], contour_list[[i]], 
                         add=T, lwd=1, levels=0.0001, drawlabels=F)
             } # if (!is.null(contour_list))
 
+            # add special image list if available
+            if (!is.null(image_list)) {
+                if (i == 1) message("add image() of image_list")
+                if (length(image_list[[i]]$levels) == 1) {
+                    image(x[[i]], y[[i]], image_list[[i]]$data, 
+                          col=image_list[[i]]$cols,  
+                          add=T, useRaster=useRaster)
+                } else {
+                    image(x[[i]], y[[i]], image_list[[i]]$data, 
+                          col=image_list[[i]]$cols, breaks=image_list[[i]]$levels, 
+                          add=T, useRaster=useRaster)
+                }
+            } # if (!is.null(image_list))
 
         } else if (contour_only) {
             contour(x[[i]], y[[i]], z[[i]],
-                    levels=axis.at)
+                    levels=axis.at, labcex=contour_labcex)
 
             # add contour list if available
             if (!is.null(contour_list)) {
                 contour(x[[i]], y[[i]], contour_list[[i]], 
-                        add=T, lwd=lwd)
+                        add=T, lwd=lwd, labcex=contour_labcex)
             } # if (!is.null(contour_list))
 
         } # if contour_only or not
@@ -446,13 +519,10 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
 
         # add axes and axes labels
         if (verbose) message("axis()")
-        if (!any(dot_names == "cex.axis")) {
-            cex.axis <- 1.25
-        }
-        if (top_bottom) { # default: from top to bottom
+        if (top_bottom) { # order plots from top to bottom and then from left to right
 
             # title in top row
-            if (Ltitle && any(dot_names == "title") && 
+            if (add_title && any(dot_names == "title") && 
                 #any(i == n*(0:(m-1))+1)
                 i == n*(m-1)+1 # only after first plot of last row
                 ) {
@@ -461,7 +531,8 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
                      labels=dot_list[["title"]], xpd=NA, 
                      cex=1.5, font=1) # font=2 for bold
             }
-
+            
+            # n=nrow, m=ncol
             if (i <= n) { # left axis
                 axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
                      lwd=0, lwd.ticks=lwd.ticks)
@@ -477,10 +548,10 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
                 axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
             }
 
-        } else { # from bottom top top
+        } else if (!top_bottom) { # order plots from left to right and then from top to bottom
 
             # title in top row
-            if (Ltitle && any(dot_names == "title") && 
+            if (add_title && any(dot_names == "title") && 
                 #i <= m
                 i == m # only after last plot in top row
                 ) {
@@ -490,6 +561,7 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
                      cex=1.5, font=1) # font=2 for bold
             }
 
+            # n=nrow, m=ncol
             if (i %% m == 1) { # left axis
                 axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
                      lwd=0, lwd.ticks=lwd.ticks)
@@ -497,7 +569,7 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
             } else {
                 axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
             }
-            if (i >= (n*m - m)) { # bottom axis
+            if (i >= (n*m - m + 1)) { # bottom axis
                 axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
                      lwd=0, lwd.ticks=lwd.ticks)
                 mtext(xlab, side=1, line=3, cex=1)
@@ -506,26 +578,77 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
             }
         }
 
-        if (add_land) {
-            if (verbose) message("map()")
+        if (add_land != F) {
+            if (i == 1) message("map(", add_land, ")")
             library(maps)
-            map("world", interior=T, add=T)
+            map(add_land, interior=F, add=T)
         }
 
         # add name to every plot
-        if (add_name) {
-            if (verbose) message("legend()")
-            legend(#"topleft",
-                   "topright", 
-                   #"bottomright",
-                   #"bottomleft",
-                   #legend=znames[i],
-                   legend=as.expression(znames[i]),
-                   #legend=as.expression(paste0(letters[i], ") ", znames[i])),
-                   col="black", lty=NA, lwd=1, pch=NA,
-                   x.intersp=-0.2,
-                   cex=cex.axis, bty="n")
-        }
+        if (add_names_inset || add_names_topleft) {
+
+            if (add_names_inset) {
+                
+                if (i == 1) message("`add_names_inset` = T --> legend()")
+                # prepare leend
+                lepos <- "topleft"
+                letext <- znames[i]
+                leinset <- 0.025 # distance legend box from horizontal (and vertical plot margins 
+                lexintersp <- -1.8 #    
+
+                # get coordinates of legend first
+                if (length(lepos) == 1) {
+                    myleg <- legend(lepos, legend=letext, plot=F, inset=leinset, 
+                                    bty="n", x.intersp=lexintersp, cex=cex.axis,
+                                    col="black", lty=NA, lwd=lwd, pch=NA)
+                } else if (length(myleg_pos) == 2) {
+                    myleg <- legend(lepos[1], lepos[2], legend=letext, plot=F, iinset=leinset, 
+                                    bty="n", x.intersp=lexintersp, cex=cex.axis,
+                                    col="black", lty=NA, lwd=lwd, pch=NA)
+                }
+
+                # draw background of legend label
+                if (F) print(myleg)
+                rect(xleft=myleg$rect$left, ybottom=myleg$rect$top - myleg$rect$h,
+                     xright=myleg$rect$left + myleg$rect$w, ytop=myleg$rect$top, 
+                     col=bgcol, lwd=lwd)
+                
+                # ad text
+                if (length(lepos) == 1) {
+                    myleg <- legend(lepos, legend=letext, plot=T, inset=leinset, 
+                                    bty="n", x.intersp=lexintersp, cex=cex.axis,
+                                    col="black", lty=NA, lwd=lwd, pch=NA)
+                } else if (length(myleg_pos) == 2) {
+                    myleg <- legend(myleg_pos[1], myleg_pos[2], legend=text_lab, plot=T, inset=leinset, 
+                                    bty="n", x.intersp=lexintersp, cex=cex.axis,
+                                    col="black", lty=NA, lwd=lwd, pch=NA)
+                }
+                
+                if (F) {
+                    legend("topleft",
+                           #"topright", 
+                           #"bottomright",
+                           #"bottomleft",
+                           legend=znames[i],
+                           #legend=as.expression(znames[i]),
+                           #legend=as.expression(paste0(letters[i], ") ", znames[i])),
+                           col="black", lty=NA, lwd=lwd, pch=NA,
+                           x.intersp=lexintersp,
+                           cex=cex.axis, bty="n")
+                }
+
+            # if add_names_topleft finished
+            } else if (add_names_topleft) {
+
+                if (i == 1) message("`add_names_topleft` = T --> add `znames` on top left corner of each plot")
+                text(par("usr")[1], par("usr")[4] + strheight("."), 
+                     xpd=T, labels=znames[i], pos=4, cex=legend.cex)
+
+            } # add_names_inset or add_names_topleft
+
+        } # if (add_names_inset || add_names_topleft)
+       
+        # draw box around plot
         box(lwd=lwd)
 
         ## overlay a subplot
@@ -554,8 +677,8 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
         } # if any(dot_names == "subplot")
 
         ## add something special to plot
-        if (T) {
-            message("add special stuff ...")
+        if (F) {
+            message("add special stuff ... todo: give as argument list")
 
             # area averaging box
             if (F && znames[i] == "H5") {

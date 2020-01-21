@@ -40,9 +40,11 @@ myma <- function(x, order, verbose=F, ...) {
 
 ht <- function(d, n=7) {
     print(head(d, n))
-    message(system('bold=`tput bold`; printf "   ${bold}\u22ee"', intern=T))
+    #message(system('bold=`tput bold`; printf "   ${bold}\u22ee"', intern=T))
+    message(system('printf "   \u22ee"', intern=T))
     print(tail(d, n))
 }
+
 # Get the proportion variation explained. See this website for more details: http://goo.gl/jte8X
 # http://www.gettinggeneticsdone.com/2011/08/sync-your-rprofile-across-multiple-r.html
 rsq <- function(predicted, actual) 1-sum((actual-predicted)^2)/sum((actual-mean(actual))^2)
@@ -57,7 +59,7 @@ col2rgba <- function(x, alpha) {
 }
 
 # convert velocities with units package
-speeds <- function(x, unit="cm/s") {
+speeds <- function(x=1, unit="cm/s") {
 
     library(units) # valid_udunits()
     x <- set_units(x=x, value=unit, mode="standard")
@@ -76,47 +78,53 @@ speeds <- function(x, unit="cm/s") {
 } # speeds function
 
 # set my default plot options
-setDefaultPlotOptions <- function(plot_type) {
-    if (!any(plot_type == c("png", "pdf"))) {
-        stop("setDefaultPlotOptions(): plot_type ", 
-             plot_type, " not defined.")
-    }
-    p <- list()
-    p$plot_type <- plot_type
-    p$bg_col <- "white"
-    p$NA_col <- "gray65"
-    p$contour_labcex <- 1 
-    p$ts_width <- 2666 #2000 #2666
-    p$ts_height <- 1600
-    p$ts_width_m <- 1600
-    p$ts_height_m <- p$ts_height
-    p$depth_width <- 2666
-    p$depth_height <- 1600
-    p$depth_mean_width <- 1600
-    p$depth_mean_height <- 1600 #2000 #2666
-    p$csec_depth_width <- 2666
-    p$csec_depth_height <- 2133
-    p$moc_depth_width <- 2666
-    p$moc_depth_height <- 2000
-    p$map_width <- 2666
-    p$map_height <- 2000
-    p$useRaster <- T
-    p$dpi <- 400 # for png
-    p$inch <- 7 # for pdf
-    p$family <- "Droid Sans Mono"
-    if (any(search() == "package:extrafont")) {
-        if (!any(fonts() == p$family)) {
-            p$family <- "sans" # the default 
-        }
-    }
-    p
+setDefaultPlotOptions <- function(plist=list(plot_type="png", bg_col="white", NA_col="gray65", 
+                                             contour_labcex=1,
+                                             ts_width=2666, ts_height=1600, ts_width_m=1600, ts_height_m=1600,
+                                             depth_width=2666, depth_weight=1600,
+                                             map_width=2666, map_height=2000,
+                                             scatter_width=2666, scatter_height=2666,
+                                             useRaster=T, dpi=400, inch=7, 
+                                             family_png="sans", family_pdf="sans"), ...) {
+    dot_list <- list(...)
+    dot_names <- names(dot_list)
+    if (length(dot_list) > 0) {
+        for (i in 1:length(dot_list)) {
+            if (i == 1) message("*** setDefaultPlotOptions() start ***")
+            if (dot_names[i] == "plot_type") {
+                if (!any(dot_list[[i]] == c("png", "pdf"))) {
+                    stop("setDefaultPlotOptions(): given plot_type ", 
+                         dot_list[[i]], " not defined.")
+                }
+                if (dot_list[[i]] == plist$plot_type) {
+                    next # argument
+                }
+            }
+            if (any(dot_names[i] == c("family_png", "family_pdf"))) {
+                if (any(search() == "package:extrafont")) {
+                    if (!any(fonts() == dot_list[[i]])) { # do not update font
+                        next # argument 
+                    }
+                }
+            }
+            if (T) message("argument \"", dot_names[i], "\" provided. overwrite default \"", 
+                           plist[[dot_names[i]]], "\" with \"", dot_list[[i]], "\"")
+            plist[[dot_names[i]]] <- dot_list[[i]]
+            if (i == length(dot_list)) message("*** setDefaultPlotOptions() finished ***")
+            ## Note: 
+            # print(str(dot_list[[i]]))
+            # returns the value AND NULL
+            #str(dot_list[[i]]) 
+        } # for all arguments in dots `...`
+    } # if any dots arguments given
+    return(plist)
 }
 
 # paste my relevant plot options
-par_show <- function() {
+mypar <- function() {
     
     if (is.null(dev.list())) {
-        y <- askYesNo("par_show(): no plot open. would you like to run 'dev.new()'?", 
+        y <- askYesNo("mypar(): no plot open. would you like to run 'dev.new()'?", 
                       default=F, prompts=c("Yes", "No", "Cancel"))
         if (y) {    
             dev.new()
@@ -165,7 +173,7 @@ par_show <- function() {
         }
         message("margin rows:")
         message("   par(\"oma\") = c(", paste0(op$oma, collapse=", "), ") # b l t r")
-        message("   par(\"mar\") = c(", paste0(op$mar, collapse=", "), ") # b l t r (default: c(5, 4, 4, 2) + 0.1)")
+        message("   par(\"mar\") = c(", paste0(op$mar, collapse=", "), ") # b l t r (default: c(5.1, 4.1, 4.1, 2.1) + 0.1)")
         if (!all(op$oma == 0)) {
             message("sum outer and inner margins rows")
             message("   c(", paste0(op$oma + op$mar, collapse=", "), ") # b l t r")
@@ -173,7 +181,7 @@ par_show <- function() {
             message("   c(", paste0((op$oma + op$mar)*2.54, collapse=", "), ") # b l t r")
         }
     }
-} # par_show()
+} # mypar()
 
 par_px2in <- function(px) {
     if (is.null(dev.list())) {

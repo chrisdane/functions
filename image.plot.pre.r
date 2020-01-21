@@ -3,7 +3,7 @@ image.plot.pre <- function(zlim,
                            method="pretty",
                            axis.at=NULL, axis.at.ind=NULL, axis.at.small=NULL, 
                            axis.labels=NULL, axis.round=NULL,
-                           axis.zoom=F, axis.addzlims=F, power_min=NULL,
+                           axis.zoom=F, axis.addzlims=T, power_min=NULL,
                            cols=NULL, pos_cols=NULL, neg_cols=NULL,
                            palname=NULL, colors_script,
                            anom_colorbar=NULL, 
@@ -19,8 +19,19 @@ image.plot.pre <- function(zlim,
         if (F) message("colors_script: ", colors_script)
     }
     if (verbose) {
-        cat("zlim=")
+        cat("given zlim=")
         dput(zlim)
+    }
+   
+    # have to improve this
+    if (missing(colors_script)) {
+        #colors_script <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r")
+        colors_script <- "~/scripts/r/functions/colors/color_function.r"
+        if (!file.exists(colors_script)) {
+            warning("colors_script ", colors_script, " does not exist")
+        } else {
+            if (verbose) message("colors_script: ", colors_script)
+        }
     }
 
     ## check if both positive and negative numbers
@@ -287,7 +298,8 @@ image.plot.pre <- function(zlim,
 
                 # nicer labels without zlims
                 if (length(zlevels) > 2) {
-                    axis.labels <- as.numeric(formatC(zlevels[-c(1, nlevels)]))
+                    #axis.labels <- as.numeric(formatC(zlevels[-c(1, nlevels)]))
+                    axis.labels <- as.numeric(format(zlevels[-c(1, nlevels)]))
                 } else {
                     axis.labels <- as.numeric(formatC(zlevels))
                 }
@@ -390,6 +402,12 @@ image.plot.pre <- function(zlim,
                 #print("hi4")
                 #axis.labels[length(axis.labels)] <- zlim[2] 
                 axis.labels <- axis.labels[-length(axis.labels)]
+            }
+
+            # all values were removed
+            if (length(axis.labels) == 0) {
+                if (verbose) message("all automatic axis.labels are out of zlim...")
+                axis.labels <- mean(zlim, na.rm=T)
             }
 
             ## need to take 1e numbers into account here!!!
@@ -525,36 +543,41 @@ image.plot.pre <- function(zlim,
 
         if (is.numeric(axis.labels)) {
         
-            if (!is.null(axis.round)) {
-                
-                if (T) {
-                    if (verbose) {
-                        cat(paste0("axis.round=", axis.round, "\n"))
-                    }
-                    axis.labels <- sprintf(paste0("%.", axis.round, "f"), axis.labels)
-                
-                } else {
-                    axis.labels <- format(axis.labels) # format() better than as.character()
-                    if (verbose) {
-                        cat("here1 axis.labels=")
-                        dput(axis.labels)
-                    }
-
-                    # decimals
-                    if (any(regexpr("\\.", axis.labels) != -1)) {
-                        pos <- regexpr("\\.", axis.labels)
-                        inds <- which(pos != -1)
-                        pos <- pos[inds]
-                        axis.round <- max(nchar(substr(axis.labels[inds],
-                                                       pos + 1,
-                                                       nchar(axis.labels[inds]))))
+            if (F) { # old
+                if (!is.null(axis.round)) {
                     
-                    # no decimals
+                    if (T) {
+                        if (verbose) {
+                            cat(paste0("axis.round=", axis.round, "\n"))
+                        }
+                        axis.labels <- sprintf(paste0("%.", axis.round, "f"), axis.labels)
+                    
                     } else {
-                        axis.round <- 0
+                        axis.labels <- format(axis.labels) # format() better than as.character()
+                        if (verbose) {
+                            cat("here1 axis.labels=")
+                            dput(axis.labels)
+                        }
+
+                        # decimals
+                        if (any(regexpr("\\.", axis.labels) != -1)) {
+                            pos <- regexpr("\\.", axis.labels)
+                            inds <- which(pos != -1)
+                            pos <- pos[inds]
+                            axis.round <- max(nchar(substr(axis.labels[inds],
+                                                           pos + 1,
+                                                           nchar(axis.labels[inds]))))
+                        
+                        # no decimals
+                        } else {
+                            axis.round <- 0
+                        }
                     }
-                }
-            } # if !is.null(axis.round)
+                } # if !is.null(axis.round)
+            
+            } else if (T) { # new
+                axis.labels <- format(axis.labels, trim=T)
+            }
      
         } # if is.numeric(axis.labels)
         
@@ -671,7 +694,7 @@ image.plot.pre <- function(zlim,
                 if (file.exists(colors_script)) {
                     source(colors_script)
                 } else {
-                    stop("file colors_script=", colors_script, " is not readable.")
+                    stop("file colors_script=", colors_script, " does not exist.")
                 }
                 cols <- color_function(palname, 
                                        n=ifelse(nlevels %% 2 == 0, 
@@ -700,7 +723,7 @@ image.plot.pre <- function(zlim,
             if (file.exists(colors_script)) {
                 source(colors_script)
             } else {
-                stop("file colors_script=", colors_script, " is not readable.")
+                stop("file colors_script=", colors_script, " does not exist.")
             }
 
             # default colors for non-anomaly-colorbar
