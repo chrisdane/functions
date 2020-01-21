@@ -355,7 +355,7 @@ myhelp <- function() {
              "                  export LD_LIBRARY_PATH=/sw/rhel6-x64/gdal-2.1.3-gcc48/lib/:$LD_LIBRARY_PATH",
              "                  export LD_LIBRARY_PATH=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/lib/:$LD_LIBRARY_PATH",
              "               devtools::install_github(\"user/package\", args=\"--with-keep.source\")",
-             "               devtools::with_libpaths(new=\"libpath\", install_github(\"user/package\"))",
+             "               withr::with_libpaths(new=\"libpath\", install_github(\"user/package\"))",
              "      compile: R CMD build \"package directory\"",
              "               R CMD INSTALL -l \"lib\" \"packagename.tar.gz\"",
              "               install.packages(\"packagename.tar.gz\", repos=NULL)",

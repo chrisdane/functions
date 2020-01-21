@@ -14,6 +14,10 @@ image.plot.pre <- function(zlim,
     if (missing(zlim)) {
         stop("error: 'zlim' is missing")
     }
+    if (missing(colors_script)) {
+        colors_script <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r")
+        if (F) message("colors_script: ", colors_script)
+    }
     if (verbose) {
         cat("given zlim=")
         dput(zlim)

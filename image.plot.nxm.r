@@ -580,6 +580,7 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
 
         if (add_land != F) {
             if (i == 1) message("map(", add_land, ")")
+            library(maps)
             map(add_land, interior=F, add=T)
         }
 
@@ -1086,8 +1087,8 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
             image(ix, iy, iz,
                   #y=y_midpoints,
                   #z=array(breaks, c(1, nlevels)),
-                  #breaks=breaks, 
-                  breaks=1:nlevels,
+                  breaks=breaks, 
+                  #breaks=1:nlevels,
                   col=cols,
                   axes=F, lwd=lwd,
                   #, add=T
@@ -1152,4 +1153,51 @@ line2user <- function(line, side) {
          stop("Side must be 1, 2, 3, or 4", call.=FALSE))
 }
 
+if (F) {
+  ## from the image.plot help: 
+  # figs: matrix with 4 columns: each row describes a screen with
+  # values for the left, right, bottom, and top of the screen (in
+  # that order) in NDC units, that is 0 at the lower left corner
+  # of the device surface, and 1 at the upper right corner.
+  figs <- rbind(c(0, 1, 0.15, 1), # 1st subplot on top: map and colorbar
+                c(0, 1, 0, 0.15)) # 2nd subplot below: boxplot
 
+  # open the 2 screens
+  split.screen(figs=figs) 
+  
+  # activate 1st screen: map plot and colorbar
+  screen(1)
+  
+  # increase lower margin of 1st. subplot for colorbar
+  par(mar=c(8.1, 4.1, 4.1, 2.1)) # default: 5.1, 4.1, 4.1, 2.1
+
+  plot(1)
+
+  # activate 2nd screen: boxplot
+  screen(2)
+  
+  # close screens 
+  close.screen(all=T)
+  
+  # save plot
+  dev.off()
+  
+  # get coordinates of colorbar in user coordinates (from image.plot)
+  old.par <- par(no.readonly=T)
+  bigplot <- old.par$plt
+  ndc_coords <- imageplot.setup(add=T, legend.mar=distance_of_colorbar_from_mapplot, 
+                                legend.width=legend.width, horizontal=T, bigplot=bigplot) 
+  # -> ndc = normalized device coordinates
+  # -> other parameters of the image.plot(legend.only=T) call may need to handed to imageplot.setup()
+  usr_coords <- grconvertX(ndc_coords$bigplot[1:2], from="ndc", to="user")
+  usr_coords[3:4] <- grconvertY(ndc_coords$bigplot[3:4], from="ndc", to="user")
+  message("bigplot")
+  print(usr_coords)
+  rect(usr_coords[1], usr_coords[3], usr_coords[2], usr_coords[4], border="red", xpd=T) 
+  usr_coords <- grconvertX(ndc_coords$smallplot[1:2], from="ndc", to="user")
+  usr_coords[3:4] <- grconvertY(ndc_coords$smallplot[3:4], from="ndc", to="user")
+  rect(usr_coords[1], usr_coords[3], usr_coords[2], usr_coords[4], border="red", xpd=T) 
+  message("smallplot")
+  print(usr_coords)
+  
+} # split.screen!!!
