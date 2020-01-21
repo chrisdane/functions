@@ -301,7 +301,8 @@ myErrorFun <- function() {
     # https://stackoverflow.com/questions/1445964/r-script-line-numbers-at-error
     # https://stackoverflow.com/questions/13116099/traceback-for-interactive-and-non-interactive-r-sessions
     # #traceback(2) #recover() #rlang::last_trace(); rlang::last_error(); # library(rlang)
-    tmp <- .traceback(2)
+    tmp <- base::.traceback(2)
+    #tmp <- base::traceback(2)
     #message("str(tmp)")
     #print(str(tmp))
     if (!is.null(tmp) && # if e.g. not ctrl+c
