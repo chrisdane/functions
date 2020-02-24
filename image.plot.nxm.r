@@ -521,11 +521,13 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
         if (verbose) message("axis()")
         if (top_bottom) { # order plots from top to bottom and then from left to right
 
+            if (verbose) message("axis top_bottom")
             # title in top row
             if (add_title && any(dot_names == "title") && 
                 #any(i == n*(0:(m-1))+1)
                 i == n*(m-1)+1 # only after first plot of last row
                 ) {
+                if (verbose) message("axis top_bottom add_title and i=", i)
                 text(x=line2user(line=mean(par('mar')[c(2, 4)]), side=2), 
                      y=line2user(line=2, side=3), 
                      labels=dot_list[["title"]], xpd=NA, 
@@ -534,27 +536,33 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
             
             # n=nrow, m=ncol
             if (i <= n) { # left axis
+                if (verbose) message("axis top_bottom i=", i, " <= n (=", n, ")")
                 axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
                      lwd=0, lwd.ticks=lwd.ticks)
                 mtext(ylab, side=2, line=5, cex=1)
             } else {
+                if (verbose) message("axis top_bottom i=", i, " > n (=", n, ")")
                 axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
             }
             if (i %% n == 0) { # bottom axis
+                if (verbose) message("axis top_bottom i=", i, " %% n (=", n, ") = ", i %% n, " == 0")
                 axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
                      lwd=0, lwd.ticks=lwd.ticks)
                 mtext(xlab, side=1, line=3, cex=1)
             } else {
+                if (verbose) message("axis top_bottom i=", i, " %% n (=", n, ") = ", i %% n, " != 0")
                 axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
             }
 
         } else if (!top_bottom) { # order plots from left to right and then from top to bottom
 
+            if (verbose) message("axis !top_bottom")
             # title in top row
             if (add_title && any(dot_names == "title") && 
                 #i <= m
                 i == m # only after last plot in top row
                 ) {
+                if (verbose) message("axis !top_bottom add_title and i=", i, "=m (=", m, ")")
                 text(x=line2user(line=mean(par('mar')[c(2, 4)]), side=2),
                      y=line2user(line=2, side=3), 
                      labels=dot_list[["title"]], xpd=NA,
@@ -562,18 +570,22 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
             }
 
             # n=nrow, m=ncol
-            if (i %% m == 1) { # left axis
+            if ((i == 1 && nplots == 1) || (nplots > 1 && i %% m == 1)) { # left axis
+                if (verbose) message("axis !top_bottom i=", i, " %% m (=", m, ") = ", i %% m, " == 1")
                 axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
                      lwd=0, lwd.ticks=lwd.ticks)
                 mtext(ylab, side=2, line=5, cex=1)
             } else {
+                if (verbose) message("axis !top_bottom i=", i, " %% m (=", m, ") = ", i %% m, " != 1")
                 axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
             }
             if (i >= (n*m - m + 1)) { # bottom axis
+                if (verbose) message("axis !top_bottom i=", i, " >= (n*m - m + 1) = (", n, "*", m, " - ", m, " + 1) = ", (n*m - m + 1))
                 axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
                      lwd=0, lwd.ticks=lwd.ticks)
                 mtext(xlab, side=1, line=3, cex=1)
             } else {
+                if (verbose) message("axis !top_bottom i=", i, " < (n*m - m + 1) = (", n, "*", m, " - ", m, " + 1) = ", (n*m - m + 1))
                 axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
             }
         }
@@ -1087,8 +1099,8 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
             image(ix, iy, iz,
                   #y=y_midpoints,
                   #z=array(breaks, c(1, nlevels)),
-                  breaks=breaks, 
-                  #breaks=1:nlevels,
+                  #breaks=breaks, 
+                  breaks=1:nlevels,
                   col=cols,
                   axes=F, lwd=lwd,
                   #, add=T
