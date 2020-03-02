@@ -5,18 +5,22 @@
 #lm_func <- function(inx, iny, varx, vary, xunit, yunit, lm_dimids, ) {
     
     if (T) {
-        inx <- "/ace/user/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_holocene_wiso_mm_select_temp2_global_Jan-Dec_0004-6173.nc"
-        iny <- "/ace/user/cdanek/post/echam5/select/wisoaprt_d/cosmos-aso-wiso_echam5_holocene_wiso_mm_select_wisoaprt_d_sellevel_2_global_Jan-Dec_0004-6173.nc"
+        inx <- "/ace/user/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_temp2_global_Jan-Dec_0004-6173.nc"
+        #inx <- "/ace/user/cdanek/post/echam5/select/ptemp/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_ptemp_global_Jan-Dec_0004-6173.nc"
+        iny <- "/ace/user/cdanek/post/echam5/select/wisoaprt_d/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_wisoaprt_d_sellevel_2_global_Jan-Dec_0004-6173.nc"
         # or inx and iny are lists of length 1 containing numeric data matrices
         varx <- "temp2"
+        #varx <- "ptemp"
         vary <- "wisoaprt_d"
         xunit <- "degC"
         yunit <- "o/oo"
         # dimension indices of data that should be regressed:
         lm_dimids <- list(x=c(1, 2), y=c(1, 2, 3)) # counting from left to right from ncdump -h output; starting from zero 
         loop_along_dimids <- c(x=0, y=0) # counting from left to right from ncdump -h output; starting from zero
+        #loop_along_dimids <- c(x=2, y=0) # counting from left to right from ncdump -h output; starting from zero
         loop_along_dimname <- "time"
-        fout <- "/ace/user/cdanek/post/echam5/select/temp2_vs_wisoaprt_d/cosmos-aso-wiso_echam5_holocene_lm_wisoaprt_d_sellevel_2_by_temp2_global_Jan-Dec_0004-6173.nc" 
+        fout <- "/ace/user/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_temp2/cosmos-aso-wiso_echam5_Hol-T_select_lm_wisoaprt_d_sellevel_2_as_temp2_global_Jan-Dec_0004-6173.nc" 
+        #fout <- "/ace/user/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_ptemp/cosmos-aso-wiso_echam5_Hol-T_select_lm_wisoaprt_d_sellevel_2_as_ptemp_global_Jan-Dec_0004-6173.nc" 
     } # testing
 
     ####################################################
@@ -217,12 +221,18 @@
     } else {
         loop_along_dim <- ncdim_def(name=loop_along_dimname, units="", vals=loop_along_dimvals[1:2])
     }
-    intercept_var <- ncvar_def("intercept", units=yunit, dim=loop_along_dim, missval=NA, prec="double")
-    intercept_error_var <- ncvar_def("intercept_error", units=yunit, dim=loop_along_dim, missval=NA, prec="double")
-    intercept_pval_var <- ncvar_def("intercept_pval", units="", dim=loop_along_dim, missval=NA, prec="double")
-    slope_var <- ncvar_def("slope", units=paste0(yunit, " (", xunit, ")-1"), dim=loop_along_dim, missval=NA, prec="double")
-    slope_error_var <- ncvar_def("slope_error", units=paste0(yunit, " (", xunit, ")-1"), dim=loop_along_dim, missval=NA, prec="double")
-    slope_pval_var <- ncvar_def("slop_pval", units="", dim=loop_along_dim, missval=NA, prec="double")
+    intercept_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_intercept"), 
+                               units=yunit, dim=loop_along_dim, missval=NA, prec="double")
+    intercept_error_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_intercept_error"), 
+                                     units=yunit, dim=loop_along_dim, missval=NA, prec="double")
+    intercept_pval_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_intercept_pval"),
+                                    units="", dim=loop_along_dim, missval=NA, prec="double")
+    slope_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_slope"), 
+                           units=paste0(yunit, " (", xunit, ")-1"), dim=loop_along_dim, missval=NA, prec="double")
+    slope_error_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_slope_error"),
+                                 units=paste0(yunit, " (", xunit, ")-1"), dim=loop_along_dim, missval=NA, prec="double")
+    slope_pval_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_slope_pval"), 
+                                units="", dim=loop_along_dim, missval=NA, prec="double")
     message("\ncreate ", fout)
     outnc <- nc_create(filename=fout,
                        vars=list(intercept_var, intercept_error_var, intercept_pval_var,

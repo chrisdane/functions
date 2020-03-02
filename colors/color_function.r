@@ -177,6 +177,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
                 library(RColorBrewer)
                 rgb <- t(col2rgb(brewer.pal(n=min(n, 11), name=names[i]))) # 11 is maximum n of the package
+                #print(str(rgb))
+                rgb <- rgb[dim(rgb)[1]:1,] # flip
 
             }
 
