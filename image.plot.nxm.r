@@ -440,7 +440,13 @@ image.plot.nxm <- function(x, y, z, n, m, ip,
                     if (i == 1) message("cannot use useRaster=T since:")
                     print(err)
                 }
-                useRaster <- F
+                interpolate_to_regular <- F
+                if (interpolate_to_regular) {
+                    message("`interpolate_to_regular`T ...")
+                    # todo
+                } else {
+                    useRaster <- F
+                }
             }
             #print(paste0("useRaster=", useRaster))
             

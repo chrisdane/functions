@@ -5,22 +5,34 @@
 #lm_func <- function(inx, iny, varx, vary, xunit, yunit, lm_dimids, ) {
     
     if (T) {
-        inx <- "/ace/user/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_temp2_global_Jan-Dec_0004-6173.nc"
-        #inx <- "/ace/user/cdanek/post/echam5/select/ptemp/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_ptemp_global_Jan-Dec_0004-6173.nc"
-        iny <- "/ace/user/cdanek/post/echam5/select/wisoaprt_d/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_wisoaprt_d_sellevel_2_global_Jan-Dec_0004-6173.nc"
+        if (T) { # Hol-Tx10:
+            #inx <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_temp2_global_Jan-Dec_0001-7001.nc"
+            inx <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/ptemp/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_ptemp_global_Jan-Dec_0001-7001.nc"
+            iny <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/wisoaprt_d/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_wisoaprt_d_sellevel_2_global_Jan-Dec_0001-7001.nc"
+            #varout <- "lm_wisoaprt_d_sellevel_2_as_temp2"
+            #fout <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_temp2/cosmos-aso-wiso_echam5_Hol-Tx10_select_lm_wisoaprt_d_sellevel_2_as_temp2_global_Jan-Dec_0001-7001.nc"
+            varout <- "lm_wisoaprt_d_sellevel_2_as_ptemp"
+            fout <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_ptemp/cosmos-aso-wiso_echam5_Hol-Tx10_select_lm_wisoaprt_d_sellevel_2_as_ptemp_global_Jan-Dec_0001-7001.nc"
+        } else if (F) { # Hol-T:
+            inx <- "/ace/user/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_temp2_global_Jan-Dec_0004-6173.nc"
+            #inx <- "/ace/user/cdanek/post/echam5/select/ptemp/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_ptemp_global_Jan-Dec_0004-6173.nc"
+            iny <- "/ace/user/cdanek/post/echam5/select/wisoaprt_d/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_wisoaprt_d_sellevel_2_global_Jan-Dec_0004-6173.nc"
+            varout <- "lm_wisoaprt_d_sellevel_2_as_temp2"
+            fout <- "/ace/user/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_temp2/cosmos-aso-wiso_echam5_Hol-T_select_lm_wisoaprt_d_sellevel_2_as_temp2_global_Jan-Dec_0004-6173.nc" 
+            #varout <- "lm_wisoaprt_d_sellevel_2_as_ptemp"
+            #fout <- "/ace/user/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_ptemp/cosmos-aso-wiso_echam5_Hol-T_select_lm_wisoaprt_d_sellevel_2_as_ptemp_global_Jan-Dec_0004-6173.nc" 
+        }
         # or inx and iny are lists of length 1 containing numeric data matrices
-        varx <- "temp2"
-        #varx <- "ptemp"
+        #varx <- "temp2"
+        varx <- "ptemp"
         vary <- "wisoaprt_d"
         xunit <- "degC"
         yunit <- "o/oo"
         # dimension indices of data that should be regressed:
         lm_dimids <- list(x=c(1, 2), y=c(1, 2, 3)) # counting from left to right from ncdump -h output; starting from zero 
-        loop_along_dimids <- c(x=0, y=0) # counting from left to right from ncdump -h output; starting from zero
-        #loop_along_dimids <- c(x=2, y=0) # counting from left to right from ncdump -h output; starting from zero
+        #loop_along_dimids <- c(x=0, y=0) # counting from left to right from ncdump -h output; starting from zero
+        loop_along_dimids <- c(x=2, y=0) # counting from left to right from ncdump -h output; starting from zero
         loop_along_dimname <- "time"
-        fout <- "/ace/user/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_temp2/cosmos-aso-wiso_echam5_Hol-T_select_lm_wisoaprt_d_sellevel_2_as_temp2_global_Jan-Dec_0004-6173.nc" 
-        #fout <- "/ace/user/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_ptemp/cosmos-aso-wiso_echam5_Hol-T_select_lm_wisoaprt_d_sellevel_2_as_ptemp_global_Jan-Dec_0004-6173.nc" 
     } # testing
 
     ####################################################
@@ -68,6 +80,7 @@
     # check x,y dims
     if (class(inx) == "ncdf4") {
         xdimids <- inx$var[[varx]]$dimids # nc dim order
+        if (length(xdimids) == 0) stop("sth wrong here")
         xdims <- rep(NA, t=length(xdimids))
         names(xdims) <- xdimids
         for (di in 1:length(xdims)) {
@@ -75,12 +88,14 @@
         }
     } else if (is.list(inx)) {
         xdims <- dim(inx$varx)
+        #xdimids
     }
     message("xdims = ", paste(xdims, collapse=", "), 
             " (xdimids = ", paste(xdimids, collapse=", "), ")")
 
     if (class(iny) == "ncdf4") {
         ydimids <- iny$var[[vary]]$dimids # nc dim order
+        if (length(ydimids) == 0) stop("sth wrong here")
         ydims <- rep(NA, t=length(ydimids))
         names(ydims) <- ydimids
         for (di in 1:length(ydims)) {
@@ -159,7 +174,7 @@
         
         # read xdata
         startx <- as.numeric(gsub("i", i, startx_template))
-        message("   read var: \"", varx, "\" from start=", paste(startx, collapse=","), 
+        message("   read x var: \"", varx, "\" from start=", paste(startx, collapse=","), 
                 " (count=", paste(countx, collapse=","), ")")
         if (class(inx) == "ncdf4") {
             xdata <- ncvar_get(inx, varx, start=startx, count=countx, collapse_degen=F)
@@ -173,7 +188,7 @@
 
         # read ydata
         starty <- as.numeric(gsub("i", i, starty_template))
-        message("   read var: \"", vary, "\" from start=", paste(starty, collapse=","), 
+        message("   read y var: \"", vary, "\" from start=", paste(starty, collapse=","), 
                 " (count=", paste(county, collapse=","), ")")
         if (class(iny) == "ncdf4") {
             ydata <- ncvar_get(iny, vary, start=starty, count=county, collapse_degen=F)
@@ -221,17 +236,17 @@
     } else {
         loop_along_dim <- ncdim_def(name=loop_along_dimname, units="", vals=loop_along_dimvals[1:2])
     }
-    intercept_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_intercept"), 
+    intercept_var <- ncvar_def(paste0(varout, "_intercept"), 
                                units=yunit, dim=loop_along_dim, missval=NA, prec="double")
-    intercept_error_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_intercept_error"), 
+    intercept_error_var <- ncvar_def(paste0(varout, "_intercept_error"), 
                                      units=yunit, dim=loop_along_dim, missval=NA, prec="double")
-    intercept_pval_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_intercept_pval"),
+    intercept_pval_var <- ncvar_def(paste0(varout, "_intercept_pval"),
                                     units="", dim=loop_along_dim, missval=NA, prec="double")
-    slope_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_slope"), 
+    slope_var <- ncvar_def(paste0(varout, "_slope"), 
                            units=paste0(yunit, " (", xunit, ")-1"), dim=loop_along_dim, missval=NA, prec="double")
-    slope_error_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_slope_error"),
+    slope_error_var <- ncvar_def(paste0(varout, "_slope_error"),
                                  units=paste0(yunit, " (", xunit, ")-1"), dim=loop_along_dim, missval=NA, prec="double")
-    slope_pval_var <- ncvar_def(paste0("lm_", vary, "_as_", varx, "_slope_pval"), 
+    slope_pval_var <- ncvar_def(paste0(varout, "_slope_pval"), 
                                 units="", dim=loop_along_dim, missval=NA, prec="double")
     message("\ncreate ", fout)
     outnc <- nc_create(filename=fout,
