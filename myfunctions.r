@@ -162,7 +162,11 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
 
 # Get the proportion variation explained. See this website for more details: http://goo.gl/jte8X
 # http://www.gettinggeneticsdone.com/2011/08/sync-your-rprofile-across-multiple-r.html
-rsq <- function(predicted, actual) 1-sum((actual-predicted)^2)/sum((actual-mean(actual))^2)
+rsq <- function(predicted, actual) {
+
+    # "fraction of variance explained by the model"
+    1-sum((actual-predicted)^2)/sum((actual-mean(actual))^2)
+}
 
 # color2rgb
 col2rgba <- function(x, alpha) {

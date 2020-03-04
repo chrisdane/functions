@@ -5,7 +5,7 @@
 #lm_func <- function(inx, iny, varx, vary, xunit, yunit, lm_dimids, ) {
     
     if (T) {
-        if (T) { # Hol-Tx10:
+        if (F) { # Hol-Tx10:
             #inx <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_temp2_global_Jan-Dec_0001-7001.nc"
             inx <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/ptemp/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_ptemp_global_Jan-Dec_0001-7001.nc"
             iny <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/wisoaprt_d/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_wisoaprt_d_sellevel_2_global_Jan-Dec_0001-7001.nc"
@@ -13,19 +13,29 @@
             #fout <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_temp2/cosmos-aso-wiso_echam5_Hol-Tx10_select_lm_wisoaprt_d_sellevel_2_as_temp2_global_Jan-Dec_0001-7001.nc"
             varout <- "lm_wisoaprt_d_sellevel_2_as_ptemp"
             fout <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_ptemp/cosmos-aso-wiso_echam5_Hol-Tx10_select_lm_wisoaprt_d_sellevel_2_as_ptemp_global_Jan-Dec_0001-7001.nc"
-        } else if (F) { # Hol-T:
-            inx <- "/ace/user/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_temp2_global_Jan-Dec_0004-6173.nc"
-            #inx <- "/ace/user/cdanek/post/echam5/select/ptemp/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_ptemp_global_Jan-Dec_0004-6173.nc"
-            iny <- "/ace/user/cdanek/post/echam5/select/wisoaprt_d/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_wisoaprt_d_sellevel_2_global_Jan-Dec_0004-6173.nc"
-            varout <- "lm_wisoaprt_d_sellevel_2_as_temp2"
-            fout <- "/ace/user/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_temp2/cosmos-aso-wiso_echam5_Hol-T_select_lm_wisoaprt_d_sellevel_2_as_temp2_global_Jan-Dec_0004-6173.nc" 
-            #varout <- "lm_wisoaprt_d_sellevel_2_as_ptemp"
-            #fout <- "/ace/user/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_ptemp/cosmos-aso-wiso_echam5_Hol-T_select_lm_wisoaprt_d_sellevel_2_as_ptemp_global_Jan-Dec_0004-6173.nc" 
+        } else if (T) { # Hol-T:
+            if (F) { # temp2
+                varx <- "temp2"
+                inx <- "/ace/user/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_temp2_global_Jan-Dec_0004-6821.nc"
+                varout <- "lm_wisoaprt_d_sellevel_2_as_temp2"
+            } else if (F) {
+                varx <- "ptemp"
+                inx <- "/ace/user/cdanek/post/echam5/select/ptemp/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_ptemp_global_Jan-Dec_0004-6821.nc"
+                varout <- "lm_wisoaprt_d_sellevel_2_as_ptemp"
+            } else if (F) {
+                varx <- "tsurf"
+                inx <- "/ace/user/cdanek/post/echam5/select/tsurf/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_tsurf_global_Jan-Dec_0004-6821.nc"
+                varout <- "lm_wisoaprt_d_sellevel_2_as_tsurf"
+            } else if (T) {
+                varx <- "ptsurf"
+                inx <- "/ace/user/cdanek/post/echam5/select/ptsurf/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_ptsurf_global_Jan-Dec_0004-6821.nc"
+                varout <- "lm_wisoaprt_d_sellevel_2_as_ptsurf"
+            }
+            iny <- "/ace/user/cdanek/post/echam5/select/wisoaprt_d/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_wisoaprt_d_sellevel_2_global_Jan-Dec_0004-6821.nc"
+            vary <- "wisoaprt_d"
+            fout <- paste0("/ace/user/cdanek/post/echam5/select/", varout, "/cosmos-aso-wiso_echam5_Hol-T_select_", varout, "_global_Jan-Dec_0004-6821.nc")
         }
         # or inx and iny are lists of length 1 containing numeric data matrices
-        #varx <- "temp2"
-        varx <- "ptemp"
-        vary <- "wisoaprt_d"
         xunit <- "degC"
         yunit <- "o/oo"
         # dimension indices of data that should be regressed:
@@ -168,6 +178,7 @@
     message("calc lm along dims of common length ", n, " ...")
     intercepts <- intercept_errors <- intercept_pvals <- rep(NA, t=n)
     slopes <- slope_errors <- slope_pvals <- rep(NA, t=n)
+    rsqs <- rsq_adjs <- rep(NA, t=n)
     for (i in 1:n) {
 
         message(i, "/", n)
@@ -227,6 +238,8 @@
         slopes[i] <- lm_summary$coefficients[2,1]
         slope_errors[i] <- lm_summary$coefficients[2,2]
         slope_pvals[i] <- lm_summary$coefficients[2,4]
+        rsqs[i] <- lm_summary$r.squared
+        rsq_adjs[i] <- lm_summary$adj.r.squared
 
     } # for i n
 
@@ -248,10 +261,15 @@
                                  units=paste0(yunit, " (", xunit, ")-1"), dim=loop_along_dim, missval=NA, prec="double")
     slope_pval_var <- ncvar_def(paste0(varout, "_slope_pval"), 
                                 units="", dim=loop_along_dim, missval=NA, prec="double")
+    rsq_var <- ncvar_def(paste0(varout, "_rsq"), 
+                         units="", dim=loop_along_dim, missval=NA, prec="double")
+    rsq_adj_var <- ncvar_def(paste0(varout, "_rsq_adj"), 
+                             units="", dim=loop_along_dim, missval=NA, prec="double")
     message("\ncreate ", fout)
     outnc <- nc_create(filename=fout,
                        vars=list(intercept_var, intercept_error_var, intercept_pval_var,
-                                 slope_var, slope_error_var, slope_pval_var),
+                                 slope_var, slope_error_var, slope_pval_var,
+                                 rsq_var, rsq_adj_var),
                        force_v4=T)
     ncvar_put(outnc, intercept_var, intercepts)
     ncvar_put(outnc, intercept_error_var, intercept_errors)
@@ -259,6 +277,8 @@
     ncvar_put(outnc, slope_var, slopes)
     ncvar_put(outnc, slope_error_var, slope_errors)
     ncvar_put(outnc, slope_pval_var, slope_pvals)
+    ncvar_put(outnc, rsq_var, rsqs)
+    ncvar_put(outnc, rsq_adj_var, rsq_adjs)
     nc_close(outnc)
 
     message("\nfinished\n")
