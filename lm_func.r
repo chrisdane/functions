@@ -5,15 +5,28 @@
 #lm_func <- function(inx, iny, varx, vary, xunit, yunit, lm_dimids, ) {
     
     if (T) {
-        if (F) { # Hol-Tx10:
-            #inx <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_temp2_global_Jan-Dec_0001-7001.nc"
-            inx <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/ptemp/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_ptemp_global_Jan-Dec_0001-7001.nc"
+        if (T) { # Hol-Tx10:
+            if (F) { # temp2
+                varx <- "temp2"
+                inx <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_temp2_global_Jan-Dec_0001-7001.nc"
+                varout <- "lm_wisoaprt_d_sellevel_2_as_temp2"
+            } else if (F) {
+                varx <- "ptemp"
+                inx <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/ptemp/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_ptemp_global_Jan-Dec_0001-7001.nc"
+                varout <- "lm_wisoaprt_d_sellevel_2_as_ptemp"
+            } else if (T) {
+                varx <- "tsurf"
+                inx <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/tsurf/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_tsurf_global_Jan-Dec_0001-7001.nc"
+                varout <- "lm_wisoaprt_d_sellevel_2_as_tsurf"
+            } else if (F) {
+                varx <- "ptsurf"
+                inx <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/ptsurf/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_ptsurf_global_Jan-Dec_0001-7001.nc"
+                varout <- "lm_wisoaprt_d_sellevel_2_as_ptsurf"
+            }
             iny <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/wisoaprt_d/cosmos-aso-wiso_echam5_Hol-Tx10_wiso_mm_select_wisoaprt_d_sellevel_2_global_Jan-Dec_0001-7001.nc"
-            #varout <- "lm_wisoaprt_d_sellevel_2_as_temp2"
-            #fout <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_temp2/cosmos-aso-wiso_echam5_Hol-Tx10_select_lm_wisoaprt_d_sellevel_2_as_temp2_global_Jan-Dec_0001-7001.nc"
-            varout <- "lm_wisoaprt_d_sellevel_2_as_ptemp"
-            fout <- "/isibhv/projects/paleo_work/cdanek/post/echam5/select/lm_wisoaprt_d_sellevel_2_as_ptemp/cosmos-aso-wiso_echam5_Hol-Tx10_select_lm_wisoaprt_d_sellevel_2_as_ptemp_global_Jan-Dec_0001-7001.nc"
-        } else if (T) { # Hol-T:
+            vary <- "wisoaprt_d"
+            fout <- paste0("/isibhv/projects/paleo_work/cdanek/post/echam5/select/", varout, "/cosmos-aso-wiso_echam5_Hol-Tx10_select_", varout, "_global_Jan-Dec_0001-7001.nc")
+        } else if (F) { # Hol-T:
             if (F) { # temp2
                 varx <- "temp2"
                 inx <- "/ace/user/cdanek/post/echam5/select/temp2/cosmos-aso-wiso_echam5_Hol-T_wiso_mm_select_temp2_global_Jan-Dec_0004-6821.nc"
@@ -40,8 +53,8 @@
         yunit <- "o/oo"
         # dimension indices of data that should be regressed:
         lm_dimids <- list(x=c(1, 2), y=c(1, 2, 3)) # counting from left to right from ncdump -h output; starting from zero 
-        #loop_along_dimids <- c(x=0, y=0) # counting from left to right from ncdump -h output; starting from zero
-        loop_along_dimids <- c(x=2, y=0) # counting from left to right from ncdump -h output; starting from zero
+        loop_along_dimids <- c(x=0, y=0) # counting from left to right from ncdump -h output; starting from zero
+        #loop_along_dimids <- c(x=2, y=0) # counting from left to right from ncdump -h output; starting from zero
         loop_along_dimname <- "time"
     } # testing
 
