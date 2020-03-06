@@ -199,7 +199,8 @@ speeds <- function(x=1, unit="cm/s") {
 # set my default plot options
 setDefaultPlotOptions <- function(plist=list(plot_type="png", bg_col="white", NA_col="gray65", 
                                              contour_labcex=1,
-                                             ts_width=2666, ts_height=1600, ts_width_m=1600, ts_height_m=1600,
+                                             ts_width=2666, ts_height=1600, 
+                                             ts_width_m=2000, ts_height_m=1600,
                                              depth_width=2666, depth_weight=1600,
                                              map_width=2666, map_height=2000,
                                              scatter_width=2666, scatter_height=2666,
