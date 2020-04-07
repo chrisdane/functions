@@ -22,6 +22,16 @@ tryCatch.W.E <- function(expr) {
 
 } # tryCatch.W.E
  
+deg2dec <- function(deg=0.0, min=0.0, sec=0.0) {
+    if (length(deg) == 1 && length(min) == 1 && length(sec) == 1) {
+        message("deg2dec(): dec = deg + min/60 + sec/3600 = ", deg, " + ", min, "/60 + ", sec, "/3600")
+    } else {
+        message("deg2dec(): dec = deg + min/60 + sec/3600")
+    }
+    dec <- deg + min/60 + sec/3600
+    return(dec)
+} # deg2dec
+
 reorder_legend <- function(le) {
     # check input
     if (le$ncol < 1) {
