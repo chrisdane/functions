@@ -22,6 +22,7 @@ tryCatch.W.E <- function(expr) {
 
 } # tryCatch.W.E
  
+# minute/second degree to decimal degree longitude/latitude
 deg2dec <- function(deg=0.0, min=0.0, sec=0.0) {
     if (length(deg) == 1 && length(min) == 1 && length(sec) == 1) {
         message("deg2dec(): dec = deg + min/60 + sec/3600 = ", deg, " + ", min, "/60 + ", sec, "/3600")
@@ -31,6 +32,11 @@ deg2dec <- function(deg=0.0, min=0.0, sec=0.0) {
     dec <- deg + min/60 + sec/3600
     return(dec)
 } # deg2dec
+
+# leap years
+is.leap <- function(years) {
+    return(((years %% 4 == 0) & (years %% 100 != 0)) | (years %% 400 == 0))
+}
 
 reorder_legend <- function(le) {
     # check input
