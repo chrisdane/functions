@@ -99,7 +99,7 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
     years_lt_zero <- which(years < 0) # case 3
         
     # case 1
-    if (length(years_ge_zero_lt_10000) > 0) { # as.POSIXlt("9999-01-01") -> ok
+    if (length(years_ge_zero_lt_10000) > 0) { # as.POSIXlt("0-1-1") to as.POSIXlt("9999-12-31") -> ok
         lt_ge_zero_lt_10000 <- as.POSIXlt(paste0(years[years_ge_zero_lt_10000], "-06-30"), tz="UTC") 
         if (verbose > 0) {
             message("lt_ge_zero_lt_10000:")
@@ -108,7 +108,7 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
     } # case 1
 
     # case 2
-    if (length(years_ge_zero_ge_10000) > 0) { # as.POSIXlt("10000-01-01") -> error "not in a standard unambiguous format"
+    if (length(years_ge_zero_ge_10000) > 0) { # as.POSIXlt("10000-1-1") and above -> error "not in a standard unambiguous format"
         lt_ge_zero_ge_10000 <- as.POSIXlt(paste0("1337-06-30"), tz="UTC") # placeholder for saving results
         for (yeari in seq_along(years_ge_zero_ge_10000)) {
             by <- paste0(years[years_ge_zero_ge_10000][yeari], " years")
@@ -124,7 +124,7 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
     } # case 2
 
     # case 3
-    if (length(years_lt_zero) > 0) { # as.POSIXlt("-0001-01-01") --> negative year gives error "not in a standard unambiguous format" 
+    if (length(years_lt_zero) > 0) { # below or equal as.POSIXlt("-1-1-1") --> negative year gives error "not in a standard unambiguous format" 
         lt_lt_zero <- as.POSIXlt(paste0("1337-06-30"), tz="UTC") # placeholder for saving results
         for (yeari in seq_along(years[years_lt_zero])) {
             by <- paste0(years[years_lt_zero][yeari], " years")
@@ -141,7 +141,7 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
     } # if any negative years since origin_in
 
     # combine all cases
-    posixlt <- as.POSIXlt(seq.POSIXt(as.POSIXlt("0-1-1", tz="UTC"), b="1 day", l=length(years)))
+    posixlt <- as.POSIXlt(seq.POSIXt(as.POSIXlt("0-1-1", tz="UTC"), b="1 day", l=length(years))) # placeholder
     if (length(years_ge_zero_lt_10000) > 0) {
         posixlt[years_ge_zero_lt_10000] <- lt_ge_zero_lt_10000
     }
