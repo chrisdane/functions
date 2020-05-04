@@ -72,6 +72,7 @@ image.plot.nxm <- function(x, y, z, n, m,
 
     # figure out nrow and ncol aready here that dry run is faster
     if (missing(n) && missing(m)) { # default
+        # just learned: grDevices::n2mfrow(nplots) is doing the trick
         if (length(z) == 1) {
             n <- 1 # 1 row
             m <- 1 # 1 col
