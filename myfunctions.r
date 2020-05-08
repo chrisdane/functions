@@ -188,9 +188,22 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
 # Get the proportion variation explained. See this website for more details: http://goo.gl/jte8X
 # http://www.gettinggeneticsdone.com/2011/08/sync-your-rprofile-across-multiple-r.html
 rsq <- function(predicted, actual) {
-
     # "fraction of variance explained by the model"
     1-sum((actual-predicted)^2)/sum((actual-mean(actual))^2)
+}
+
+grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
+    # in GRL, 1 paper consists of 12 "publication units" (PU) max.
+    pu_max <- 12
+    # 1 PU = 500 words = 1 fig = 1 tab
+    nwords_per_pu <- 500; nfigs_per_pu <- ntabs_per_pu <- 1
+    # -> there is a maximum number of words per paper as a function of the number of figures and tables
+    if (missing(ntabs)) ntabs <- rep(0, t=length(nfigs))
+    if (length(ntabs) != length(nfigs)) stop("nfigs and ntabs are of different length")
+    nwords <- pu_max*nwords_per_pu - (nfigs + ntabs)*nwords_per_pu
+    df <- data.frame(nfig=nfigs, ntab=ntabs, nwords=nwords)
+    print(df, row.names=F)
+    return(df)
 }
 
 # color2rgb
