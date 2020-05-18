@@ -1,6 +1,6 @@
-## R
+## r
 
-color_function <- function(palname="demo", n=64, alpha=1, 
+color_function <- function(palname="demo", n=64, alpha=1, rev=F,
                            rgb_path, rgb_mat=NULL) {
     
     ## rgb: 3 column matrix (R, G, B)
@@ -245,6 +245,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
         } else {
             cols <- rgb(temp, maxColorValue=maxColorValue, alpha=alpha)
         }
+
+        if (rev) cols <- rev(cols)
 
         cols_list[[i]] <- cols
 

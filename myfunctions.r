@@ -22,6 +22,21 @@ tryCatch.W.E <- function(expr) {
 
 } # tryCatch.W.E
  
+# check if all elements of a list are identical
+# https://stackoverflow.com/questions/4752275/test-for-equality-among-all-elements-of-a-single-vector
+identical_list <- function(x) {
+    if (length(x) == 1) {
+        return(T)
+    } else if (length(x) == 0) {
+        return(F)
+    } else {
+        check <- vapply(1:(length(x)-1),
+                    function(n) identical(x[[n]], x[[n+1]]),
+                    logical(1))
+        if (all(check)) T else F
+    }
+}
+
 # minute/second degree to decimal degree longitude/latitude
 deg2dec <- function(deg=0.0, min=0.0, sec=0.0) {
     if (length(deg) == 1 && length(min) == 1 && length(sec) == 1) {
