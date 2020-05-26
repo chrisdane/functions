@@ -1,9 +1,9 @@
 ## R
 
 color_function <- function(palname="demo", n=64, alpha=1, 
-                           rgb_path, rgb_mat=NULL) {
+                           rgb_path, rgb_mat=NULL, verbose=F) {
     
-    ## rgb: 3 column matrix (R, G, B)
+    # rgb: 3 column matrix (R, G, B)
     if (F) {
         message("getwd(): ", getwd())
         cat("current frame is", sys.nframe(), "\n")
@@ -16,31 +16,27 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
     if (missing(rgb_path)) {
         rgb_path <- getSrcDirectory(sys.function(sys.nframe()))
+    } else {
+        rgb_path <- normalizePath(rgb_path)
     }
-    rgb_path <- paste0(rgb_path, "/")
     if (F) message("rgb_path: ", rgb_path)
 
-    ## R built-in colormaps
+    # R built-in colormaps
     rs <- c("heat", "rainbow", "topo", "cm", "terrain")
 
-    ## matlabs
+    # matlabs
     matlabs <- c("jet")#, "parula")
 
-    ## python
+    # python
     pythons <- c("viridis", "magma", "plasma", "inferno") # needs package viridis
 
-    ## ncview 
-    ## https://www.myroms.org/forum/viewtopic.php?t=1930
-    ncviews <- c("ncview_blue_red", "ncview_jaisnb", "ncview_jaison", 
-                 "ncview_rainbow",  "ncview_banded",  "ncview_bright",   
-                 "ncview_jaisnc", "ncview_jet", "ncview_roullet", 
-                 "ncview_blu_red", "ncview_jaisn2", "ncview_jaisnd", 
-                 "ncview_manga", "ncview_wheel")
+    # ncview (they are defined in the .h files in the source code of ncview) 
+    ncviews <- tools::file_path_sans_ext(list.files(rgb_path, pattern=glob2rx("colormaps*.h"), full.names=F))
 
-    ## grads 
+    # grads 
     grads <- "grads_anomaly"
 
-    ## colorbrewer
+    # colorbrewer
     colorbrewers_seq <- c("Blues", "BuGn", "BuPu", "GnBu", "Greens", "Greys", 
                           "Oranges", "OrRd", "PuBu", "PuBuGn", "PuRd", "Purples", 
                           "RdPu", "Reds", "YlGn", "YlGnBu", "YlOrBr", "YlOrRd")
@@ -50,7 +46,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
                            "Set1", "Set2", "Set3")
     colorbrewers <- c(colorbrewers_seq, colorbrewers_div, colorbrewers_qual)
 
-    ## add further names here for demo:
+    # add further names here for demo:
     all <- c(rs, matlabs, pythons,
              "mpl_gist_ncar", 
              ncviews,
@@ -69,6 +65,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
     if (missing(rgb_mat)) {
 
         rgb_list <- vector("list", l=nnames) # every item in rgb_list needs to be n x 3
+        names(rgb_list) <- names
 
         for (i in 1:nnames) {
 
@@ -138,35 +135,23 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
             } else if (names[i] %in% ncviews) {
                 
-                rgb <- readLines(paste0(rgb_path, names[i], ".h"))
-                # remove possible header (not always there)
-                if (gregexpr("/", rgb[1])[[1]][1] == 1) {
-                    j <- 2
-                    while (gregexpr("/", rgb[j])[[1]][1] == -1) {
-                        j <- j + 1
-                    }
-                    rgb <- rgb[-(1:j)]
-                }
-                # remove empty lines
-                if (any(rgb == "")) {
-                    rgb <- rgb[-which(rgb == "")]
-                }
-                # find beginning of rgb values in 1st line
-                start <- regexpr("\\{", rgb[1])
-                inds <- gregexpr("[0-9]", rgb[1])[[1]]
-                start <- inds[inds > start][1] - 1
-                # reorder 1st line
-                rgb[1] <- substr(rgb[1], start=start, stop=nchar(rgb[1]))
-                # remove symbols at the end
-                rgb[length(rgb)] <- gsub("};", ",", rgb[length(rgb)])
-                # character -> numeric
-                rgb <- sapply(strsplit(rgb, ","), as.numeric)
-                # reorder to 3 column matrix
-                rgb <- t(matrix(unlist(rgb), nrow=3))
+                rgb <- scan(paste0(rgb_path, "/", names[i], ".h"), what="char", quiet=T)
+                #rgb <- scan("colormaps_banded.h", what="char", quiet=T)
+                # common to all .h files from ncview: only take entries between "{" and "}"
+                inds <- c(which(regexpr("\\{", rgb) != -1), which(regexpr("\\}", rgb) != -1))
+                if (length(inds) != 2) stop("error reading ", rgb_path, "/", names[i], ".h")
+                rgb <- rgb[inds[1]:inds[2]]
+                rgb <- gsub("[[:punct:]]", " ", rgb) # replace special characters
+                rgb <- trimws(rgb) # rempve multipe white spaces
+                if (any(rgb == "")) rgb <- rgb[-which(rgb == "")] # remove empty lines
+                rgb <- paste(rgb, collapse=" ") # one long vector with integers separated by one space
+                rgb <- strsplit(rgb, " ")[[1]]
+                if (length(rgb) %% 3 != 0) stop("error reading ", rgb_path, "/", names[i], ".h:", ht(rgb))
+                rgb <- t(matrix(as.integer(rgb), nrow=3))
 
             } else if (names[i] == "mpl_gist_ncar") {
 
-                rgb <- as.matrix(read.table(paste0(rgb_path, "MPL_gist_ncar.rgb"), skip=2))
+                rgb <- as.matrix(read.table(paste0(rgb_path, "/MPL_gist_ncar.rgb"), skip=2))
 
             } else if (names[i] == "grads_anomaly") {
                 neg_col <- c("#0000a3", "#0000cc", "#0000fe", "#0041fe", "#0083fe", "#00bcfe")
@@ -182,11 +167,16 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
             }
 
-            if (class(rgb) == "function") { # built-in function was not overwritten
+            if (length(class(rgb)) == 1 && class(rgb) == "function") { # built-in function was not overwritten
                 stop("palette name '", names[i], "' not known. choose one of\n", 
                      paste0(all, collapse=","))
             }
+
             rgb_list[[i]] <- rgb
+            if (verbose) {
+                message("rgb_list[[", i, "]] \"", names(rgb_list)[i], "\":")
+                cat(capture.output(str(rgb_list[[i]])), sep="\n")
+            }
 
         } # for i names
 
