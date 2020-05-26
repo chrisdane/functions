@@ -1,4 +1,4 @@
-## R
+## r
 
 color_function <- function(palname="demo", n=64, alpha=1, 
                            rgb_path, rgb_mat=NULL, verbose=F) {
@@ -235,6 +235,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
         } else {
             cols <- rgb(temp, maxColorValue=maxColorValue, alpha=alpha)
         }
+
+        if (rev) cols <- rev(cols)
 
         cols_list[[i]] <- cols
 
