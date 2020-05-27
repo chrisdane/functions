@@ -1,12 +1,15 @@
-image.plot.nxm <- function(x, y, z, n, m,
-                           dry=F, image_list=NULL, contour_list=NULL,
+image.plot.nxm <- function(x, y, z, n, m, dry=F, 
                            horizontal=F, top_bottom=F, add_title=T,
                            xlab="xaxis", ylab="yaxis", zlab="Variable [unit]",
                            cex.axis=1.25,
-                           bgcol="white", NAcol="gray", add_land=F,
+                           bgcol="white", NAcol="gray", useRaster=NULL,
+                           add_contour=T, add_land=F, 
+                           contour_only=F, contour_labcex=1,
+                           image_list=NULL, contour_list=NULL, 
+                           quiver_list=NULL, quiver_const=F, quiver_thr=NULL, 
+                           quiver_nx_fac=1, quiver_ny_fac=1, quiver_scale=1,
+                           quiver_col="black", quiver_angle=40, quiver_length=0.07, 
                            type="active", plotname="testplot",
-                           add_contour=T, contour_only=F, contour_labcex=1,
-                           useRaster=NULL,
                            cm_bottom=2, cm_left=2.5, cm_top=1, cm_right=4,
                            colorbar_width_cm=0.45, colorbar_dist_cm=0.2,
                            width_png=2000, height_png=1666, res=300, 
@@ -16,8 +19,6 @@ image.plot.nxm <- function(x, y, z, n, m,
                            family="sans", lwd=0.5, lwd.ticks=0.5, 
                            verbose=F,
                            ...) {
-    ## Description
-    # ip is result of image.plot.pre() 
 
     ## Demo values
     if (missing(x) && missing(y) && missing(z)) {
@@ -42,11 +43,8 @@ image.plot.nxm <- function(x, y, z, n, m,
     if (ndots > 0) {
         if (verbose) {
             for (i in 1:length(dot_list)) {
-                print(paste0("   dots[", i, "]: ", dot_names[i]))
-                ## Note: 
-                # print(str(dot_list[[i]]))
-                # returns the value AND NULL
-                str(dot_list[[i]]) 
+                message("dots[[", i, "]]: ", dot_names[i])
+                cat(capture.output(str(dot_list[[i]])), sep="\n")
             }
         }
     }
@@ -58,12 +56,6 @@ image.plot.nxm <- function(x, y, z, n, m,
     if (!is.list(x)) stop("x must be list")
     if (!is.list(y)) stop("y must be list")
     if (!is.list(z)) stop("z must be list")
-    if (!any(dot_names == "zlim")) {
-        zlim <- range(z, na.rm=T)
-    }
-    if (!any(dot_names == "ip")) {
-        ip <- image.plot.pre(zlim)
-    }
     if (!is.null(useRaster)) { # if useRaster was given
         if (!is.logical(useRaster)) {
             stop("'useRaster' must be either T or F.")
@@ -95,7 +87,7 @@ image.plot.nxm <- function(x, y, z, n, m,
         if (verbose) message("automatically derived (nrow,ncol) = (n,m) = (", n, ",", m, ")") 
     } # if n and m are missing
     if (verbose) {
-        print(paste0("   n x m = ", n, " x ", m, " ..."))
+        message("   n x m = ", n, " x ", m, " ...")
     }
     nplots <- n*m
     if (nplots < length(z)) {
@@ -158,16 +150,16 @@ image.plot.nxm <- function(x, y, z, n, m,
 
     if (verbose) {
         message("x")
-        message(str(x))
+        cat(capture.output(str(x)), sep="\n")
         message("y")
-        message(str(y))
+        cat(capture.output(str(y)), sep="\n")
     }
 
     # derive nplots based on derived number of rows (n) and columns (m)
     if (add_names_inset && add_names_topleft) {
         stop("decide where to put legend: either `add_names_inset` or `add_names_topleft` can be true")
     }
-
+    
     ## start
 
     ## data names if existing
@@ -184,6 +176,13 @@ image.plot.nxm <- function(x, y, z, n, m,
     }
 
     ## levels and colors
+    if (any(dot_names == "ip")) {
+        ip <- dot_list$ip
+    } else {
+        if (!any(dot_names == "zlim")) zlim <- range(z, na.rm=T)
+        message("`ip` argument not provided. try to run `image.plot.pre(zlim)` ...") 
+        ip <- image.plot.pre(zlim)
+    }
     zlim <- ip$zlim
     cols <- ip$cols
     breaks <- ip$levels
@@ -226,9 +225,9 @@ image.plot.nxm <- function(x, y, z, n, m,
     
     if (verbose) {
         cat("x_plot = ")
-        message(str(x_plot))
+        cat(capture.output(str(x_plot)), sep="\n")
         cat("y_plot = ")
-        message(str(y_plot))
+        cat(capture.output(str(y_plot)), sep="\n")
     }
 	if (!any(dot_names == "x_at")) {
         x_at <- pretty(x_plot, n=10)
@@ -337,9 +336,8 @@ image.plot.nxm <- function(x, y, z, n, m,
             family=family)
     }
     
-    if (verbose) {
-        print("open image plot ...")
-    }
+    if (verbose) message("open image plot ...")
+    
     layout(layout_mat2, widths=layout_widths, heights=layout_heights)
     #layout.show(n=max(layout_mat2))
     par(mar=rep(0.5, t=4)) # distance between sub-figures [rows]
@@ -378,6 +376,8 @@ image.plot.nxm <- function(x, y, z, n, m,
 			 xaxs="i", yaxs="i")
        
         # Add data to plot
+        nx <- length(x[[i]]); ny <- length(y[[i]])
+
         if (!contour_only) {
 
             # check useRaster
@@ -391,22 +391,21 @@ image.plot.nxm <- function(x, y, z, n, m,
             } else {
                 if (verbose) {
                     if (i == 1) message("cannot use useRaster=T since:")
-                    print(err)
+                    message(err)
                 }
                 interpolate_to_regular <- F
                 if (interpolate_to_regular) {
-                    message("`interpolate_to_regular`T ...")
+                    message("`interpolate_to_regular`=T ...")
                     # todo
                 } else {
                     useRaster <- F
                 }
             }
-            #print(paste0("useRaster=", useRaster))
             
             # add NA values
             if (!useRaster) { 
                 if (verbose) message("image() 1")
-                image(x[[i]], y[[i]], array(1, c(length(x[[i]]), length(y[[i]]))),
+                image(x[[i]], y[[i]], array(1, c(nx, ny)),
                       add=T, col=NAcol,
                       axes=F, xlab="n", ylab="n",
                       useRaster=useRaster)
@@ -423,7 +422,7 @@ image.plot.nxm <- function(x, y, z, n, m,
             if (add_contour) {
                 tmp <- axis.at
                 if (F && any(tmp == 0)) { # do not show zero contour
-                    if (i == 1) message("add_contour = T --> add data contour without zero .. ....")
+                    if (i == 1) message("add_contour = T --> add data contour without zero ...")
                     tmp <- tmp[-which(tmp == 0)]
                 } else {
                     if (i == 1) message("add_contour = T --> add data contour with zero ...")
@@ -432,45 +431,89 @@ image.plot.nxm <- function(x, y, z, n, m,
                         levels=tmp, lwd=lwd, add=T, labcex=contour_labcex)
             }
             
-            # add special contour list if available
-            if (!is.null(contour_list)) {
-                if (i == 1) message("add contour() of contour_list")
-                contour(x[[i]], y[[i]], contour_list[[i]], 
-                        add=T, lwd=1, levels=0.0001, drawlabels=F)
-            } # if (!is.null(contour_list))
-
-            # add special image list if available
-            if (!is.null(image_list)) {
-                if (i == 1) message("add image() of image_list")
-                if (length(image_list[[i]]$levels) == 1) {
-                    image(x[[i]], y[[i]], image_list[[i]]$data, 
-                          col=image_list[[i]]$cols,  
-                          add=T, useRaster=useRaster)
-                } else {
-                    image(x[[i]], y[[i]], image_list[[i]]$data, 
-                          col=image_list[[i]]$cols, breaks=image_list[[i]]$levels, 
-                          add=T, useRaster=useRaster)
-                }
-            } # if (!is.null(image_list))
-
         } else if (contour_only) {
+
             contour(x[[i]], y[[i]], z[[i]],
                     levels=axis.at, labcex=contour_labcex)
 
-            # add contour list if available
-            if (!is.null(contour_list)) {
-                contour(x[[i]], y[[i]], contour_list[[i]], 
-                        add=T, lwd=lwd, labcex=contour_labcex)
-            } # if (!is.null(contour_list))
-
         } # if contour_only or not
         
+        # add additional data as image if available
+        if (!is.null(image_list)) {
+            if (i == 1) message("\n`contour_list` is not NULL -> add additional data as image() to plot ...")
+            if (length(image_list[[i]]$levels) == 1) { # special case: only 1 level
+                image(x[[i]], y[[i]], image_list[[i]]$data, 
+                      col=image_list[[i]]$cols,  
+                      add=T, useRaster=useRaster)
+            } else {
+                image(x[[i]], y[[i]], image_list[[i]]$data, 
+                      col=image_list[[i]]$cols, breaks=image_list[[i]]$levels, 
+                      add=T, useRaster=useRaster)
+            }
+        } # if (!is.null(image_list))
+
+        # add additional data as contours if available
+        if (!is.null(contour_list)) {
+        if (i == 1) message("\n`contour_list` is not NULL -> add additional data as contours() to plot ...")
+            contour(x[[i]], y[[i]], contour_list[[i]], 
+                    add=T, levels=contour_list[[i]]$levels,
+                    lwd=lwd, labcex=contour_labcex, drawlabels=T)
+        } # if (!is.null(contour_list))
+        
+        # add additional data as quivers if available
+        if (!is.null(quiver_list)) {
+            if (i == 1) {
+                message("\n`quiver_list` is not NULL -> add additional data as quivers via pracma::quiver() to plot ...")
+                message("quiver_list:")
+                cat(capture.output(str(quiver_list)), sep="\n")
+            }
+            if (!any(search() == "package:abind")) library(pracma)
+            xmat <<- array(x[[i]], c(nx, ny))
+            ymat <<- t(array(y[[i]], c(ny, nx)))
+            quiver_inds <- array(F, c(nx, ny))
+            if (verbose) message("`quiver_nx_fac` = ", quiver_nx_fac, ", `quiver_ny_fac` = ", quiver_ny_fac, 
+                                 " --> draw ", quiver_nx_fac*100, " and ", quiver_ny_fac*100, 
+                                 " % of all possible quivers in x- and y-direction ...")
+            quiver_inds_x <- seq(1, nx, l=quiver_nx_fac*nx)
+            quiver_inds_y <- seq(1, ny, l=quiver_ny_fac*ny)
+            quiver_inds[quiver_inds_x,quiver_inds_y] <- T
+            if (!is.null(quiver_thr)) {
+                if (verbose) message("`quiver_thr` = ", quiver_thr, " --> draw quivers >= ", quiver_thr)
+                quiver_thr_inds <- z[[i]] >= quiver_thr
+                if (length(which(quiver_thr_inds)) == 0) {
+                    message("--> zero locations are >= ", quiver_thr, ". continue without threshold ...")
+                    quiver_thr_inds <- array(T, dim=dim(z[[i]]))
+                }
+                quiver_plot_inds <- quiver_inds & quiver_thr_inds
+            } else {
+                if (verbose) message("`quiver_thr` is not set --> do not apply any threshold for quivers")
+                quiver_plot_inds <- quiver_inds
+            }
+            if (quiver_const) {
+                if (verbose) message("`quiver_const` = T --> draw quivers of constant length")
+                # this does not work; arrows are not of equal length:
+                u <<- quiver_list$u[[i]]/sqrt(quiver_list$u[[i]]^2 + quiver_list$v[[i]]^2)
+                v <<- quiver_list$v[[i]]/sqrt(quiver_list$u[[i]]^2 + quiver_list$v[[i]]^2)
+            } else {
+                if (verbose) message("`quiver_const` = F --> length of quivers represents velocity magnitude")
+                u <- quiver_list$u[[i]]
+                v <- quiver_list$v[[i]]
+            }
+            if (verbose) message("`quiver_scale` = ", quiver_scale, " with respect to velocity")
+            pracma::quiver(x=xmat[quiver_plot_inds], y=ymat[quiver_plot_inds],
+                           u=u[quiver_plot_inds], v=v[quiver_plot_inds],
+                           scale=quiver_scale,
+                           length=quiver_length,
+                           angle=quiver_angle,
+                           col=quiver_col)
+        } # if (!is.null(quiver_list))
+        
         # add text to every plot
-        if (verbose) message("check dots for 'addtext_list'")
+        if (verbose) message("check dots for \"addtext_list\"")
         if (any(dot_names == "addtext_list")) {
             for (j in 1:length(addtext_list)) {
                 if (typeof(addtext_list[[j]]) == "character") {
-                    if (verbose) print(paste0("add '", addtext_list[[j]], "' ..."))
+                    if (verbose) message("add \"", addtext_list[[j]], "\" ...")
                     eval(parse(text=addtext_list[[j]]))
                 }
             }
@@ -504,9 +547,9 @@ image.plot.nxm <- function(x, y, z, n, m,
 
         # add land
         if (add_land != F) {
-            if (i == 1) message("map(", add_land, ")")
-            library(maps)
-            map(add_land, interior=F, add=T)
+            if (i == 1) message("maps::map(", add_land, ")")
+            if (!any(search() == "package:maps")) library(maps)
+            maps::map(add_land, interior=F, add=T)
         }
 
         # add name to every plot
@@ -533,7 +576,7 @@ image.plot.nxm <- function(x, y, z, n, m,
                 }
 
                 # draw background of legend label
-                if (F) print(myleg)
+                if (F) message(myleg)
                 rect(xleft=myleg$rect$left, ybottom=myleg$rect$top - myleg$rect$h,
                      xright=myleg$rect$left + myleg$rect$w, ytop=myleg$rect$top, 
                      col=bgcol, lwd=lwd)
@@ -610,9 +653,7 @@ image.plot.nxm <- function(x, y, z, n, m,
                 # load subplot() function
                 if (!any(search() == "package:TeachingDemos")) library(TeachingDemos)
                 
-                if (verbose) {
-                    print("model drift add location subsection ...")
-                }
+                if (verbose) message("model drift add location subsection ...")
                 # for using par(sb) later on
                 #op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
 
@@ -709,7 +750,7 @@ image.plot.nxm <- function(x, y, z, n, m,
                     }
                     if (regexpr("H5", znames[i]) != -1) {
                     #if (!is.na(radon_speeds[i])) { 
-                        #print(paste0("add radon speed = ", radon_speeds[i], " ..."))
+                        #message("add radon speed = ", radon_speeds[i], " ...")
                         # indicate region of readon calculation
                         if (F && exists("radon_box")) {
                             rect(radon_box[[i]][1], radon_box[[i]][3], 
@@ -720,7 +761,7 @@ image.plot.nxm <- function(x, y, z, n, m,
                                  ylim[2])
                         if (T && any(dot_names == "radon_sd_speeds")) {
                             radon_sd_speeds <- dot_list[["radon_sd_speeds"]]
-                            #print(paste0("add radon sd speed = ", radon_sd_speeds[i], " ..."))
+                            #message("add radon sd speed = ", radon_sd_speeds[i], " ...")
                             segments(xlim[2], ylim[1],
                                      xlim[2] - (radon_speeds[i] + radon_sd_speeds[i]) * diff(ylim), ylim[2],
                                      lty=2)
@@ -925,7 +966,7 @@ image.plot.nxm <- function(x, y, z, n, m,
             y <- 1:nlevels
             y_midpoints <- (y[1:(nlevels - 1)] + y[2:nlevels])/2
             if (length(unique(diff(y_midpoints))) != 1) {
-                if (verbose) message("warning: steps in 'y_midpoints' are uneven, use the first one ...")
+                if (verbose) message("warning: steps in 'y_midpoints' are uneven. use the first one ...")
             }
             y_midpoints <- c(y_midpoints[1] - diff(y_midpoints)[1], y_midpoints)
 
@@ -962,22 +1003,24 @@ image.plot.nxm <- function(x, y, z, n, m,
                     cat("    c(x1, x2, y1, y2)\n")
                     cat("pty=")
                     dput(par("pty"))
-                    print("y_midpoints")
-                    print(str(y_midpoints))
-                    print(range(y_midpoints))
-                    print("breaks")
-                    print(str(breaks))
-                    print(range(breaks))
-                    print("axis.at")
+                    message("y_midpoints:")
+                    cat(capture.output(str(y_midpoints)), sep="\n")
+                    cat("range(y_midpoints)=")
+                    dput(range(y_midpoints))
+                    message("breaks:")
+                    cat(capture.output(str(breaks)), sep="\n")
+                    cat("range(breaks)=")
+                    dput(range(breaks))
+                    message("axis.at:")
                     print(axis.at)
-                    print("axis.labels")
-                    print(str(axis.labels))
+                    message("axis.labels:")
+                    cat(capture.output(str(axis.labels)), sep="\n")
                 }
                 temp <- imageplot.setup(add=T)
                 plt <- temp$bigplot
                 if (verbose) {
-                    print("temp")
-                    print(str(temp))
+                    message("temp:")
+                    cat(capture.output(str(temp)), sep="\n")
                 }
             }
 
@@ -991,29 +1034,38 @@ image.plot.nxm <- function(x, y, z, n, m,
             if (verbose) message("par(new=T)")
             par(new=T, pty="m", err=-1)
             ix <- 1:2
-            if (F) { # as in fields::image.plot()
-                iy <- breaks
-            } else if (T) {
-                iy <- axis.at.ind 
+            if (T) { # as in fields::image.plot()
+                message("iy = breaks !!!!!!!!!!!!!!!!!!!!")
+                iy <- breaks # use levels as indices in colorbar
+            } else if (F) {
+                message("iy = axis.at.ind !!!!!!!!!!!!!!!!!!!!")
+                iy <- axis.at.ind # use indices as indices in colorbar
             }
             midpoints <- (iy[1:(length(iy) - 1)] + iy[2:length(iy)])/2
             iz <- matrix(midpoints, nrow=1, ncol=length(midpoints))
             if (verbose) {
-                message("ix")
-                print(str(ix))
-                message("iy")
-                print(str(iy))
-                message("iz")
-                print(str(iz))
+                message("ix:")
+                cat(capture.output(str(ix)), sep="\n")
+                cat("range(ix) = ")
+                dput(range(ix))
+                message("iy:")
+                cat(capture.output(str(iy)), sep="\n")
+                cat("range(iy) = ")
+                dput(range(iy))
+                message("iz:")
+                cat(capture.output(str(iz)), sep="\n")
+                cat("range(iz) = ")
+                dput(range(iz))
             }
 
             # add colorbar
-            if (verbose) message("image()")
+            if (verbose) message("image(breaks=breaks)")
+            #if (verbose) message("image(breaks=1:nlevels)")
             image(ix, iy, iz,
                   #y=y_midpoints,
                   #z=array(breaks, c(1, nlevels)),
-                  #breaks=breaks, 
-                  breaks=1:nlevels,
+                  breaks=breaks, 
+                  #breaks=1:nlevels,
                   col=cols,
                   axes=F, lwd=lwd,
                   #, add=T
@@ -1023,13 +1075,14 @@ image.plot.nxm <- function(x, y, z, n, m,
             axis.args <- c(list(side=ifelse(horizontal, 1, 4),
                                 #, mgp=c(3, 1, 0), 
                                 las=ifelse(horizontal, 0, 2),
-                                #at=axis.at,
-                                at=axis.at.ind, 
+                                at=axis.at,
+                                #at=axis.at.ind, 
                                 labels=axis.labels,
                                 lwd=0, lwd.ticks=lwd.ticks,
                                 cex.axis=1.5),
                            axis.args)
             if (!is.null(axis.args)) {
+                if (verbose) message("do.call(\"axis\", axis.args) ...")
                 do.call("axis", axis.args)
             }
            
@@ -1041,6 +1094,7 @@ image.plot.nxm <- function(x, y, z, n, m,
                                 line=legend.line, cex=legend.cex)
             #mtext(side=4, line=legend.line, text=zlab, cex=cex.axis)
             if (!is.null(legend.args)) {
+                if (verbose) message("do.call(mtext, legend.args) ...")
                 do.call(mtext, legend.args)
             }
 
@@ -1052,9 +1106,7 @@ image.plot.nxm <- function(x, y, z, n, m,
     
     ## Save plot
     if (type != "active") {
-        if (verbose) {
-            print(paste0("image.plot.nxm(): Save ", plotname, " ..."))
-        }
+        if (verbose) message("save ", plotname, " ...")
         dev.off()
     }
 
@@ -1116,13 +1168,13 @@ if (F) {
   # -> other parameters of the image.plot(legend.only=T) call may need to handed to imageplot.setup()
   usr_coords <- grconvertX(ndc_coords$bigplot[1:2], from="ndc", to="user")
   usr_coords[3:4] <- grconvertY(ndc_coords$bigplot[3:4], from="ndc", to="user")
-  message("bigplot")
-  print(usr_coords)
+  message("bigplot:")
+  message(usr_coords)
   rect(usr_coords[1], usr_coords[3], usr_coords[2], usr_coords[4], border="red", xpd=T) 
   usr_coords <- grconvertX(ndc_coords$smallplot[1:2], from="ndc", to="user")
   usr_coords[3:4] <- grconvertY(ndc_coords$smallplot[3:4], from="ndc", to="user")
   rect(usr_coords[1], usr_coords[3], usr_coords[2], usr_coords[4], border="red", xpd=T) 
-  message("smallplot")
-  print(usr_coords)
+  message("smallplot:")
+  message(usr_coords)
   
 } # split.screen!!!

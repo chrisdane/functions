@@ -1,7 +1,7 @@
 ## r
 
 color_function <- function(palname="demo", n=64, alpha=1, 
-                           rgb_path, rgb_mat=NULL, verbose=F) {
+                           rgb_path, rgb_mat=NULL, rev=F, verbose=F) {
     
     # rgb: 3 column matrix (R, G, B)
     if (F) {

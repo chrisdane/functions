@@ -1,9 +1,9 @@
 image.plot.pre <- function(zlim, 
-                           nlevels=11, max_labels=15, zlevels=NULL,
+                           nlevels=NULL, max_labels=NULL, zlevels=NULL,
                            method="pretty",
                            axis.at=NULL, axis.at.ind=NULL, axis.at.small=NULL, 
                            axis.labels=NULL, axis.round=NULL,
-                           axis.zoom=F, axis.addzlims=T, power_min=NULL,
+                           axis.zoom=F, axis.addzlims=F, power_min=NULL,
                            cols=NULL, pos_cols=NULL, neg_cols=NULL,
                            palname=NULL, colors_script,
                            anom_colorbar=NULL, 
@@ -11,10 +11,10 @@ image.plot.pre <- function(zlim,
                            verbose=F) {
 
     ## Check input
-    if (missing(zlim)) {
-        stop("error: 'zlim' is missing")
-    }
+    if (missing(zlim)) stop("error: 'zlim' is missing")
     if (any(is.na(zlim))) stop("zlim must not be NA")
+    if (is.null(nlevels)) nlevels <- 11
+    if (is.null(max_labels)) max_labels <- 15
     if (missing(colors_script)) {
         colors_script <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r")
         if (F) message("colors_script: ", colors_script)
@@ -697,11 +697,11 @@ image.plot.pre <- function(zlim,
                 } else {
                     stop("file colors_script=", colors_script, " does not exist.")
                 }
+                # use even colors here, include 1 additional for zero later
                 cols <- color_function(palname, 
                                        n=ifelse(nlevels %% 2 == 0, 
                                                 nlevels, nlevels - 1),
                                        rgb_path=dirname(colors_script)) 
-                             # use even colors here, include 1 additional for zero later
                 #cat("pal=")
                 #dput(pal)
                 neg_cols <- cols[1:(length(cols)/2)]
@@ -733,8 +733,8 @@ image.plot.pre <- function(zlim,
                     palname <- "grads_anomaly"
                     cols <- color_function(palname, rgb_path=dirname(colors_script))
                 } else if (T) {
-                    palname <- "mpl_gist_ncar"
-                    cols <- rev(color_function(palname, rgb_path=dirname(colors_script)))
+                    palname <- "colormaps_3gauss"
+                    cols <- color_function(palname, rgb_path=dirname(colors_script))
                 }
             } else { # user provided palname
                 cols <- color_function(palname, rgb_path=dirname(colors_script))
