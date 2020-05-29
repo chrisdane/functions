@@ -5,10 +5,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                            bgcol="white", NAcol="gray", useRaster=NULL,
                            add_contour=T, add_land=F, 
                            contour_only=F, contour_labcex=1,
-                           image_list=NULL, contour_list=NULL, 
-                           quiver_list=NULL, quiver_const=F, quiver_thr=NULL, 
-                           quiver_nx_fac=1, quiver_ny_fac=1, quiver_scale=1,
-                           quiver_col="black", quiver_angle=40, quiver_length=0.07, 
+                           image_list=NULL, contour_list=NULL, quiver_list=NULL, 
                            type="active", plotname="testplot",
                            cm_bottom=2, cm_left=2.5, cm_top=1, cm_right=4,
                            colorbar_width_cm=0.45, colorbar_dist_cm=0.2,
@@ -159,13 +156,33 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     if (add_names_inset && add_names_topleft) {
         stop("decide where to put legend: either `add_names_inset` or `add_names_topleft` can be true")
     }
+   
+    # check additional data lists if provided
+    if (!is.null(image_list)) { # todo
+    }
     
-    ## start
+    if (!is.null(contour_list)) { # todo
+    }
 
-    ## data names if existing
+    if (!is.null(quiver_list)) {
+        if (is.null(quiver_list$u)) stop("provided `quiver_list` but `quiver_list$u` is missing")
+        if (is.null(quiver_list$v)) stop("provided `quiver_list` but `quiver_list$v` is missing")
+        if (is.null(quiver_list$const)) quiver_list$const <- rep(F, t=length(quiver_list$u))
+        if (is.null(quiver_list$thr)) quiver_list$thr <- rep(NULL, t=length(quiver_list$u))
+        if (is.null(quiver_list$nx_fac)) quiver_list$nx_fac <- rep(1, t=length(quiver_list$u))
+        if (is.null(quiver_list$ny_fac)) quiver_list$ny_fac <- rep(1, t=length(quiver_list$u))
+        if (is.null(quiver_list$scale)) quiver_list$scale <- rep(1, t=length(quiver_list$u))
+        if (is.null(quiver_list$col)) quiver_list$col <- rep("black", t=length(quiver_list$u))
+        if (is.null(quiver_list$angle)) quiver_list$angle <- rep(40, t=length(quiver_list$u))
+        if (is.null(quiver_list$length)) quiver_list$length <- rep(0.07, t=length(quiver_list$u))
+    }
+
+    ## checks finished
+
+    # data names if existing
     if (any(dot_names == "znames")) {
         znames <- dot_list[["znames"]]
-    } else { # default: a) 1, b) 2, ...
+    } else { # if not provided: default: a) 1, b) 2, ...
         znames <- names(z)
         if (is.null(znames)) {
             znames <- rep("", t=n*m)
@@ -175,7 +192,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         }
     }
 
-    ## levels and colors
+    # levels and colors
     if (any(dot_names == "ip")) {
         ip <- dot_list$ip
     } else {
@@ -191,7 +208,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     axis.at.ind <- ip$axis.at.ind
     axis.labels <- ip$axis.labels
 
-    ## Prepare plot
+    # Prepare plot
     if (!any(dot_names == "xlim")) {
         xlim <- range(x, na.rm=T)
         if (verbose) {
@@ -462,50 +479,52 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         
         # add additional data as quivers if available
         if (!is.null(quiver_list)) {
+            message("\n`quiver_list` is not NULL -> add additional data as quivers via pracma::quiver() to plot ...")
             if (i == 1) {
-                message("\n`quiver_list` is not NULL -> add additional data as quivers via pracma::quiver() to plot ...")
                 message("quiver_list:")
                 cat(capture.output(str(quiver_list)), sep="\n")
             }
             if (!any(search() == "package:abind")) library(pracma)
-            xmat <<- array(x[[i]], c(nx, ny))
-            ymat <<- t(array(y[[i]], c(ny, nx)))
+            xmat <- array(x[[i]], c(nx, ny))
+            ymat <- t(array(y[[i]], c(ny, nx)))
             quiver_inds <- array(F, c(nx, ny))
-            if (verbose) message("`quiver_nx_fac` = ", quiver_nx_fac, ", `quiver_ny_fac` = ", quiver_ny_fac, 
-                                 " --> draw ", quiver_nx_fac*100, " and ", quiver_ny_fac*100, 
+            if (verbose) message("nx_fac = ", quiver_list$nx_fac[i], ", ny_fac = ", 
+                                 quiver_list$ny_fac[i], " --> draw ", quiver_list$nx_fac[i]*100, 
+                                 " and ", quiver_list$ny_fac[i]*100,  
                                  " % of all possible quivers in x- and y-direction ...")
-            quiver_inds_x <- seq(1, nx, l=quiver_nx_fac*nx)
-            quiver_inds_y <- seq(1, ny, l=quiver_ny_fac*ny)
+            quiver_inds_x <- seq(1, nx, l=quiver_list$nx_fac[i]*nx)
+            quiver_inds_y <- seq(1, ny, l=quiver_list$ny_fac[i]*ny)
             quiver_inds[quiver_inds_x,quiver_inds_y] <- T
-            if (!is.null(quiver_thr)) {
-                if (verbose) message("`quiver_thr` = ", quiver_thr, " --> draw quivers >= ", quiver_thr)
-                quiver_thr_inds <- z[[i]] >= quiver_thr
+            if (!is.null(quiver_list$thr[i])) {
+                if (verbose) message("thr = ", quiver_list$thr[i], 
+                                     " --> draw quivers >= ", quiver_list$thr[i])
+                quiver_thr_inds <- z[[i]] >= quiver_list$thr[i]
                 if (length(which(quiver_thr_inds)) == 0) {
-                    message("--> zero locations are >= ", quiver_thr, ". continue without threshold ...")
+                    message("--> zero locations are >= ", quiver_list$thr[i], ". continue without threshold ...")
                     quiver_thr_inds <- array(T, dim=dim(z[[i]]))
                 }
                 quiver_plot_inds <- quiver_inds & quiver_thr_inds
             } else {
-                if (verbose) message("`quiver_thr` is not set --> do not apply any threshold for quivers")
+                if (verbose) message("thr is not set --> do not apply any threshold for quivers")
                 quiver_plot_inds <- quiver_inds
             }
-            if (quiver_const) {
-                if (verbose) message("`quiver_const` = T --> draw quivers of constant length")
+            if (quiver_list$const[i]) {
+                if (verbose) message("const = T --> draw quivers of constant length")
                 # this does not work; arrows are not of equal length:
-                u <<- quiver_list$u[[i]]/sqrt(quiver_list$u[[i]]^2 + quiver_list$v[[i]]^2)
-                v <<- quiver_list$v[[i]]/sqrt(quiver_list$u[[i]]^2 + quiver_list$v[[i]]^2)
+                u <- quiver_list$u[[i]]/sqrt(quiver_list$u[[i]]^2 + quiver_list$v[[i]]^2)
+                v <- quiver_list$v[[i]]/sqrt(quiver_list$u[[i]]^2 + quiver_list$v[[i]]^2)
             } else {
-                if (verbose) message("`quiver_const` = F --> length of quivers represents velocity magnitude")
+                if (verbose) message("const = F --> length of quivers represents velocity magnitude")
                 u <- quiver_list$u[[i]]
                 v <- quiver_list$v[[i]]
             }
-            if (verbose) message("`quiver_scale` = ", quiver_scale, " with respect to velocity")
+            if (verbose) message("scale = ", quiver_list$scale[i], " with respect to velocity")
             pracma::quiver(x=xmat[quiver_plot_inds], y=ymat[quiver_plot_inds],
                            u=u[quiver_plot_inds], v=v[quiver_plot_inds],
-                           scale=quiver_scale,
-                           length=quiver_length,
-                           angle=quiver_angle,
-                           col=quiver_col)
+                           scale=quiver_list$scale[i],
+                           length=quiver_list$length[i],
+                           angle=quiver_list$angle[i],
+                           col=quiver_list$col[i])
         } # if (!is.null(quiver_list))
         
         # add text to every plot

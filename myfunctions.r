@@ -249,6 +249,51 @@ speeds <- function(x=1, unit="cm/s") {
 
 } # speeds function
 
+# get file format
+cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
+
+    cmd <- paste0(cdo, " showformat ", fin)
+    if (verbose) message("run `", cmd, "`")
+    input_format <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))
+    if (!is.null(input_format$warning)) { # `cdo showformat` yields warn/error
+        # `cdo showformat` on fesom data yields error:
+        # Warning (cdf_read_xcoord): Unsupported array structure, skipped variable tosga!
+        # Warning (cdfInqContents): No data arrays found!
+        # Unsupported file structure
+        message(input_format$warning$message)
+        message("-> try to run `", ncdump, " -k` instead ...")
+        cmd <- paste0(ncdump, " -k ", fin)
+        if (verbose) message("run `", cmd, "`")
+        input_format <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))
+        if (!is.null(input_format$warning)) { # `ncdump -k` yields also warn/error
+            stop(input_format$warning$message)
+        } else {
+            if (verbose) message("--> \"", input_format$value, "\" --> ", appendLF=F)
+        }
+    } else {
+        if (verbose) message("--> \"", input_format$value, "\" --> ", appendLF=F)
+    }
+    if (any(input_format$value == c("GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"))) {
+        if (verbose) message("convert to netcdf ...")
+        convert_to_nc <- T
+        file_type <- "grb"
+    } else if (any(input_format$value == c("netCDF", "NetCDF", "NetCDF2", 
+                                           "NetCDF4 classic zip", "netCDF-4 classic model"))) {
+        if (verbose) message("no need to convert to netcdf ...")
+        convert_to_nc <- F
+        file_type <- "nc"
+    } else {
+        if (verbose) message("not defined in helper_functions.r:cdo_get_filetype() ",
+                             "-> assume that conversion to nc is not needed ",
+                             "-> set `convert_to_nc` to F and continue ...")
+        convert_to_nc <- F
+        file_type <- input_format$value
+    }
+
+    return(list(convert_to_nc=convert_to_nc, file_type=file_type))
+
+} # cdo_get_filetype
+
 # set my default plot options
 setDefaultPlotOptions <- function(plist=list(plot_type="png", bg_col="white", NA_col="gray65", 
                                              contour_labcex=1,
