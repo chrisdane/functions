@@ -267,23 +267,44 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
         input_format <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))
         if (!is.null(input_format$warning)) { # `ncdump -k` yields also warn/error
             stop(input_format$warning$message)
-        } else {
-            if (verbose) message("--> \"", input_format$value, "\" --> ", appendLF=F)
+        } else { # no warning on `ncdump -k` 
+            if (verbose) {
+                for (i in seq_along(input_format$value)) {
+                    message("--> \"", input_format$value[i], "\"")
+                }
+                if (length(input_format$value) > 1) {
+                    message("take last entry")
+                    input_format$value <- input_format$value[length(input_format$value)]
+                }
+                message("--> ", appendLF=F)
+            }
         }
-    } else {
-        if (verbose) message("--> \"", input_format$value, "\" --> ", appendLF=F)
+    } else { # no warning on `cdo showformat`
+        if (verbose) {
+            for (i in seq_along(input_format$value)) {
+                message("--> \"", input_format$value[i], "\"")
+            }
+            if (length(input_format$value) > 1) {
+                message("take last entry")
+                input_format$value <- input_format$value[length(input_format$value)]
+            }
+            message("--> ", appendLF=F)
+        }
     }
     if (any(input_format$value == c("GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"))) {
         if (verbose) message("convert to netcdf ...")
         convert_to_nc <- T
         file_type <- "grb"
-    } else if (any(input_format$value == c("netCDF", "NetCDF", "NetCDF2", 
-                                           "NetCDF4 classic zip", "netCDF-4 classic model"))) {
+    } else if (any(input_format$value == c(# from cdo showformat:
+                                           "netCDF", "NetCDF", "NetCDF2", 
+                                           "NetCDF4 classic zip", "netCDF-4 classic model",
+                                           # from ncdump -k:
+                                           "64-bit offset"))) {
         if (verbose) message("no need to convert to netcdf ...")
         convert_to_nc <- F
         file_type <- "nc"
     } else {
-        if (verbose) message("not defined in helper_functions.r:cdo_get_filetype() ",
+        if (verbose) message("not defined in cdo_get_filetype() ",
                              "-> assume that conversion to nc is not needed ",
                              "-> set `convert_to_nc` to F and continue ...")
         convert_to_nc <- F
