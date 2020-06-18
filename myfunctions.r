@@ -115,6 +115,10 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
         
     # case 1
     if (length(years_ge_zero_lt_10000) > 0) { # as.POSIXlt("0-1-1") to as.POSIXlt("9999-12-31") -> ok
+        if (verbose > 0) {
+            message("years[years_ge_zero_lt_10000]:")
+            cat(capture.output(str(years[years_ge_zero_lt_10000])), sep="\n")
+        }
         lt_ge_zero_lt_10000 <- as.POSIXlt(paste0(years[years_ge_zero_lt_10000], "-06-30"), tz="UTC") 
         if (verbose > 0) {
             message("lt_ge_zero_lt_10000:")
