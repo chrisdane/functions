@@ -88,7 +88,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     }
     nplots <- n*m
     if (nplots < length(z)) {
-        stop("nplots = n x m = ", n, " x ", m, " != length(z) = ", length(z))
+        stop("nplots = n x m = ", n, " x ", m, " < length(z) = ", length(z))
     }
 
     # decide which axes are drawn to which subplot
@@ -383,588 +383,602 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     }
 
     # for every plot 
-	for (i in 1:(n*m)) {
+	for (i in seq_len(nplots)) {
 
+        if (verbose) message("plot ", i, "/", length(x), " ...")
+        
         # Open plot device
-        if (verbose) message("plot()")
         plot(x_plot, y_plot, t="n",
 			 #xlim=xlim, ylim=ylim, 
              axes=F, xlab=NA, ylab=NA,
 			 xaxs="i", yaxs="i")
        
-        # Add data to plot
-        nx <- length(x[[i]]); ny <- length(y[[i]])
-
-        if (!contour_only) {
-
-            # check useRaster
-            err <- tryCatch(image(x[[i]], y[[i]], 
-                                  array(1, c(length(x[[i]]), length(y[[i]]))),
-                                  add=T, col=NAcol, axes=F, xlab=NA, ylab=NA, 
-                                  useRaster=T),
-                            error=function(e) e, warning=function(w) w)
-            if (is.null(err)) {
-                useRaster <- T
-            } else {
-                if (verbose) {
-                    if (i == 1) message("cannot use useRaster=T since:")
-                    message(err)
-                }
-                interpolate_to_regular <- F
-                if (interpolate_to_regular) {
-                    message("`interpolate_to_regular`=T ...")
-                    # todo
-                } else {
-                    useRaster <- F
-                }
+        # its possible that there are less data to plot than nrow*ncols (e.g. length(x) = 5, ncol=2, nrow=3)
+        # --> do not plot anything if (length(x) == nplots - 1 && i == nplots)
+        if (length(x) == nplots - 1 && i == nplots) { 
+            # nothing to do
+            if (verbose) {
+                message("length(x) = ", length(x), " == nplots - 1 = ", nplots - 1, 
+                        " && i == nplots = ", nplots, " --> do not plot anything")
             }
-            
-            # add NA values
-            if (!useRaster) { 
-                if (verbose) message("image() 1")
-                image(x[[i]], y[[i]], array(1, c(nx, ny)),
-                      add=T, col=NAcol,
-                      axes=F, xlab="n", ylab="n",
+
+        } else { # if length(x) != nplots - 1 && i != nplots
+
+            # Add data to plot
+            nx <- length(x[[i]]); ny <- length(y[[i]])
+
+            if (!contour_only) {
+
+                # check useRaster
+                err <- tryCatch(image(x[[i]], y[[i]], 
+                                      array(1, c(length(x[[i]]), length(y[[i]]))),
+                                      add=T, col=NAcol, axes=F, xlab=NA, ylab=NA, 
+                                      useRaster=T),
+                                error=function(e) e, warning=function(w) w)
+                if (is.null(err)) {
+                    useRaster <- T
+                } else {
+                    if (verbose) {
+                        if (i == 1) message("cannot use useRaster=T since:")
+                        message(err)
+                    }
+                    interpolate_to_regular <- F
+                    if (interpolate_to_regular) {
+                        message("`interpolate_to_regular`=T ...")
+                        # todo
+                    } else {
+                        useRaster <- F
+                    }
+                }
+                
+                # add NA values
+                if (!useRaster) { 
+                    if (verbose) message("image() 1")
+                    image(x[[i]], y[[i]], array(1, c(nx, ny)),
+                          add=T, col=NAcol,
+                          axes=F, xlab="n", ylab="n",
+                          useRaster=useRaster)
+                }
+
+                # add actual data
+                if (verbose) message("image() 2")
+                image(x[[i]], y[[i]], z[[i]], 
+                      add=T, col=cols, breaks=breaks,
+                      axes=F, xlab="n", ylab="n", 
                       useRaster=useRaster)
-            }
 
-            # add actual data
-            if (verbose) message("image() 2")
-            image(x[[i]], y[[i]], z[[i]], 
-                  add=T, col=cols, breaks=breaks,
-                  axes=F, xlab="n", ylab="n", 
-                  useRaster=useRaster)
-
-            # add contour to plot
-            if (add_contour) {
-                tmp <- axis.at
-                if (F && any(tmp == 0)) { # do not show zero contour
-                    if (i == 1) message("add_contour = T --> add data contour without zero ...")
-                    tmp <- tmp[-which(tmp == 0)]
-                } else {
-                    if (i == 1) message("add_contour = T --> add data contour with zero ...")
+                # add contour to plot
+                if (add_contour) {
+                    tmp <- axis.at
+                    if (F && any(tmp == 0)) { # do not show zero contour
+                        if (i == 1) message("add_contour = T --> add data contour without zero ...")
+                        tmp <- tmp[-which(tmp == 0)]
+                    } else {
+                        if (i == 1) message("add_contour = T --> add data contour with zero ...")
+                    }
+                    contour(x[[i]], y[[i]], z[[i]],
+                            levels=tmp, lwd=lwd, add=T, labcex=contour_labcex)
                 }
+                
+            } else if (contour_only) {
+
                 contour(x[[i]], y[[i]], z[[i]],
-                        levels=tmp, lwd=lwd, add=T, labcex=contour_labcex)
-            }
+                        levels=axis.at, labcex=contour_labcex)
+
+            } # if contour_only or not
             
-        } else if (contour_only) {
-
-            contour(x[[i]], y[[i]], z[[i]],
-                    levels=axis.at, labcex=contour_labcex)
-
-        } # if contour_only or not
-        
-        # add additional data as image if available
-        if (!is.null(image_list)) {
-            if (i == 1) message("\n`contour_list` is not NULL -> add additional data as image() to plot ...")
-            if (length(image_list[[i]]$levels) == 1) { # special case: only 1 level
-                image(x[[i]], y[[i]], image_list[[i]]$data, 
-                      col=image_list[[i]]$cols,  
-                      add=T, useRaster=useRaster)
-            } else {
-                image(x[[i]], y[[i]], image_list[[i]]$data, 
-                      col=image_list[[i]]$cols, breaks=image_list[[i]]$levels, 
-                      add=T, useRaster=useRaster)
-            }
-        } # if (!is.null(image_list))
-
-        # add additional data as contours if available
-        if (!is.null(contour_list)) {
-        if (i == 1) message("\n`contour_list` is not NULL -> add additional data as contours() to plot ...")
-            contour(x[[i]], y[[i]], contour_list[[i]], 
-                    add=T, levels=contour_list[[i]]$levels,
-                    lwd=lwd, labcex=contour_labcex, drawlabels=T)
-        } # if (!is.null(contour_list))
-        
-        # add additional data as quivers if available
-        if (!is.null(quiver_list)) {
-            message("\n`quiver_list` is not NULL -> add additional data as quivers via pracma::quiver() to plot ...")
-            if (i == 1) {
-                message("quiver_list:")
-                cat(capture.output(str(quiver_list)), sep="\n")
-            }
-            if (!any(search() == "package:abind")) library(pracma)
-            xmat <- array(x[[i]], c(nx, ny))
-            ymat <- t(array(y[[i]], c(ny, nx)))
-            quiver_inds <- array(F, c(nx, ny))
-            if (verbose) message("nx_fac = ", quiver_list$nx_fac[i], ", ny_fac = ", 
-                                 quiver_list$ny_fac[i], " --> draw ", quiver_list$nx_fac[i]*100, 
-                                 " and ", quiver_list$ny_fac[i]*100,  
-                                 " % of all possible quivers in x- and y-direction ...")
-            quiver_inds_x <- seq(1, nx, l=quiver_list$nx_fac[i]*nx)
-            quiver_inds_y <- seq(1, ny, l=quiver_list$ny_fac[i]*ny)
-            quiver_inds[quiver_inds_x,quiver_inds_y] <- T
-            if (!is.null(quiver_list$thr[i])) {
-                if (verbose) message("thr = ", quiver_list$thr[i], 
-                                     " --> draw quivers >= ", quiver_list$thr[i])
-                quiver_thr_inds <- z[[i]] >= quiver_list$thr[i]
-                if (length(which(quiver_thr_inds)) == 0) {
-                    message("--> zero locations are >= ", quiver_list$thr[i], ". continue without threshold ...")
-                    quiver_thr_inds <- array(T, dim=dim(z[[i]]))
+            # add additional data as image if available
+            if (!is.null(image_list)) {
+                if (i == 1) message("\n`contour_list` is not NULL -> add additional data as image() to plot ...")
+                if (length(image_list[[i]]$levels) == 1) { # special case: only 1 level
+                    image(x[[i]], y[[i]], image_list[[i]]$data, 
+                          col=image_list[[i]]$cols,  
+                          add=T, useRaster=useRaster)
+                } else {
+                    image(x[[i]], y[[i]], image_list[[i]]$data, 
+                          col=image_list[[i]]$cols, breaks=image_list[[i]]$levels, 
+                          add=T, useRaster=useRaster)
                 }
-                quiver_plot_inds <- quiver_inds & quiver_thr_inds
-            } else {
-                if (verbose) message("thr is not set --> do not apply any threshold for quivers")
-                quiver_plot_inds <- quiver_inds
-            }
-            if (quiver_list$const[i]) {
-                if (verbose) message("const = T --> draw quivers of constant length")
-                # this does not work; arrows are not of equal length:
-                u <- quiver_list$u[[i]]/sqrt(quiver_list$u[[i]]^2 + quiver_list$v[[i]]^2)
-                v <- quiver_list$v[[i]]/sqrt(quiver_list$u[[i]]^2 + quiver_list$v[[i]]^2)
-            } else {
-                if (verbose) message("const = F --> length of quivers represents velocity magnitude")
-                u <- quiver_list$u[[i]]
-                v <- quiver_list$v[[i]]
-            }
-            if (verbose) message("scale = ", quiver_list$scale[i], " with respect to velocity")
-            pracma::quiver(x=xmat[quiver_plot_inds], y=ymat[quiver_plot_inds],
-                           u=u[quiver_plot_inds], v=v[quiver_plot_inds],
-                           scale=quiver_list$scale[i],
-                           length=quiver_list$length[i],
-                           angle=quiver_list$angle[i],
-                           col=quiver_list$col[i])
-        } # if (!is.null(quiver_list))
-        
-        # add text to every plot
-        if (verbose) message("check dots for \"addtext_list\"")
-        if (any(dot_names == "addtext_list")) {
-            for (j in 1:length(addtext_list)) {
-                if (typeof(addtext_list[[j]]) == "character") {
-                    if (verbose) message("add \"", addtext_list[[j]], "\" ...")
-                    eval(parse(text=addtext_list[[j]]))
+            } # if (!is.null(image_list))
+
+            # add additional data as contours if available
+            if (!is.null(contour_list)) {
+            if (i == 1) message("\n`contour_list` is not NULL -> add additional data as contours() to plot ...")
+                contour(x[[i]], y[[i]], contour_list[[i]], 
+                        add=T, levels=contour_list[[i]]$levels,
+                        lwd=lwd, labcex=contour_labcex, drawlabels=T)
+            } # if (!is.null(contour_list))
+            
+            # add additional data as quivers if available
+            if (!is.null(quiver_list)) {
+                message("\n`quiver_list` is not NULL -> add additional data as quivers via pracma::quiver() to plot ...")
+                if (i == 1) {
+                    message("quiver_list:")
+                    cat(capture.output(str(quiver_list)), sep="\n")
                 }
-            }
-        }
-
-        # add title
-        if (add_title && any(dot_names == "title") && title_inds[i]) {
-            if (verbose) message("title()")
-            text(x=line2user(line=mean(par('mar')[c(2, 4)]), side=2), 
-                 y=line2user(line=2, side=3), 
-                 labels=dot_list[["title"]], xpd=NA, 
-                 cex=1.5, font=1) # font=2 for bold
-        }
-
-        # add axes and axes labels
-        if (verbose) message("axis()")
-        if (left_axis_inds[i]) {
-            axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
-                 lwd=0, lwd.ticks=lwd.ticks)
-            mtext(ylab, side=2, line=5, cex=1)
-        } else { # just ticks
-            axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
-        }
-        if (bottom_axis_inds[i]) {
-            axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
-                 lwd=0, lwd.ticks=lwd.ticks)
-            mtext(xlab, side=1, line=3, cex=1)
-        } else { # just ticks
-            axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
-        }
-
-        # add land
-        if (add_land != F) {
-            if (i == 1) message("maps::map(", add_land, ")")
-            if (!any(search() == "package:maps")) library(maps)
-            maps::map(add_land, interior=F, add=T)
-        }
-
-        # add name to every plot
-        if (add_names_inset || add_names_topleft) {
-
-            if (add_names_inset) {
-                
-                if (i == 1) message("`add_names_inset` = T --> legend()")
-                # prepare leend
-                lepos <- "topleft"
-                letext <- znames[i]
-                leinset <- 0.025 # distance legend box from horizontal (and vertical plot margins 
-                lexintersp <- -1.8 #    
-
-                # get coordinates of legend first
-                if (length(lepos) == 1) {
-                    myleg <- legend(lepos, legend=letext, plot=F, inset=leinset, 
-                                    bty="n", x.intersp=lexintersp, cex=cex.axis,
-                                    col="black", lty=NA, lwd=lwd, pch=NA)
-                } else if (length(myleg_pos) == 2) {
-                    myleg <- legend(lepos[1], lepos[2], legend=letext, plot=F, iinset=leinset, 
-                                    bty="n", x.intersp=lexintersp, cex=cex.axis,
-                                    col="black", lty=NA, lwd=lwd, pch=NA)
-                }
-
-                # draw background of legend label
-                if (F) message(myleg)
-                rect(xleft=myleg$rect$left, ybottom=myleg$rect$top - myleg$rect$h,
-                     xright=myleg$rect$left + myleg$rect$w, ytop=myleg$rect$top, 
-                     col=bgcol, lwd=lwd)
-                
-                # ad text
-                if (length(lepos) == 1) {
-                    myleg <- legend(lepos, legend=letext, plot=T, inset=leinset, 
-                                    bty="n", x.intersp=lexintersp, cex=cex.axis,
-                                    col="black", lty=NA, lwd=lwd, pch=NA)
-                } else if (length(myleg_pos) == 2) {
-                    myleg <- legend(myleg_pos[1], myleg_pos[2], legend=text_lab, plot=T, inset=leinset, 
-                                    bty="n", x.intersp=lexintersp, cex=cex.axis,
-                                    col="black", lty=NA, lwd=lwd, pch=NA)
-                }
-                
-                if (F) {
-                    legend("topleft",
-                           #"topright", 
-                           #"bottomright",
-                           #"bottomleft",
-                           legend=znames[i],
-                           #legend=as.expression(znames[i]),
-                           #legend=as.expression(paste0(letters[i], ") ", znames[i])),
-                           col="black", lty=NA, lwd=lwd, pch=NA,
-                           x.intersp=lexintersp,
-                           cex=cex.axis, bty="n")
-                }
-
-            # if add_names_topleft finished
-            } else if (add_names_topleft) {
-
-                if (i == 1) message("`add_names_topleft` = T --> add `znames` on top left corner of each plot")
-                text(par("usr")[1], par("usr")[4] + strheight("."), 
-                     xpd=T, labels=znames[i], pos=4, cex=legend.cex)
-
-            } # add_names_inset or add_names_topleft
-
-        } # if (add_names_inset || add_names_topleft)
-       
-        # draw box around plot
-        box(lwd=lwd)
-
-        ## overlay a subplot
-        if (verbose) message("check dots for 'subplot' ...")
-        if (any(dot_names == "subplot")) {
-
-            for (spi in 1:length(subplot)) {
-
-                if (!any(search() == "package:TeachingDemos")) library(TeachingDemos)
-
-                if (top_bottom) {
-                    # add subplot axis only in last column
-                    draw_axis_labels_inds <- 2 # need to fix that
-                }
-
-                #op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
-                sb <- subplot(fun=subplot[[spi]]$fun(sb=subplot[[spi]], 
-                                                     draw_axis_labels_inds=draw_axis_labels_inds, i=i, lwd=lwd),
-                              x=grconvertX(subplot[[spi]]$fig_x, from="npc"),
-                              y=grconvertY(subplot[[spi]]$fig_y, from="npc"),
-                              type="plt")
-                #par(op) # switch back to main plot
-
-            } # for spi in subplot 
-
-        } # if any(dot_names == "subplot")
-
-        ## add something special to plot
-        if (F) {
-            message("add special stuff ... todo: give as argument list")
-
-            # area averaging box
-            if (F && znames[i] == "H5") {
-                # load subplot() function
-                if (!any(search() == "package:TeachingDemos")) library(TeachingDemos)
-                
-                if (verbose) message("model drift add location subsection ...")
-                # for using par(sb) later on
-                #op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
-
-                # draw subplot
-                sb <- subplot(fun=map_sub(bathy=bathync, database="world",
-                                          xlim=sub_xlim, ylim=sub_ylim,
-                                          sub_area_box=sub_area_box,
-                                          csec_depth_levels=sub_depth_levels),
-                              x=grconvertX(sub_xp, from="npc"),
-                              y=grconvertY(sub_yp, from="npc"),
-                              type="plt") #pars=list( mar=c(0,0,0,0)+0.1)
-                #par(op) # switch back to main plot
-            } # if csec_depth_subset
-
-            # rossby
-            if (T) {
-          
-                # WKB horizontal velocity lm fit
-                if (F && (regexpr("H5 480m", znames[i]) != -1)) {
-                    if (znames[i] == "R1 H5 480m") {
-                        abline(a=1950.3939810, b=-0.0913097, lwd=2)
-                        speed_cm_s <- 3.33387291856387
-                    } else if (znames[i] == "R2 H5 480m") {
-                        abline(a=1950.31389155, b=-0.09277237, lwd=2)
-                        speed_cm_s <- 3.28031067717784
-                    } else if (znames[i] == "R3 H5 480m") {
-                        abline(a=1950.29371255, b=-0.09317323, lwd=2)
-                        speed_cm_s <- 3.26771507361546
-                    } else if (znames[i] == "R4 H5 480m") {
-                        abline(a=1950.39046811, b=-0.09156948, lwd=2)
-                        speed_cm_s <- 3.31599787547902
-                    } else if (znames[i] == "R5 H5 480m") {
-                        abline(a=1950.8370024, b=-0.0843012, lwd=2)
-                        speed_cm_s <- 3.5091557691597
+                if (!any(search() == "package:abind")) library(pracma)
+                xmat <- array(x[[i]], c(nx, ny))
+                ymat <- t(array(y[[i]], c(ny, nx)))
+                quiver_inds <- array(F, c(nx, ny))
+                if (verbose) message("nx_fac = ", quiver_list$nx_fac[i], ", ny_fac = ", 
+                                     quiver_list$ny_fac[i], " --> draw ", quiver_list$nx_fac[i]*100, 
+                                     " and ", quiver_list$ny_fac[i]*100,  
+                                     " % of all possible quivers in x- and y-direction ...")
+                quiver_inds_x <- seq(1, nx, l=quiver_list$nx_fac[i]*nx)
+                quiver_inds_y <- seq(1, ny, l=quiver_list$ny_fac[i]*ny)
+                quiver_inds[quiver_inds_x,quiver_inds_y] <- T
+                if (!is.null(quiver_list$thr[i])) {
+                    if (verbose) message("thr = ", quiver_list$thr[i], 
+                                         " --> draw quivers >= ", quiver_list$thr[i])
+                    quiver_thr_inds <- z[[i]] >= quiver_list$thr[i]
+                    if (length(which(quiver_thr_inds)) == 0) {
+                        message("--> zero locations are >= ", quiver_list$thr[i], ". continue without threshold ...")
+                        quiver_thr_inds <- array(T, dim=dim(z[[i]]))
                     }
-                    if (T && exists("speed_cm_s")) {
-                        text <- substitute(paste(bold(u)[LR], " = ", speed, " cm ", unit^-1),
-                                           list(speed=round(speed_cm_s, 2), unit="s"))
-                        text(x=mean(x[[i]]), y=y_at[length(y_at)], 
-                             labels=as.expression(text), adj=0.5, cex=1, font=2)
+                    quiver_plot_inds <- quiver_inds & quiver_thr_inds
+                } else {
+                    if (verbose) message("thr is not set --> do not apply any threshold for quivers")
+                    quiver_plot_inds <- quiver_inds
+                }
+                if (quiver_list$const[i]) {
+                    if (verbose) message("const = T --> draw quivers of constant length")
+                    # this does not work; arrows are not of equal length:
+                    u <- quiver_list$u[[i]]/sqrt(quiver_list$u[[i]]^2 + quiver_list$v[[i]]^2)
+                    v <- quiver_list$v[[i]]/sqrt(quiver_list$u[[i]]^2 + quiver_list$v[[i]]^2)
+                } else {
+                    if (verbose) message("const = F --> length of quivers represents velocity magnitude")
+                    u <- quiver_list$u[[i]]
+                    v <- quiver_list$v[[i]]
+                }
+                if (verbose) message("scale = ", quiver_list$scale[i], " with respect to velocity")
+                pracma::quiver(x=xmat[quiver_plot_inds], y=ymat[quiver_plot_inds],
+                               u=u[quiver_plot_inds], v=v[quiver_plot_inds],
+                               scale=quiver_list$scale[i],
+                               length=quiver_list$length[i],
+                               angle=quiver_list$angle[i],
+                               col=quiver_list$col[i])
+            } # if (!is.null(quiver_list))
+            
+            # add text to every plot
+            if (verbose) message("check dots for \"addtext_list\"")
+            if (any(dot_names == "addtext_list")) {
+                for (j in 1:length(addtext_list)) {
+                    if (typeof(addtext_list[[j]]) == "character") {
+                        if (verbose) message("add \"", addtext_list[[j]], "\" ...")
+                        eval(parse(text=addtext_list[[j]]))
                     }
-                } # WKB horizontal velocity lm fit
+                }
+            }
 
-                # 19.5 °C isotherm lm fit
-                if (F && (znames[i] == "H1" || znames[i] == "H5")) {
+            # add title
+            if (add_title && any(dot_names == "title") && title_inds[i]) {
+                if (verbose) message("title()")
+                text(x=line2user(line=mean(par('mar')[c(2, 4)]), side=2), 
+                     y=line2user(line=2, side=3), 
+                     labels=dot_list[["title"]], xpd=NA, 
+                     cex=1.5, font=1) # font=2 for bold
+            }
+
+            # add axes and axes labels
+            if (verbose) message("axis()")
+            if (left_axis_inds[i]) {
+                axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
+                     lwd=0, lwd.ticks=lwd.ticks)
+                mtext(ylab, side=2, line=5, cex=1)
+            } else { # just ticks
+                axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
+            }
+            if (bottom_axis_inds[i]) {
+                axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
+                     lwd=0, lwd.ticks=lwd.ticks)
+                mtext(xlab, side=1, line=3, cex=1)
+            } else { # just ticks
+                axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
+            }
+
+            # add land
+            if (add_land != F) {
+                if (i == 1) message("maps::map(", add_land, ")")
+                if (!any(search() == "package:maps")) library(maps)
+                maps::map(add_land, interior=F, add=T)
+            }
+
+            # add name to every plot
+            if (add_names_inset || add_names_topleft) {
+
+                if (add_names_inset) {
                     
-                    # 1st line
-                    ab <- c(1952.11144132, -0.06849022)
-                    abline(a=ab[1], b=ab[2], lwd=2)
-                    speed_cm_s <- 4.390902
-                    if (T) {
-                        text <- substitute(paste(u[LR], " = ", speed, " cm ", unit^-1),
-                                           list(speed=round(speed_cm_s, 2), unit="s"))
-                        text(x=mean(x[[i]]), 
-                             y=y_at[length(y_at)],
-                             labels=as.expression(text), adj=0.5, cex=1, font=2)
+                    if (i == 1) message("`add_names_inset` = T --> legend()")
+                    # prepare leend
+                    lepos <- "topleft"
+                    letext <- znames[i]
+                    leinset <- 0.025 # distance legend box from horizontal (and vertical plot margins 
+                    lexintersp <- -1.8 #    
+
+                    # get coordinates of legend first
+                    if (length(lepos) == 1) {
+                        myleg <- legend(lepos, legend=letext, plot=F, inset=leinset, 
+                                        bty="n", x.intersp=lexintersp, cex=cex.axis,
+                                        col="black", lty=NA, lwd=lwd, pch=NA)
+                    } else if (length(myleg_pos) == 2) {
+                        myleg <- legend(lepos[1], lepos[2], legend=letext, plot=F, iinset=leinset, 
+                                        bty="n", x.intersp=lexintersp, cex=cex.axis,
+                                        col="black", lty=NA, lwd=lwd, pch=NA)
                     }
 
-                    # 2nd line: smooth_theta = c(1, 0.15)
+                    # draw background of legend label
+                    if (F) message(myleg)
+                    rect(xleft=myleg$rect$left, ybottom=myleg$rect$top - myleg$rect$h,
+                         xright=myleg$rect$left + myleg$rect$w, ytop=myleg$rect$top, 
+                         col=bgcol, lwd=lwd)
+                    
+                    # ad text
+                    if (length(lepos) == 1) {
+                        myleg <- legend(lepos, legend=letext, plot=T, inset=leinset, 
+                                        bty="n", x.intersp=lexintersp, cex=cex.axis,
+                                        col="black", lty=NA, lwd=lwd, pch=NA)
+                    } else if (length(myleg_pos) == 2) {
+                        myleg <- legend(myleg_pos[1], myleg_pos[2], legend=text_lab, plot=T, inset=leinset, 
+                                        bty="n", x.intersp=lexintersp, cex=cex.axis,
+                                        col="black", lty=NA, lwd=lwd, pch=NA)
+                    }
+                    
                     if (F) {
-                        ab <- c(1943.72485189, -0.09769246)
-                        abline(a=ab[1], b=ab[2], lwd=2)
-                        speed_cm_s <- 3.086168
-                        if (T) {
-                            text <- substitute(paste(#bold(u)[LM], 
-                                                     u[LR],
-                                                     " = ", speed, " cm ", unit^-1),
+                        legend("topleft",
+                               #"topright", 
+                               #"bottomright",
+                               #"bottomleft",
+                               legend=znames[i],
+                               #legend=as.expression(znames[i]),
+                               #legend=as.expression(paste0(letters[i], ") ", znames[i])),
+                               col="black", lty=NA, lwd=lwd, pch=NA,
+                               x.intersp=lexintersp,
+                               cex=cex.axis, bty="n")
+                    }
+
+                # if add_names_topleft finished
+                } else if (add_names_topleft) {
+
+                    if (i == 1) message("`add_names_topleft` = T --> add `znames` on top left corner of each plot")
+                    text(par("usr")[1], par("usr")[4] + strheight("."), 
+                         xpd=T, labels=znames[i], pos=4, cex=legend.cex)
+
+                } # add_names_inset or add_names_topleft
+
+            } # if (add_names_inset || add_names_topleft)
+           
+            # draw box around plot
+            box(lwd=lwd)
+
+            ## overlay a subplot
+            if (verbose) message("check dots for 'subplot' ...")
+            if (any(dot_names == "subplot")) {
+
+                for (spi in 1:length(subplot)) {
+
+                    if (!any(search() == "package:TeachingDemos")) library(TeachingDemos)
+
+                    if (top_bottom) {
+                        # add subplot axis only in last column
+                        draw_axis_labels_inds <- 2 # need to fix that
+                    }
+
+                    #op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
+                    sb <- subplot(fun=subplot[[spi]]$fun(sb=subplot[[spi]], 
+                                                         draw_axis_labels_inds=draw_axis_labels_inds, i=i, lwd=lwd),
+                                  x=grconvertX(subplot[[spi]]$fig_x, from="npc"),
+                                  y=grconvertY(subplot[[spi]]$fig_y, from="npc"),
+                                  type="plt")
+                    #par(op) # switch back to main plot
+
+                } # for spi in subplot 
+
+            } # if any(dot_names == "subplot")
+
+            ## add something special to plot
+            if (F) {
+                message("add special stuff ... todo: give as argument list")
+
+                # area averaging box
+                if (F && znames[i] == "H5") {
+                    # load subplot() function
+                    if (!any(search() == "package:TeachingDemos")) library(TeachingDemos)
+                    
+                    if (verbose) message("model drift add location subsection ...")
+                    # for using par(sb) later on
+                    #op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
+
+                    # draw subplot
+                    sb <- subplot(fun=map_sub(bathy=bathync, database="world",
+                                              xlim=sub_xlim, ylim=sub_ylim,
+                                              sub_area_box=sub_area_box,
+                                              csec_depth_levels=sub_depth_levels),
+                                  x=grconvertX(sub_xp, from="npc"),
+                                  y=grconvertY(sub_yp, from="npc"),
+                                  type="plt") #pars=list( mar=c(0,0,0,0)+0.1)
+                    #par(op) # switch back to main plot
+                } # if csec_depth_subset
+
+                # rossby
+                if (T) {
+              
+                    # WKB horizontal velocity lm fit
+                    if (F && (regexpr("H5 480m", znames[i]) != -1)) {
+                        if (znames[i] == "R1 H5 480m") {
+                            abline(a=1950.3939810, b=-0.0913097, lwd=2)
+                            speed_cm_s <- 3.33387291856387
+                        } else if (znames[i] == "R2 H5 480m") {
+                            abline(a=1950.31389155, b=-0.09277237, lwd=2)
+                            speed_cm_s <- 3.28031067717784
+                        } else if (znames[i] == "R3 H5 480m") {
+                            abline(a=1950.29371255, b=-0.09317323, lwd=2)
+                            speed_cm_s <- 3.26771507361546
+                        } else if (znames[i] == "R4 H5 480m") {
+                            abline(a=1950.39046811, b=-0.09156948, lwd=2)
+                            speed_cm_s <- 3.31599787547902
+                        } else if (znames[i] == "R5 H5 480m") {
+                            abline(a=1950.8370024, b=-0.0843012, lwd=2)
+                            speed_cm_s <- 3.5091557691597
+                        }
+                        if (T && exists("speed_cm_s")) {
+                            text <- substitute(paste(bold(u)[LR], " = ", speed, " cm ", unit^-1),
                                                list(speed=round(speed_cm_s, 2), unit="s"))
-                            text(x=mean(x[[i]]), 
-                                 y=y_at[3],
+                            text(x=mean(x[[i]]), y=y_at[length(y_at)], 
                                  labels=as.expression(text), adj=0.5, cex=1, font=2)
                         }
-                    }
+                    } # WKB horizontal velocity lm fit
 
-                    # 3nd line: smooth_theta = c(1, 0.15)
-                    ab <- c(1943.9474806, -0.1313065)
-                    abline(a=ab[1], b=ab[2], lwd=2)
-                    speed_cm_s <- 2.264085
-                    if (T) {
-                        text <- substitute(paste(u[LR], " = ", speed, " cm ", unit^-1),
-                                           list(speed=round(speed_cm_s, 2), unit="s"))
-                        text(x=mean(x[[i]]), 
-                             y=y_at[6],
-                             labels=as.expression(text), adj=0.5, cex=1, font=2)
-                    }
-
-                } # 19.5 °C isotherm lm fit
-
-                # radon fit velocities
-                if (T && any(dot_names == "radon_speeds")) {
-                    radon_speeds <- dot_list[["radon_speeds"]]
-                    if (any(dot_names == "radon_box")) {
-                        radon_box <- dot_list[["radon_box"]]
-                    }
-                    if (regexpr("H5", znames[i]) != -1) {
-                    #if (!is.na(radon_speeds[i])) { 
-                        #message("add radon speed = ", radon_speeds[i], " ...")
-                        # indicate region of readon calculation
-                        if (F && exists("radon_box")) {
-                            rect(radon_box[[i]][1], radon_box[[i]][3], 
-                                 radon_box[[i]][2], radon_box[[i]][4])
+                    # 19.5 °C isotherm lm fit
+                    if (F && (znames[i] == "H1" || znames[i] == "H5")) {
+                        
+                        # 1st line
+                        ab <- c(1952.11144132, -0.06849022)
+                        abline(a=ab[1], b=ab[2], lwd=2)
+                        speed_cm_s <- 4.390902
+                        if (T) {
+                            text <- substitute(paste(u[LR], " = ", speed, " cm ", unit^-1),
+                                               list(speed=round(speed_cm_s, 2), unit="s"))
+                            text(x=mean(x[[i]]), 
+                                 y=y_at[length(y_at)],
+                                 labels=as.expression(text), adj=0.5, cex=1, font=2)
                         }
-                        segments(xlim[2], ylim[1],
-                                 xlim[2] - radon_speeds[i] * diff(ylim),       
-                                 ylim[2])
-                        if (T && any(dot_names == "radon_sd_speeds")) {
-                            radon_sd_speeds <- dot_list[["radon_sd_speeds"]]
-                            #message("add radon sd speed = ", radon_sd_speeds[i], " ...")
-                            segments(xlim[2], ylim[1],
-                                     xlim[2] - (radon_speeds[i] + radon_sd_speeds[i]) * diff(ylim), ylim[2],
-                                     lty=2)
-                            segments(xlim[2], ylim[1],
-                                     xlim[2] - (radon_speeds[i] - radon_sd_speeds[i]) * diff(ylim), ylim[2],
-                                     lty=2)
-                        } # if radon_sd_speeds
-                    } # if not NA
-                } # if radon_speeds
 
-                # ssh lm fit
-                if (F && (znames[i] == "H1" || znames[i] == "H5")) {
-                    from <- c(-48.36050, 1948.000)
-                    to <- c(-80.91727, 1950.614)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_cm_s <- 3.78968
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
-                                       list(speed=round(speed_cm_s, 2), unit="s"))
-                    if (F) {
+                        # 2nd line: smooth_theta = c(1, 0.15)
+                        if (F) {
+                            ab <- c(1943.72485189, -0.09769246)
+                            abline(a=ab[1], b=ab[2], lwd=2)
+                            speed_cm_s <- 3.086168
+                            if (T) {
+                                text <- substitute(paste(#bold(u)[LM], 
+                                                         u[LR],
+                                                         " = ", speed, " cm ", unit^-1),
+                                                   list(speed=round(speed_cm_s, 2), unit="s"))
+                                text(x=mean(x[[i]]), 
+                                     y=y_at[3],
+                                     labels=as.expression(text), adj=0.5, cex=1, font=2)
+                            }
+                        }
+
+                        # 3nd line: smooth_theta = c(1, 0.15)
+                        ab <- c(1943.9474806, -0.1313065)
+                        abline(a=ab[1], b=ab[2], lwd=2)
+                        speed_cm_s <- 2.264085
+                        if (T) {
+                            text <- substitute(paste(u[LR], " = ", speed, " cm ", unit^-1),
+                                               list(speed=round(speed_cm_s, 2), unit="s"))
+                            text(x=mean(x[[i]]), 
+                                 y=y_at[6],
+                                 labels=as.expression(text), adj=0.5, cex=1, font=2)
+                        }
+
+                    } # 19.5 °C isotherm lm fit
+
+                    # radon fit velocities
+                    if (T && any(dot_names == "radon_speeds")) {
+                        radon_speeds <- dot_list[["radon_speeds"]]
+                        if (any(dot_names == "radon_box")) {
+                            radon_box <- dot_list[["radon_box"]]
+                        }
+                        if (regexpr("H5", znames[i]) != -1) {
+                        #if (!is.na(radon_speeds[i])) { 
+                            #message("add radon speed = ", radon_speeds[i], " ...")
+                            # indicate region of readon calculation
+                            if (F && exists("radon_box")) {
+                                rect(radon_box[[i]][1], radon_box[[i]][3], 
+                                     radon_box[[i]][2], radon_box[[i]][4])
+                            }
+                            segments(xlim[2], ylim[1],
+                                     xlim[2] - radon_speeds[i] * diff(ylim),       
+                                     ylim[2])
+                            if (T && any(dot_names == "radon_sd_speeds")) {
+                                radon_sd_speeds <- dot_list[["radon_sd_speeds"]]
+                                #message("add radon sd speed = ", radon_sd_speeds[i], " ...")
+                                segments(xlim[2], ylim[1],
+                                         xlim[2] - (radon_speeds[i] + radon_sd_speeds[i]) * diff(ylim), ylim[2],
+                                         lty=2)
+                                segments(xlim[2], ylim[1],
+                                         xlim[2] - (radon_speeds[i] - radon_sd_speeds[i]) * diff(ylim), ylim[2],
+                                         lty=2)
+                            } # if radon_sd_speeds
+                        } # if not NA
+                    } # if radon_speeds
+
+                    # ssh lm fit
+                    if (F && (znames[i] == "H1" || znames[i] == "H5")) {
+                        from <- c(-48.36050, 1948.000)
+                        to <- c(-80.91727, 1950.614)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_cm_s <- 3.78968
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
+                                           list(speed=round(speed_cm_s, 2), unit="s"))
+                        if (F) {
+                            text(x=mean(c(from[1], to[1])),
+                                 y=to[2] + 0.05*diff(ylim),
+                                 text, adj=0.5, cex=1)
+                        }
+                    } # ssh fit
+
+                    # ssh
+                    if (F && (znames[i] == "H1" || znames[i] == "H5")) {
+                        from <- c(-45.66910, 1951.561)
+                        to <- c(-73.16634, 1954.129)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_cm_s <- 3.26146420
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
+                                           list(speed=round(speed_cm_s, 2), unit="s"))
                         text(x=mean(c(from[1], to[1])),
                              y=to[2] + 0.05*diff(ylim),
                              text, adj=0.5, cex=1)
-                    }
-                } # ssh fit
 
-                # ssh
-                if (F && (znames[i] == "H1" || znames[i] == "H5")) {
-                    from <- c(-45.66910, 1951.561)
-                    to <- c(-73.16634, 1954.129)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_cm_s <- 3.26146420
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
-                                       list(speed=round(speed_cm_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
+                        from <- c(-31.61495, 1953.786)
+                        to <- c(-52.08512, 1956.273)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_cm_s <- 2.50969579
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
+                                           list(speed=round(speed_cm_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
+                    } # ssh
 
-                    from <- c(-31.61495, 1953.786)
-                    to <- c(-52.08512, 1956.273)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_cm_s <- 2.50969579
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
-                                       list(speed=round(speed_cm_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
-                } # ssh
+                    # horbarstreamf
+                    if (F && (znames[i] == "H1" || znames[i] == "H5")) {
+                        from <- c(-35.12849, 1948.251)
+                        to <- c(-59.41772, 1950.495)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_cm_s <- 3.29802776
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
+                                           list(speed=round(speed_cm_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
+                    } # horbarstreamf
 
-                # horbarstreamf
-                if (F && (znames[i] == "H1" || znames[i] == "H5")) {
-                    from <- c(-35.12849, 1948.251)
-                    to <- c(-59.41772, 1950.495)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_cm_s <- 3.29802776
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
-                                       list(speed=round(speed_cm_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
-                } # horbarstreamf
+                    # 19.5°C isotherme depth at 30° N in North Atlantic
+                    if (F && (znames[i] == "H1" || znames[i] == "H5")) {
+                        from <- c(-57.89010, 1949.135)
+                        to <- c(-67.05584, 1950.146)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_cm_s <- 2.76738650
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
+                                           list(speed=round(speed_cm_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
 
-                # 19.5°C isotherme depth at 30° N in North Atlantic
-                if (F && (znames[i] == "H1" || znames[i] == "H5")) {
-                    from <- c(-57.89010, 1949.135)
-                    to <- c(-67.05584, 1950.146)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_cm_s <- 2.76738650
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
-                                       list(speed=round(speed_cm_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
+                        from <- c(-48.5715861834847, 1955.54233853961)
+                        to <- c(-62.778494441144, 1956.53842173192)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_cm_s <- 4.35244704
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
+                                           list(speed=round(speed_cm_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
 
-                    from <- c(-48.5715861834847, 1955.54233853961)
-                    to <- c(-62.778494441144, 1956.53842173192)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_cm_s <- 4.35244704
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
-                                       list(speed=round(speed_cm_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
+                        from <- c(-56.20971, 1953.875)
+                        to <- c(-64.15336, 1954.878)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_cm_s <- 2.41680232
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
+                                           list(speed=round(speed_cm_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
+                    } # isotherme
 
-                    from <- c(-56.20971, 1953.875)
-                    to <- c(-64.15336, 1954.878)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_cm_s <- 2.41680232
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " cm ", unit^-1),
-                                       list(speed=round(speed_cm_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
-                } # isotherme
+                } # rossby
 
-            } # rossby
+                # kelvin_EqPac
+                if (F) {
 
-            # kelvin_EqPac
-            if (F) {
+                    if (F && (znames[i] == "H1" || znames[i] == "H5")) {
+                        from <- c(96.93963, 1949.963)
+                        to <- c(125.13402, 1950.549)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_m_s <- 0.1694675
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
+                                           list(speed=round(speed_m_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
 
-                if (F && (znames[i] == "H1" || znames[i] == "H5")) {
-                    from <- c(96.93963, 1949.963)
-                    to <- c(125.13402, 1950.549)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_m_s <- 0.1694675
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
-                                       list(speed=round(speed_m_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
+                        from <- c(138.8956, 1951.156)
+                        to <- c(171.7890, 1951.277)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_m_s <- 0.9556082
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
+                                           list(speed=round(speed_m_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
 
-                    from <- c(138.8956, 1951.156)
-                    to <- c(171.7890, 1951.277)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_m_s <- 0.9556082
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
-                                       list(speed=round(speed_m_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
+                        from <- c(56.99759, 1952.714)
+                        to <- c(86.19892, 1952.774)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_m_s <- 1.696692
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
+                                           list(speed=round(speed_m_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
 
-                    from <- c(56.99759, 1952.714)
-                    to <- c(86.19892, 1952.774)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_m_s <- 1.696692
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
-                                       list(speed=round(speed_m_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
+                        from <- c(53.93897, 1948.799)
+                        to <- c(83.57913, 1948.933)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_m_s <- 0.7779232
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
+                                           list(speed=round(speed_m_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
 
-                    from <- c(53.93897, 1948.799)
-                    to <- c(83.57913, 1948.933)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_m_s <- 0.7779232
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
-                                       list(speed=round(speed_m_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
+                    } # kelvin_EqPac
 
-                } # kelvin_EqPac
+                    # kelvin_EqAtl
+                    if (F && (znames[i] == "H1" || znames[i] == "H5")) {
+                        from <- c(-28.907494, 1949.316)
+                        to <- c(-3.644403, 1949.761)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_m_s <- 0.2
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
+                                           list(speed=round(speed_m_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
+                    } # kelvin_EqAtl
 
-                # kelvin_EqAtl
-                if (F && (znames[i] == "H1" || znames[i] == "H5")) {
-                    from <- c(-28.907494, 1949.316)
-                    to <- c(-3.644403, 1949.761)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_m_s <- 0.2
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
-                                       list(speed=round(speed_m_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
-                } # kelvin_EqAtl
+                    # kelvin_EastAtl2
+                    if (F && (znames[i] == "H1" || znames[i] == "H5")) {
+                        from <- c(5.301791, 1949.430)
+                        to <- c(13.135110, 1949.677)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_m_s <- 0.1118192
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
+                                           list(speed=round(speed_m_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
+                    } # kelvin_EastAtl2
 
-                # kelvin_EastAtl2
-                if (F && (znames[i] == "H1" || znames[i] == "H5")) {
-                    from <- c(5.301791, 1949.430)
-                    to <- c(13.135110, 1949.677)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_m_s <- 0.1118192
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
-                                       list(speed=round(speed_m_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
-                } # kelvin_EastAtl2
+                    # kelvin_WestAtl
+                    if (T && (znames[i] == "H1" || znames[i] == "H5")) {
+                        from <- c(9.577463, 1949.331)
+                        to <- c(20.612959, 1949.781)
+                        segments(from[1], from[2], to[1], to[2], lwd=3)
+                        speed_m_s <- 0.08637931
+                        text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
+                                           list(speed=round(speed_m_s, 2), unit="s"))
+                        text(x=mean(c(from[1], to[1])),
+                             y=to[2] + 0.05*diff(ylim),
+                             text, adj=0.5, cex=1)
+                    } # kelvin_WestAtl
 
-                # kelvin_WestAtl
-                if (T && (znames[i] == "H1" || znames[i] == "H5")) {
-                    from <- c(9.577463, 1949.331)
-                    to <- c(20.612959, 1949.781)
-                    segments(from[1], from[2], to[1], to[2], lwd=3)
-                    speed_m_s <- 0.08637931
-                    text <- substitute(paste("|", bold(u), "| = ", speed, " m ", unit^-1),
-                                       list(speed=round(speed_m_s, 2), unit="s"))
-                    text(x=mean(c(from[1], to[1])),
-                         y=to[2] + 0.05*diff(ylim),
-                         text, adj=0.5, cex=1)
-                } # kelvin_WestAtl
+                } # kelvin
 
-            } # kelvin
-
-        } # add something special to plot
+            } # add something special to plot
+        
+        } # if length(x) != nplots - 1 && i != nplots
 
     } # for i n*m subplots
 
@@ -973,7 +987,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     #               xaxs="i", yaxs="i", lwd=lwd)
     if (!contour_only) { # only if needed
         
-        if (verbose) message("plot.new()")
+        if (verbose) message("\nplot.new() for colorbar plot ...")
         plot.new()
 
         if (horizontal) {
@@ -981,7 +995,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         
         } else if (!horizontal) {
 
-            if (verbose) message("open colorbar plot")
+            if (verbose) message("vertical colorbar")
             y <- 1:nlevels
             y_midpoints <- (y[1:(nlevels - 1)] + y[2:nlevels])/2
             if (length(unique(diff(y_midpoints))) != 1) {
