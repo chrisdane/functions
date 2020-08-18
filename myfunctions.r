@@ -566,6 +566,14 @@ myErrorFun <- function() {
     }
 }
 
+mynews <- function() {
+    current_version <- paste0(R.version$major, ".", R.version$minor)
+    db <- news(Version==current_version)$Text
+    db <- gsub("\\\n", " ", db)
+    message("R ", current_version, " news:")
+    for (i in seq_along(db)) message(i, "/", length(db), ": ", db[i])
+}
+
 # paste stuff that I always forget
 myhelp <- function() {
 	tmp <- c("   Built-in constants ...",
