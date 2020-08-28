@@ -83,19 +83,17 @@ myma <- function(x, order, verbose=F, ...) {
     y <- stats::filter(x, filter=rep(1/order, t=order))
 }
 
-ht <- function(d, n=15) {
+ht <- function(d, nmax_per_side=15) {
     if (!is.null(dim(d)) && length(dim(d)) > 2) stop("ht(): input d needs to be 1- or 2-dimensional")
     if (is.null(dim(d))) nd <- length(d)
     if (!is.null(dim(d))) nd <- dim(d)[1]
-    if (missing(n)) n <- min(n, ceiling(nd/2))
-    if (nd == 1 || n >= nd) { # only 1 entry
+    if (nd <= 2*nmax_per_side) {
         print(d)
     } else {
-        #message("ht(): nd = ", nd, "; n = ", n)
-        print(head(d, n=n))
+        print(head(d, n=nmax_per_side))
         #message(system('bold=`tput bold`; printf "   ${bold}\u22ee"', intern=T))
         message(system('printf "   \u22ee"', intern=T))
-        print(tail(d, n=n))
+        print(tail(d, n=nmax_per_side))
     }
 } # ht()
 
