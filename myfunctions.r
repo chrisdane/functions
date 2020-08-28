@@ -83,12 +83,21 @@ myma <- function(x, order, verbose=F, ...) {
     y <- stats::filter(x, filter=rep(1/order, t=order))
 }
 
-ht <- function(d, n=7) {
-    print(head(d, n))
-    #message(system('bold=`tput bold`; printf "   ${bold}\u22ee"', intern=T))
-    message(system('printf "   \u22ee"', intern=T))
-    print(tail(d, n))
-}
+ht <- function(d, n=15) {
+    if (!is.null(dim(d)) && length(dim(d)) > 2) stop("ht(): input d needs to be 1- or 2-dimensional")
+    if (is.null(dim(d))) nd <- length(d)
+    if (!is.null(dim(d))) nd <- dim(d)[1]
+    if (missing(n)) n <- min(n, ceiling(nd/2))
+    if (nd == 1 || n >= nd) { # only 1 entry
+        print(d)
+    } else {
+        #message("ht(): nd = ", nd, "; n = ", n)
+        print(head(d, n=n))
+        #message(system('bold=`tput bold`; printf "   ${bold}\u22ee"', intern=T))
+        message(system('printf "   \u22ee"', intern=T))
+        print(tail(d, n=n))
+    }
+} # ht()
 
 # make POSIX time with negative years
 make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbose=0) {
