@@ -1,14 +1,17 @@
 image.plot.nxm <- function(x, y, z, n, m, dry=F, 
+                           individual_zlim=F,
                            horizontal=F, top_bottom=F, add_title=T,
                            xlab="xaxis", ylab="yaxis", zlab="Variable [unit]",
                            cex.axis=1.25,
-                           bgcol="white", NAcol="gray", useRaster=NULL,
-                           add_contour=T, add_land=F, 
-                           contour_only=F, contour_labcex=1,
-                           image_list=NULL, contour_list=NULL, quiver_list=NULL, 
+                           bgcol="white", NAcol="gray", poly_border_col=NA, 
+                           useRaster=T,
+                           contour_only=F, add_contour=T, contour_include_zero=T,
+                           contour_posneg_soliddashed=F, contour_posneg_redblue=F,
+                           contour_smooth=F, contour_smooth_n_pixel_thr=5, contour_spar=0.5,
+                           contour_labcex=1.5, contour_vfont=c("sans serif", "bold"), 
                            type="active", plotname="testplot",
-                           cm_bottom=2, cm_left=2.5, cm_top=1, cm_right=4,
-                           colorbar_width_cm=0.45, colorbar_dist_cm=0.2,
+                           cm_bottom=2, cm_left=2.5, cm_top=1,
+                           cm_right=4, colorbar_width_cm=0.45, colorbar_dist_cm=0.2,
                            width_png=2000, height_png=1666, res=300, 
                            width_pdf=7, height_pdf=7,
                            axis.args=NULL, add_names_inset=F, add_names_topleft=T,
@@ -17,12 +20,13 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                            verbose=F,
                            ...) {
 
-    ## Demo values
+    if (verbose) message("\n*********** start image.plot.nxm() with `verbose`=T and `dry`=", 
+                         substr(dry, 1, 1), " **************")
+    
+    ## demo values
     if (missing(x) && missing(y) && missing(z)) {
-        if (missing(n) || missing(m)) {
-            n <- 3
-            m <- 2
-        }
+        message("x,y,z not provided --> run demo ...")
+        n <- 3; m <- 2
         x <- y <- z <- vector("list", l=n*m)
         for (i in 1:(n*m)) {
             x[[i]] <- 1:20
@@ -31,125 +35,126 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                             c(length(x[[i]]), length(y[[i]])))
             z[[i]][8:13,8:13] <- NA
         }
-    } # demo
+    }
    
+    # necessary input
+    if (!missing(x)) {
+        if (missing(y)) stop("y is missing")
+        if (missing(z)) stop("z is missing")
+    }
+    if (!missing(y)) {
+        if (missing(x)) stop("x is missing")
+        if (missing(z)) stop("z is missing")
+    }
+    if (!missing(z)) {
+        if (missing(x)) stop("x is missing")
+        if (missing(y)) stop("y is missing")
+    }
+    if (!is.list(x)) stop("x must be list")
+    if (!is.list(y)) stop("y must be list")
+    if (!is.list(z)) stop("z must be list")
+
     # capture additional arguments (aka ellipsis, dots, ...)
     dot_list <- list(...)
     ndots <- length(dot_list)
     dot_names <- names(dot_list)
-    if (ndots > 0) {
-        if (verbose) {
-            for (i in 1:length(dot_list)) {
-                message("dots[[", i, "]]: ", dot_names[i])
-                cat(capture.output(str(dot_list[[i]])), sep="\n")
-            }
-        }
-    }
-    
-    # necessary input
-    if (missing(x)) stop("x is missing")
-    if (missing(y)) stop("y is missing")
-    if (missing(z)) stop("z is missing")
-    if (!is.list(x)) stop("x must be list")
-    if (!is.list(y)) stop("y must be list")
-    if (!is.list(z)) stop("z must be list")
-    if (!is.null(useRaster)) { # if useRaster was given
-        if (!is.logical(useRaster)) {
-            stop("'useRaster' must be either T or F.")
+    if (verbose && ndots > 0) {
+        message("dots:")
+        for (i in 1:length(dot_list)) {
+            message("dots[[", i, "]]: ", dot_names[i])
+            cat(capture.output(str(dot_list[[i]])), sep="\n")
         }
     }
 
     # figure out nrow and ncol aready here that dry run is faster
+    # just learned: grDevices::n2mfrow(nplots) is doing the trick
     if (missing(n) && missing(m)) { # default
-        # just learned: grDevices::n2mfrow(nplots) is doing the trick
         if (length(z) == 1) {
-            n <- 1 # 1 row
-            m <- 1 # 1 col
+            n <- 1; m <- 1 
         } else if (length(z) == 2) {
             # what should be default?
             if (F) { # 1 row, 2 cols
-                n <- 1
-                m <- 2
+                n <- 1; m <- 2
             } else if (T) { # 2 rows, 1 col
-                n <- 2
-                m <- 1
+                n <- 2; m <- 1
             }
         } else if (length(z) == 3) {
-            n <- 3
-            m <- 1
+            n <- 3; m <- 1
         } else {
             n <- ceiling(sqrt(length(z)))
             m <- length(z) - n
         }
         if (verbose) message("automatically derived (nrow,ncol) = (n,m) = (", n, ",", m, ")") 
     } # if n and m are missing
-    if (verbose) {
-        message("   n x m = ", n, " x ", m, " ...")
-    }
+    if (verbose) message("   n x m = ", n, " x ", m, " ...")
     nplots <- n*m
-    if (nplots < length(z)) {
-        stop("nplots = n x m = ", n, " x ", m, " < length(z) = ", length(z))
-    }
+    nz <- length(z) 
+    if (nplots < nz) stop("nplots = n x m = ", n, " x ", m, " < length(z) = ", nz)
 
     # decide which axes are drawn to which subplot
+    # n=nrow, m=ncol
     left_axis_inds <- bottom_axis_inds <- title_inds <- rep(F, t=nplots)
     for (i in seq_len(nplots)) {
-        if (top_bottom) { # order plots from top to bottom and then from left to right (default: False)
+        
+        # order plots from top to bottom and then from left to right (default: False)
+        if (top_bottom) { 
             
-            if (verbose) message("axis top_bottom")
-            # title in top row
+            if (verbose) message("axes top_bottom")
+            
+            # titles in top row
             if (i == n*(m-1)+1) title_inds[i] <- T
             
-            # n=nrow, m=ncol
-            if (i <= n) { # left axis
+            # left axes
+            if (i <= n) { 
                 if (verbose) message("axis top_bottom i=", i, " <= n (=", n, ")")
                 left_axis_inds[i] <- T
             }
-            if (i %% n == 0) { # bottom axis
+            
+            # bottom axes
+            if (i %% n == 0 # bottom row
+                ) { # todo: or last column of (nrow-1)th row if n*m > nplots
                 if (verbose) message("axis top_bottom i=", i, " %% n (=", n, ") = ", i %% n, " == 0")
                 bottom_axis_inds[i] <- T
             }
 
-        } else if (!top_bottom) { # order plots from left to right and then from top to bottom (default: True)
+        # else order plots from left to right and then from top to bottom (default: True)
+        } else if (!top_bottom) { 
             
-            # title in top row
+            # titles in top row
             if (i == m) title_inds[i] <- T
 
-            # n=nrow, m=ncol
+            # left axes
             if (verbose) message("i %% m = ", i, " %% ", m, " = ", i %% m)
             if (nplots == 1 || m == 1 ||
-                (nplots > 1 && i %% m == 1)) { # left axis
-                if (verbose) message("axis !top_bottom i=", i, " %% m (=", m, ") = ", i %% m, " == 1")
+                (nplots > 1 && i %% m == 1)) {
+                if (verbose) message("left axis !top_bottom i=", i, " %% m (=", m, ") = ", i %% m, " == 1")
                 left_axis_inds[i] <- T
             }
-            if (i >= (n*m - m + 1)) { # bottom axis
-                if (verbose) message("axis !top_bottom i=", i, " >= (n*m - m + 1) = (", n, "*", m, " - ", m, " + 1) = ", (n*m - m + 1))
+
+            # bottom axes
+            if (i >= (n*m - m + 1) || # last row
+                (nplots > nz && (i >= n*m - m))) { # or last column of (nrow-1)th row if nplots > nz
+                if (verbose) message("bottom axis !top_bottom i=", i, " >= (n*m - m + 1) = (", 
+                                     n, "*", m, " - ", m, " + 1) = ", (n*m - m + 1))
                 bottom_axis_inds[i] <- T
             }
         } # if top_bottom
     } # for i nplots
 
     # just return number of rows and columns
+    return_list <- list()
+    return_list$nrow <- n
+    return_list$ncol <- m
+    return_list$nplots <- nplots
+    return_list$nz <- nz
+    return_list$top_bottom <- top_bottom
+    return_list$left_axis_inds <- left_axis_inds
+    return_list$bottom_axis_inds <- bottom_axis_inds
+    return_list$title_inds <- title_inds
     if (dry) {
-        return(list(nrow=n, ncol=m, top_bottom=top_bottom,
-                    left_axis_inds=left_axis_inds, bottom_axis_inds=bottom_axis_inds,
-                    title_inds=title_inds))
-    }
-
-    # make sure that x and y are regular that image(..., useRaster=T) can be used
-    if (F) {
-        message("make regular x,y coords ...")
-        for (i in 1:length(z)) {
-            x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), l=length(x[[i]]))
-            y[[i]] <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), l=length(y[[i]]))
-        }
-    }
-
-    if (verbose) {
-        message("x")
-        cat(capture.output(str(x)), sep="\n")
-        message("y")
-        cat(capture.output(str(y)), sep="\n")
+        return(return_list)
+    } else {
+        if (verbose) message("`dry`=F --> run function with `dry`=T do stop here and return nrow and ncol")
     }
 
     # derive nplots based on derived number of rows (n) and columns (m)
@@ -157,27 +162,105 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         stop("decide where to put legend: either `add_names_inset` or `add_names_topleft` can be true")
     }
    
-    # check additional data lists if provided
-    if (!is.null(image_list)) { # todo
+    # check additional objects if provided
+    if (any(dot_names == "image_list")) {
+        image_list <- dot_list$image_list
+        if (!is.null(image_list)) {
+            if (is.null(image_list$x)) stop("provided `image_list` but `image_list$x` is missing")
+            if (is.null(image_list$y)) stop("provided `image_list` but `image_list$y` is missing")
+            if (is.null(image_list$z)) stop("provided `image_list` but `image_list$z` is missing")
+        }
+    } else {
+        image_list <- NULL
     }
     
-    if (!is.null(contour_list)) { # todo
+    if (any(dot_names == "polygon_list")) {
+        polygon_list <- dot_list$polygon_list
+        if (!is.null(polygon_list)) {
+            if (is.null(polygon_list$x)) stop("provided `polygon_list` but `polygon_list$x` is missing")
+            if (is.null(polygon_list$y)) stop("provided `polygon_list` but `polygon_list$y` is missing")
+            if (is.null(polygon_list$z)) stop("provided `polygon_list` but `polygon_list$z` is missing")
+            if (is.null(polygon_list$levels)) stop("provided `polygon_list` but `polygon_list$levels` is missing")
+        }
+    } else {
+        polygon_list <- NULL
+    }
+    
+    if (any(dot_names == "contour_list")) {
+        contour_list <- dot_list$contour_list
+        if (!is.null(contour_list)) {
+            if (is.null(contour_list$x)) stop("provided `contour_list` but `contour_list$x` is missing")
+            if (is.null(contour_list$y)) stop("provided `contour_list` but `contour_list$y` is missing")
+            if (is.null(contour_list$z)) stop("provided `contour_list` but `contour_list$z` is missing")
+            if (is.null(contour_list$levels)) stop("provided `contour_list` but `contour_list$levels` is missing")
+        }
+    } else {
+        contour_list <- NULL
+    }
+    
+    if (any(dot_names == "quiver_list")) {
+        quiver_list <- dot_list$quiver_list
+        if (!is.null(quiver_list)) {
+            if (is.null(quiver_list$u)) stop("provided `quiver_list` but `quiver_list$u` is missing")
+            if (is.null(quiver_list$v)) stop("provided `quiver_list` but `quiver_list$v` is missing")
+            if (is.null(quiver_list$const)) quiver_list$const <- rep(F, t=length(quiver_list$u))
+            if (is.null(quiver_list$thr)) quiver_list$thr <- rep(NULL, t=length(quiver_list$u))
+            if (is.null(quiver_list$nx_fac)) quiver_list$nx_fac <- rep(1, t=length(quiver_list$u))
+            if (is.null(quiver_list$ny_fac)) quiver_list$ny_fac <- rep(1, t=length(quiver_list$u))
+            if (is.null(quiver_list$scale)) quiver_list$scale <- rep(1, t=length(quiver_list$u))
+            if (is.null(quiver_list$col)) quiver_list$col <- rep("black", t=length(quiver_list$u))
+            if (is.null(quiver_list$angle)) quiver_list$angle <- rep(40, t=length(quiver_list$u))
+            if (is.null(quiver_list$length)) quiver_list$length <- rep(0.07, t=length(quiver_list$u))
+        }
+    } else {
+        quiver_list <- NULL
     }
 
-    if (!is.null(quiver_list)) {
-        if (is.null(quiver_list$u)) stop("provided `quiver_list` but `quiver_list$u` is missing")
-        if (is.null(quiver_list$v)) stop("provided `quiver_list` but `quiver_list$v` is missing")
-        if (is.null(quiver_list$const)) quiver_list$const <- rep(F, t=length(quiver_list$u))
-        if (is.null(quiver_list$thr)) quiver_list$thr <- rep(NULL, t=length(quiver_list$u))
-        if (is.null(quiver_list$nx_fac)) quiver_list$nx_fac <- rep(1, t=length(quiver_list$u))
-        if (is.null(quiver_list$ny_fac)) quiver_list$ny_fac <- rep(1, t=length(quiver_list$u))
-        if (is.null(quiver_list$scale)) quiver_list$scale <- rep(1, t=length(quiver_list$u))
-        if (is.null(quiver_list$col)) quiver_list$col <- rep("black", t=length(quiver_list$u))
-        if (is.null(quiver_list$angle)) quiver_list$angle <- rep(40, t=length(quiver_list$u))
-        if (is.null(quiver_list$length)) quiver_list$length <- rep(0.07, t=length(quiver_list$u))
+    if (any(dot_names == "addland_list")) {
+        addland_list <- dot_list$addland_list
+        if (!is.null(addland_list)) {
+            if (is.null(addland_list$data) || 
+                !is.null(addland_list$data) && !any(addland_list$data == c("world", "world2"))) {
+                stop("provided `addland_list` must have `addland_list$data` = \"world\" (-180,180 lons) or \"world2\" (0,360 lons)")
+            }
+        }
+    } else {
+        addland_list <- NULL
+    }
+    
+    if (any(dot_names == "segment_list")) {
+        segment_list <- dot_list$segment_list
+        if (!is.null(segment_list)) {
+            if (is.null(segment_list$x0)) stop("provided `segment_list` but `segment_list$x0` is missing")
+            if (is.null(segment_list$y0)) stop("provided `segment_list` but `segment_list$y0` is missing")
+            if (is.null(segment_list$x1)) stop("provided `segment_list` but `segment_list$x1` is missing")
+            if (is.null(segment_list$y1)) stop("provided `segment_list` but `segment_list$y1` is missing")
+        }
+    } else {
+        segment_list <- NULL
     }
 
-    ## checks finished
+    if (any(dot_names == "cmd_list")) {
+        cmd_list <- dot_list$cmd_list
+        if (!is.null(cmd_list)) {
+            for (i in seq_along(cmd_list)) {
+                if (typeof(cmd_list[[i]]) != "character") {
+                    stop("provided `cmd_list` but cmd_list[[", i, "]] = ", dput(cmd_list[[i]]))
+                }
+            }
+        }
+    } else {
+        cmd_list <- NULL
+    }
+    
+    if (any(dot_names == "subplot_list")) {
+        subplot_list <- dot_list$subplot_list
+        if (!is.null(cmd_list)) {
+            stop("todo")
+        }
+    } else {
+        subplot_list <- NULL
+    }
 
     # data names if existing
     if (any(dot_names == "znames")) {
@@ -193,20 +276,73 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     }
 
     # levels and colors
-    if (any(dot_names == "ip")) {
-        ip <- dot_list$ip
-    } else {
-        if (!any(dot_names == "zlim")) zlim <- range(z, na.rm=T)
-        message("`ip` argument not provided. try to run `image.plot.pre(zlim)` ...") 
-        ip <- image.plot.pre(zlim)
+    if (individual_zlim) {
+        if (!contour_only) {
+            message("if `individual_zlim`=T, `contour_only` must be T. set `contour_only` from F to T ...")
+            contour_only <- T
+        }
+    } else if (!individual_zlim) { # one zlim and breaks for all data
+        if (any(dot_names == "ip")) {
+            ip <- dot_list$ip
+        } else {
+            if (!any(dot_names == "zlim")) zlim <- range(z, na.rm=T)
+            message("`ip` argument not provided. try to run `image.plot.pre(zlim)` ...") 
+            ip <- image.plot.pre(zlim)
+        }
+        zlim <- ip$zlim
+        cols <- ip$cols
+        breaks <- ip$levels
+        nlevels <- ip$nlevels
+        axis.at <- ip$axis.at
+        axis.at.ind <- ip$axis.at.ind
+        axis.labels <- ip$axis.labels
+    
+        return_list$zlim <- zlim
+        return_list$breaks <- breaks
+        return_list$cols <- cols
+        return_list$nlevels <- nlevels
+        return_list$axis.at <- axis.at
+        return_list$axis.labels <- axis.labels
     }
-    zlim <- ip$zlim
-    cols <- ip$cols
-    breaks <- ip$levels
-    nlevels <- ip$nlevels
-    axis.at <- ip$axis.at
-    axis.at.ind <- ip$axis.at.ind
-    axis.labels <- ip$axis.labels
+
+    # checks for contours
+    if (contour_only && add_contour) {
+        message("both `contour_only` and `add_contour` are true.",
+                " set `contour_only` to false (default) and continue ...")
+        contour_only <- F
+    }
+    if (add_contour || contour_only || !is.null(contour_list)) {
+        if (contour_posneg_soliddashed && contour_posneg_redblue) {
+            message("both `contour_posneg_soliddashed` and `contour_posneg_redblue` cannot be true.",
+                    " set both to false (default) and continue ...")
+            contour_posneg_redblue <- F
+            contour_posneg_soliddashed <- F
+        }
+    }
+
+    # make sure that x and y are regular that image(..., useRaster=T) can be used
+    if (useRaster) {
+        message("`useRaster`=T --> make regular x,y coords ...")
+        for (i in seq_along(z)) {
+            x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), l=length(x[[i]]))
+            y[[i]] <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), l=length(y[[i]]))
+        }
+        if (!is.null(image_list)) {
+            for (i in seq_along(image_list$x)) {
+                image_list$x[[i]] <- seq(min(image_list$x[[i]], na.rm=T), max(image_list$x[[i]], na.rm=T), 
+                                         l=length(image_list$x[[i]]))
+                image_list$y[[i]] <- seq(min(image_list$y[[i]], na.rm=T), max(image_list$y[[i]], na.rm=T), 
+                                         l=length(image_list$y[[i]]))
+            }
+        }
+    } # if useRaster
+
+    if (verbose) {
+        message("x:")
+        cat(capture.output(str(x)), sep="\n")
+        message("y:")
+        cat(capture.output(str(y)), sep="\n")
+    }
 
     # Prepare plot
     if (!any(dot_names == "xlim")) {
@@ -260,7 +396,8 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     } else if (any(dot_names == "x_at")) {
         x_at <- dot_list[["x_at"]]
     }
-    if (!any(dot_names == "y_at")) {
+    if (!any(dot_names == "y_at") || 
+        (any(dot_names == "y_at") && is.null(dot_list[["y_at"]]))) {
         y_at <- pretty(y_plot, n=10)
         if (verbose) {
             cat("automatic y_at step 1 =")
@@ -298,28 +435,47 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     # construct layout mat based on n x m; nrow x ncol
     if (top_bottom) { # plot figures from top to bottom and left to right
 	    layout_mat <- matrix(1:(n*m), nrow=n, ncol=m, byrow=F)
-    } else { # plot figures from left to right and topto bottom
+    } else { # plot figures from left to right and top to bottom
         layout_mat <- matrix(1:(n*m), nrow=n, ncol=m, byrow=T)
     }
 
 	# vertical legend bar on the right
     if (!horizontal) {
-        layout_mat2 <- cbind(rep(0, t=n), # left axis row
-                             layout_mat,
-                             rep(n*m + 1, t=n)) # right legend column
-        layout_mat2 <- rbind(rep(0, t=m + 2),
-                             layout_mat2,
-                             rep(0, t=m + 2)) # bottom axis row
 
-        # left region for axes in cm; columns for plots in relative units; right region for colorbar in cm  
-        layout_widths <- c(lcm(cm_left), rep(1/m, t=m), lcm(cm_right))
+        # add left/right columns to layout_mat (for axes and/or colorbars)
+        if (contour_only) { # left region for axes in cm; columns for plots in relative units
+            layout_mat2 <- cbind(rep(0, t=n), # left axis row
+                                 layout_mat)
+            layout_widths <- c(lcm(cm_left), rep(1/m, t=m))
+        } else if (!contour_only) { # left region for axes in cm; columns for plots in relative units; right region for colorbar in cm  
+            layout_mat2 <- cbind(rep(0, t=n), # left axis row
+                                 layout_mat,
+                                 rep(n*m + 1, t=n)) # right legend column
+            layout_widths <- c(lcm(cm_left), rep(1/m, t=m), lcm(cm_right))
+        }
+        
+        # add upper/bottom rows to layout_mat (for axes and/or titles)
         # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
+        if (contour_only) {
+            layout_mat2 <- rbind(rep(0, t=m + 1),
+                                 layout_mat2,
+                                 rep(0, t=m + 1)) # bottom axis row
+        } else if (!contour_only) {
+            layout_mat2 <- rbind(rep(0, t=m + 2),
+                                 layout_mat2,
+                                 rep(0, t=m + 2)) # bottom axis row
+        }
         layout_heights <- c(lcm(cm_top), rep(1/n, t=n), lcm(cm_bottom))
 
     # horizontal legend bar on the bottom
     } else {
         stop("not yet") 
     }
+    return_list$layout_mat <- layout_mat
+    return_list$layout_mat2 <- layout_mat2
+    return_list$layout_widths <- layout_widths
+    return_list$layout_heights <- layout_heights
+    
     if (verbose) {
         cat("layout_widths=")
         dput(layout_widths)
@@ -357,9 +513,10 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     
     layout(layout_mat2, widths=layout_widths, heights=layout_heights)
     #layout.show(n=max(layout_mat2))
-    par(mar=rep(0.5, t=4)) # distance between sub-figures [rows]
 	if (add_names_topleft) { # increase vertical distance between sub figures
         par(mar=c(1.5, 0.5, 1.5, 0.5)) 
+    } else {
+        par(mar=rep(0.5, t=4)) # distance between sub-figures [rows]
     }
     if (verbose) {
         cat("fig=")
@@ -385,9 +542,10 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     # for every plot 
 	for (i in seq_len(nplots)) {
 
-        if (verbose) message("plot ", i, "/", length(x), " ...")
+        if (verbose) message("\n**************************************\n",
+                             "subplot ", i, "/", nplots, " (nz = ", nz, ") ...")
         
-        # Open plot device
+        # Open ith subplot
         plot(x_plot, y_plot, t="n",
 			 #xlim=xlim, ylim=ylim, 
              axes=F, xlab=NA, ylab=NA,
@@ -404,94 +562,338 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
 
         } else { # if length(x) != nplots - 1 && i != nplots
 
-            # Add data to plot
+            # Add data to subplot
             nx <- length(x[[i]]); ny <- length(y[[i]])
 
             if (!contour_only) {
-
-                # check useRaster
-                err <- tryCatch(image(x[[i]], y[[i]], 
-                                      array(1, c(length(x[[i]]), length(y[[i]]))),
-                                      add=T, col=NAcol, axes=F, xlab=NA, ylab=NA, 
-                                      useRaster=T),
-                                error=function(e) e, warning=function(w) w)
-                if (is.null(err)) {
-                    useRaster <- T
-                } else {
-                    if (verbose) {
-                        if (i == 1) message("cannot use useRaster=T since:")
-                        message(err)
-                    }
-                    interpolate_to_regular <- F
-                    if (interpolate_to_regular) {
-                        message("`interpolate_to_regular`=T ...")
-                        # todo
-                    } else {
-                        useRaster <- F
-                    }
-                }
                 
+                if (verbose) message("`contour_only`=F --> add data to subplot using graphics::image() ...")
+
                 # add NA values
-                if (!useRaster) { 
-                    if (verbose) message("image() 1")
-                    image(x[[i]], y[[i]], array(1, c(nx, ny)),
-                          add=T, col=NAcol,
-                          axes=F, xlab="n", ylab="n",
-                          useRaster=useRaster)
+                if (any(is.na(z[[i]]))) {
+                    if (verbose) message("`z[[", i, "]]` has missing values (NA) --> add missing values ",
+                                         "to subplot with color `NAcol`=", NAcol, " using graphics::image() ...")
+                    graphics::image(x[[i]], y[[i]], array(1, c(nx, ny)),
+                                    add=T, col=NAcol,
+                                    axes=F, xlab="n", ylab="n",
+                                    useRaster=useRaster)
                 }
 
                 # add actual data
-                if (verbose) message("image() 2")
-                image(x[[i]], y[[i]], z[[i]], 
-                      add=T, col=cols, breaks=breaks,
-                      axes=F, xlab="n", ylab="n", 
-                      useRaster=useRaster)
-
-                # add contour to plot
-                if (add_contour) {
-                    tmp <- axis.at
-                    if (F && any(tmp == 0)) { # do not show zero contour
-                        if (i == 1) message("add_contour = T --> add data contour without zero ...")
-                        tmp <- tmp[-which(tmp == 0)]
-                    } else {
-                        if (i == 1) message("add_contour = T --> add data contour with zero ...")
-                    }
-                    contour(x[[i]], y[[i]], z[[i]],
-                            levels=tmp, lwd=lwd, add=T, labcex=contour_labcex)
+                if (individual_zlim) {
+                    stop("combination `contour_only`=F and `individual_zlim`=T not implemented yet")
                 }
+                graphics::image(x[[i]], y[[i]], z[[i]], 
+                                add=T, col=cols, breaks=breaks,
+                                axes=F, xlab="n", ylab="n", 
+                                useRaster=useRaster)
+
+            } # if !contour_only
+
+            # add contour to subplot
+            if (contour_only || add_contour) {
                 
-            } else if (contour_only) {
+                if (verbose) {
+                    if (contour_only) message("`contour_only`", appendLF=F) 
+                    if (add_contour) message("`add_contour`", appendLF=F)
+                    message("=T --> add data to subplot using graphics::contour() ...") 
+                }
 
-                contour(x[[i]], y[[i]], z[[i]],
-                        levels=axis.at, labcex=contour_labcex)
+                if (contour_only) {
+                    if (individual_zlim) {
+                        axis.at <- pretty(range(z[[i]], na.rm=T), n=10) # overwrites global axis.at
+                        if (verbose) {
+                            message("`contour_only`=T and `individual_zlim`=T --> use individual contour levels. axis.at =")
+                            dput(axis.at)
+                        }
+                    }
+                }
 
-            } # if contour_only or not
+                # distinguish between positive and negative contours
+                if (contour_posneg_soliddashed || contour_posneg_redblue) {
+                    if (contour_posneg_soliddashed) {
+                        if (verbose) message("`contour_posneg_soliddashed`=T --> use solid lines for pos and dashed lines for neg values ...")
+                    } else if (contour_posneg_redblue) {
+                        if (verbose) message("`contour_posneg_redblue`=T --> use red lines for pos and blue lines for neg values ...")
+                    }
+                    if (any(axis.at < 0)) { # add negative values
+                        axis.at.neg <- axis.at[axis.at < 0]
+                        if (contour_posneg_soliddashed) {
+                            graphics::contour(x[[i]], y[[i]], z[[i]],
+                                              add=T, levels=axis.at.neg, 
+                                              labcex=contour_labcex, vfont=contour_vfont,
+                                              lty=2, axes=F, xlab="n")
+                        } else if (contour_posneg_redblue) {
+                            graphics::contour(x[[i]], y[[i]], z[[i]],
+                                              add=T, levels=axis.at.neg, 
+                                              labcex=contour_labcex, vfont=contour_vfont,
+                                              lty=1, col="blue", axes=F, xlab="n")
+                        }
+                    } # if any neg values
+                    if (any(axis.at >= 0)) { # add positive values
+                        axis.at.pos <- axis.at[axis.at >= 0]
+                        if (!contour_include_zero) {
+                            if (any(axis.at.pos == 0)) {
+                                if (verbose) message("`contour_include_zero`=F --> do not add zero contour line to subplot")
+                                axis.at.pos <- axis.at.pos[which(axis.at.pos == 0)] 
+                            }
+                        }
+                        if (contour_posneg_soliddashed) {
+                            graphics::contour(x[[i]], y[[i]], z[[i]],
+                                              add=T, levels=axis.at.pos, 
+                                              labcex=contour_labcex, vfont=contour_vfont,
+                                              lty=1, axes=F, xlab="n")
+                        } else if (contour_posneg_redblue) {
+                            graphics::contour(x[[i]], y[[i]], z[[i]],
+                                              add=T, levels=axis.at.pos, 
+                                              labcex=contour_labcex, vfont=contour_vfont,
+                                              lty=1, col="red", axes=F, xlab="n")
+                        }
+                    } # if any pos values
+                
+                # default: do not distinguish between positive and negative contours
+                } else if (!contour_posneg_soliddashed && !contour_posneg_redblue) {
+                    if (verbose) message("both `contour_distinguish_posneg` and `contour_distinguish_redblue` are false",
+                                         " --> use solid black lines for both pos and neg values ...")
+                    tmp <- axis.at
+                    if (!contour_include_zero) {
+                        if (any(tmp == 0)) {
+                            if (verbose) message("`contour_include_zero`=F --> do not add zero contour line to subplot")
+                            tmp <- tmp[which(tmp == 0)] 
+                        }
+                    }
+                    graphics::contour(x[[i]], y[[i]], z[[i]],
+                                      add=T, levels=tmp, 
+                                      labcex=contour_labcex, vfont=contour_vfont,
+                                      axes=F, xlab="n")
+                } # if distinguish between positive and negative contours or not
+
+            } # if contour_only or add_contour
             
             # add additional data as image if available
             if (!is.null(image_list)) {
-                if (i == 1) message("\n`contour_list` is not NULL -> add additional data as image() to plot ...")
+                if (verbose) message("add provided `image_list` to subplot using graphics::image() ...")
                 if (length(image_list[[i]]$levels) == 1) { # special case: only 1 level
-                    image(x[[i]], y[[i]], image_list[[i]]$data, 
-                          col=image_list[[i]]$cols,  
-                          add=T, useRaster=useRaster)
+                    graphics::image(x[[i]], y[[i]], image_list[[i]]$data, 
+                                    col=image_list[[i]]$cols,  
+                                    add=T, useRaster=useRaster)
                 } else {
-                    image(x[[i]], y[[i]], image_list[[i]]$data, 
-                          col=image_list[[i]]$cols, breaks=image_list[[i]]$levels, 
-                          add=T, useRaster=useRaster)
+                    graphics::image(x[[i]], y[[i]], image_list[[i]]$data, 
+                                    col=image_list[[i]]$cols, breaks=image_list[[i]]$levels, 
+                                    add=T, useRaster=useRaster)
                 }
             } # if (!is.null(image_list))
 
+            # add additional data as polygons if available
+            if (!is.null(polygon_list)) {
+                if (verbose) message("add provided `poly_list` to subplot using graphics::polygon() ...")
+                poly_col_vec <- base::findInterval(polygon_list$z[[i]], polygon_list$levels, all.inside=F)
+                cur_dev_type <- names(dev.cur())
+                if (cur_dev_type == "pdf" && !is.na(poly_border_col)) {
+                    polygon(polygon_list$x[[i]], polygon_list$y[[i]], col=cols[poly_col_vec], border=cols[poly_col_vec])
+                } else {
+                    polygon(polygon_list$x[[i]], polygon_list$y[[i]], col=cols[poly_col_vec], border=poly_border_col)
+                }
+            } # if (!is.null(polygon_list))
+
             # add additional data as contours if available
             if (!is.null(contour_list)) {
-            if (i == 1) message("\n`contour_list` is not NULL -> add additional data as contours() to plot ...")
-                contour(x[[i]], y[[i]], contour_list[[i]], 
-                        add=T, levels=contour_list[[i]]$levels,
-                        lwd=lwd, labcex=contour_labcex, drawlabels=T)
+                
+                if (is.null(contour_list$z[[i]])) {
+                    if (verbose) message("provided `contour_list$z[[", i, "]]` is NULL. do not add to this subplot")
+                
+                } else { 
+                    if (verbose) {
+                        message("add provided `contour_list$z[[", i, "]]` to subplot using graphics::contour() ...")
+                        message("   contour_list$levels = ", paste(contour_list$levels, collapse=", "))
+                    }
+                
+                    # distinguish between positive and negative contours
+                    if (contour_posneg_soliddashed || contour_posneg_redblue) {
+                        if (contour_posneg_soliddashed) {
+                            if (verbose) message("`contour_posneg_soliddashed`=T --> use solid lines for pos and dashed lines for neg values ...")
+                        } else if (contour_posneg_redblue) {
+                            if (verbose) message("`contour_posneg_redblue`=T --> use red lines for pos and blue lines for neg values ...")
+                        }
+                        if (any(axis.at < 0)) { # add negative values
+                            
+                            axis.at.neg <- contour_list$levels[contour_list$levels < 0]
+                            if (contour_posneg_soliddashed) {
+                                lty <- 2; col <- "black"
+                            } else if (contour_posneg_redblue) {
+                                lty <- 1; col <- "blue"
+                            }
+                            
+                            # draw original or smooth contours
+                            if (!contour_smooth) {
+                                graphics::contour(contour_list$x[[i]], contour_list$y[[i]], contour_list$z[[i]],
+                                                  add=T, levels=axis.at.neg,
+                                                  labcex=contour_labcex, vfont=contour_vfont,
+                                                  col=col, lty=lty, axes=F, xlab="n")
+                            } else if (contour_smooth) {
+                                if (verbose) message("`contour_smooth`=T --> smooth negative contours longer than ",
+                                                     "`contour_smooth_n_pixel_thr`=", contour_smooth_n_pixel_thr, 
+                                                     " pixels using stats::smooth.spline() ...")
+                                if (length(contour_spar) != length(axis.at.neg)) {
+                                    message("smooth parameter `contour_spar`=", paste(contour_spar, collapse=", "), 
+                                            " (in (0,1]; the higher the number the stronger the smoothing) is of ",
+                                            "different length (", length(contour_spar), ") than the negative contour levels ",
+                                            "to add to subplot (", length(axis.at.neg), ").")
+                                    contour_spar_save <- contour_spar
+                                    if (length(contour_spar) == 1) {
+                                        message("length(contour_spar) = 1 --> repeat smoothing parameter ", length(axis.at.neg), " times ...")
+                                        contour_spar <- rep(contour_spar, t=length(axis.at.neg))
+                                    } else {
+                                        stop("dont know how to proceed")
+                                    }
+                                } # if given contour_spar and axis.at.neg are of different length
+                                for (j in seq_along(axis.at.neg)) {
+                                    cl <- contourLines(contour_list$x[[i]], contour_list$y[[i]], contour_list$z[[i]],
+                                                       levels=axis.at.neg[j])
+                                    if (length(cl) >= 1) {
+                                        for (k in seq_along(cl)) {
+                                            if (length(cl[[k]]$x) > contour_smooth_n_pixel_thr) {
+                                                cl_x <- stats::smooth.spline(x=seq_along(cl[[k]]$x), y=cl[[k]]$x,
+                                                                             spar=contour_spar[j])
+                                                cl_y <- stats::smooth.spline(x=seq_along(cl[[k]]$y), y=cl[[k]]$y,
+                                                                             spar=contour_spar[j])
+                                                lines(cl_x$y, cl_y$y, col=col, lty=lty, lwd=lwd)
+                                            } else {
+                                                message("contour line ", k, "/", length(cl), " is of length ", 
+                                                        length(cl[[k]]$x), " < `contour_smooth_n_pixel_thr` = ", 
+                                                        contour_smooth_n_pixel_thr, " --> ignore this contour line")
+                                            }
+                                        }
+                                    }
+                                } # for j contour lines
+                                contour_spar <- contour_spar_save
+                            } # if contour_smooth
+                            
+                        } # if any neg values
+                        
+                        if (any(axis.at >= 0)) { # add positive values
+                            axis.at.pos <- contour_list$levels[contour_list$levels >= 0]
+                            if (!contour_include_zero) {
+                                if (any(axis.at.pos == 0)) {
+                                    if (verbose) message("`contour_include_zero`=F --> do not add zero contour line to subplot")
+                                    axis.at.pos <- axis.at.pos[which(axis.at.pos == 0)] 
+                                }
+                            }
+                            if (contour_posneg_soliddashed) {
+                                lty <- 1; col <- "black"
+                            } else if (contour_posneg_redblue) {
+                                lty <- 1; col <- "red"
+                            }
+                            
+                            # draw original or smooth contours
+                            if (!contour_smooth) {
+                                graphics::contour(contour_list$x[[i]], contour_list$y[[i]], contour_list$z[[i]],
+                                                  add=T, levels=axis.at.pos,
+                                                  labcex=contour_labcex, vfont=contour_vfont,
+                                                  col=col, lty=lty, axes=F, xlab="n")
+                            } else if (contour_smooth) {
+                                if (verbose) message("`contour_smooth`=T --> smooth positive contours longer than ",
+                                                     "`contour_smooth_n_pixel_thr`=", contour_smooth_n_pixel_thr, 
+                                                     " pixels using stats::smooth.spline() ...")
+                                if (length(contour_spar) != length(axis.at.pos)) {
+                                    message("smooth parameter `contour_spar`=", paste(contour_spar, collapse=", "), 
+                                            " (in (0,1]; the higher the number the stronger the smoothing) is of ",
+                                            "different length (", length(contour_spar), ") than the positive contour levels ",
+                                            "to add to subplot (", length(axis.at.pos), ").")
+                                    contour_spar_save <- contour_spar
+                                    if (length(contour_spar) == 1) {
+                                        message("length(contour_spar) = 1 --> repeat smoothing parameter ", length(axis.at.pos), " times ...")
+                                        contour_spar <- rep(contour_spar, t=length(axis.at.pos))
+                                    } else {
+                                        stop("dont know how to proceed")
+                                    }
+                                } # if given contour_spar and axis.at.pos are of different length
+                                for (j in seq_along(axis.at.pos)) {
+                                    cl <- contourLines(contour_list$x[[i]], contour_list$y[[i]], contour_list$z[[i]],
+                                                       levels=axis.at.pos[j])
+                                    if (length(cl) >= 1) {
+                                        for (k in seq_along(cl)) {
+                                            if (length(cl[[k]]$x) > contour_smooth_n_pixel_thr) {
+                                                cl_x <- stats::smooth.spline(x=seq_along(cl[[k]]$x), y=cl[[k]]$x,
+                                                                             spar=contour_spar[j])
+                                                cl_y <- stats::smooth.spline(x=seq_along(cl[[k]]$y), y=cl[[k]]$y,
+                                                                             spar=contour_spar[j])
+                                                lines(cl_x$y, cl_y$y, col=col, lty=lty, lwd=lwd)
+                                            } else {
+                                                message("contour line ", k, "/", length(cl), " is of length ", 
+                                                        length(cl[[k]]$x), " < `contour_smooth_n_pixel_thr` = ", 
+                                                        contour_smooth_n_pixel_thr, " --> ignore this contour line")
+                                            }
+                                        }
+                                    }
+                                } # for j contour lines
+                                contour_spar <- contour_spar_save
+                            } # if contour_smooth
+                        } # if any pos values
+                    
+                    # default: do not distinguish between positive and negative contours
+                    } else if (!contour_posneg_soliddashed && !contour_posneg_redblue) {
+                        if (verbose) message("both `contour_distinguish_posneg` and `contour_distinguish_redblue` are false",
+                                             " --> use solid black lines for both pos and neg values ...")
+                        tmp <- contour_list$levels
+                        if (!contour_include_zero) {
+                            if (any(tmp == 0)) {
+                                if (verbose) message("`contour_include_zero`=F --> do not add zero contour line to subplot")
+                                tmp <- tmp[which(tmp == 0)] 
+                            }
+                        }
+                            
+                        # draw original or smooth contours
+                        if (!contour_smooth) {
+                            graphics::contour(contour_list$x[[i]], contour_list$y[[i]], contour_list$z[[i]],
+                                              add=T, levels=tmp, 
+                                              labcex=contour_labcex, vfont=contour_vfont,
+                                              axes=F, xlab="n")
+                        } else if (contour_smooth) {
+                            if (verbose) message("`contour_smooth`=T --> smooth positive contours longer than ",
+                                                 "`contour_smooth_n_pixel_thr`=", contour_smooth_n_pixel_thr, 
+                                                 " pixels using stats::smooth.spline() ...")
+                            if (length(contour_spar) != length(axis.at.pos)) {
+                                message("smooth parameter `contour_spar`=", paste(contour_spar, collapse=", "), 
+                                        " (in (0,1]; the higher the number the stronger the smoothing) is of ",
+                                        "different length (", length(contour_spar), ") than the positive contour levels ",
+                                        "to add to subplot (", length(axis.at.pos), ").")
+                                contour_spar_save <- contour_spar
+                                if (length(contour_spar) == 1) {
+                                    message("length(contour_spar) = 1 --> repeat smoothing parameter ", length(axis.at.pos), " times ...")
+                                    contour_spar <- rep(contour_spar, t=length(axis.at.pos))
+                                } else {
+                                    stop("dont know how to proceed")
+                                }
+                            } # if given contour_spar and axis.at.pos are of different length
+                            for (j in seq_along(axis.at.pos)) {
+                                cl <- contourLines(contour_list$x[[i]], contour_list$y[[i]], contour_list$z[[i]],
+                                                   levels=axis.at.pos[j])
+                                if (length(cl) >= 1) {
+                                    for (k in seq_along(cl)) {
+                                        if (length(cl[[k]]$x) > contour_smooth_n_pixel_thr) {
+                                            cl_x <- stats::smooth.spline(x=seq_along(cl[[k]]$x), y=cl[[k]]$x,
+                                                                         spar=contour_spar[j])
+                                            cl_y <- stats::smooth.spline(x=seq_along(cl[[k]]$y), y=cl[[k]]$y,
+                                                                         spar=contour_spar[j])
+                                            lines(cl_x$y, cl_y$y, col=col, lty=lty, lwd=lwd)
+                                        } else {
+                                            message("contour line ", k, "/", length(cl), " is of length ", 
+                                                    length(cl[[k]]$x), " < `contour_smooth_n_pixel_thr` = ", 
+                                                    contour_smooth_n_pixel_thr, " --> ignore this contour line")
+                                        }
+                                    }
+                                }
+                            } # for j contour lines
+                            contour_spar <- contour_spar_save
+                        } # if contour_smooth
+                    } # if distinguish between positive and negative contours or not
+                } # if !is.null(contour_list$z[[i]])
             } # if (!is.null(contour_list))
             
             # add additional data as quivers if available
             if (!is.null(quiver_list)) {
-                message("\n`quiver_list` is not NULL -> add additional data as quivers via pracma::quiver() to plot ...")
+                if (verbose) message("add provided `quiver_list` to subplot using pracma::quiver() ...")
                 if (i == 1) {
                     message("quiver_list:")
                     cat(capture.output(str(quiver_list)), sep="\n")
@@ -539,20 +941,92 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                                col=quiver_list$col[i])
             } # if (!is.null(quiver_list))
             
-            # add text to every plot
-            if (verbose) message("check dots for \"addtext_list\"")
-            if (any(dot_names == "addtext_list")) {
-                for (j in 1:length(addtext_list)) {
-                    if (typeof(addtext_list[[j]]) == "character") {
-                        if (verbose) message("add \"", addtext_list[[j]], "\" ...")
-                        eval(parse(text=addtext_list[[j]]))
+            # add land contours
+            if (!is.null(addland_list)) {
+                if (verbose) message("add provided `addland_list` to subplot using maps::map() ...")
+                if (!any(search() == "package:TeachingDemos")) library(TeachingDemos)
+                if (!any(search() == "package:maps")) library(maps)
+                if (is.null(addland_list$xlim)) {
+                    if (addland_list$data == "world") {
+                        addland_list$xlim <- c(-183.77640, 194.04724)
+                    } else if (addland_list == "world2") {
+                        addland_list$xlim <- c(3.666292, 363.666292)
                     }
+                } else if (!is.null(addland_list$xlim)) {
+                    if (length(addland_list$xlim) == 1) {
+                        if (addland_list$xlim == "xlim") {
+                            addland_list$xlim <- xlim
+                        } else {
+                            stop("`addland_list$xlim` must be missing or \"xlim\" or numeric of length 2")
+                        }
+                    } else if (length(addland_list$xlim) == 2) {
+                        if (!is.numeric(addland_list$xlim)) { 
+                            stop("`addland_list$xlim` must be missing or \"xlim\" or numeric of length 2")
+                        }
+                    } else {
+                        stop("`addland_list$xlim` must be missing or \"xlim\" or numeric of length 2")
+                    }
+                } # is.null(adland$xlim) or not
+                if (is.null(addland_list$ylim)) {
+                    if (addland_list$data == "world") {
+                        addland_list$ylim <- c(-86.91386, 85.32129)
+                    } else if (addland_list$data == "world2") {
+                        addland_list$ylim <- c(-91.760620, 85.370223)
+                    }
+                } else if (!is.null(addland_list$ylim)) {
+                    if (length(addland_list$ylim) == 1) {
+                        if (addland_list$ylim == "ylim") {
+                            addland_list$ylim <- ylim
+                        } else {
+                            stop("`addland_list$ylim` must be missing or \"ylim\" or numeric of length 2")
+                        }
+                    } else if (length(addland_list$ylim) == 2) {
+                        if (!is.numeric(addland_list$ylim)) { 
+                            stop("`addland_list$ylim` must be missing or \"ylim\" or numeric of length 2")
+                        }
+                    } else {
+                        stop("`addland_list$ylim` must be missing or \"ylim\" or numeric of length 2")
+                    }
+                } # is.null(addland_list$ylim) or not
+                if (verbose) {
+                    message("`addland_list$data` = ", addland_list$data)
+                    message("`addland_list$xlim` = ", addland_list$xlim[1], ", ", addland_list$xlim[2])
+                    message("`addland_list$ylim` = ", addland_list$ylim[1], ", ", addland_list$ylim[2])
                 }
-            }
+                op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
+                par(new=T)
+                plot(addland_list$xlim, addland_list$ylim, t="n",
+                     axes=F, xlab=NA, ylab=NA,
+                     xaxs="i", yaxs="i")
+                maps::map(addland_list$data, interior=F, add=T, lwd=lwd)
+                # add land stuff to every plot
+                #par(op) # switch back to main plot; somehow this breaks layout()'s subplot counting
+                par(usr=op$usr) # only restore coords; todo: is this enough?
+            } # if !is.null(addland_list)
+            #message("par(\"usr\") = ")
+            #dput(par("usr"))
+           
+            # add additional stuff as segments if available
+            if (!is.null(segment_list)) {
+                if (verbose) message("add provided `segment_list` to subplot using graphics::segments() ...")
+                graphics::segments(x0=segment_list$x0, y0=segment_list$y0,
+                                   x1=segment_list$x1, y1=segment_list$y1
+                                   , lwd=lwd
+                                   )
+            } # if !is.null(segment_list)
+
+            # add cmd stuff to every plot
+            if (!is.null(cmd_list)) {
+                if (verbose) message("add provided `cmd_list` to subplot using base::eval(base::parse()) ...")
+                for (j in seq_along(cmd_list)) {
+                    if (verbose) message("   run `", cmd_list[[j]], "` ...")
+                    eval(parse(text=cmd_list[[j]]))
+                }
+            } # if !is.null(cmd_list)
 
             # add title
             if (add_title && any(dot_names == "title") && title_inds[i]) {
-                if (verbose) message("title()")
+                if (verbose) message("add provided `title` to subplot using base::title() ...")
                 text(x=line2user(line=mean(par('mar')[c(2, 4)]), side=2), 
                      y=line2user(line=2, side=3), 
                      labels=dot_list[["title"]], xpd=NA, 
@@ -560,27 +1034,20 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             }
 
             # add axes and axes labels
-            if (verbose) message("axis()")
+            if (verbose) message("add axes to subplot using graphics::axis() ...")
             if (left_axis_inds[i]) {
-                axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
+                graphics::axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
                      lwd=0, lwd.ticks=lwd.ticks)
                 mtext(ylab, side=2, line=5, cex=1)
             } else { # just ticks
-                axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
+                graphics::axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
             }
             if (bottom_axis_inds[i]) {
-                axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
+                graphics::axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
                      lwd=0, lwd.ticks=lwd.ticks)
                 mtext(xlab, side=1, line=3, cex=1)
             } else { # just ticks
-                axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
-            }
-
-            # add land
-            if (add_land != F) {
-                if (i == 1) message("maps::map(", add_land, ")")
-                if (!any(search() == "package:maps")) library(maps)
-                maps::map(add_land, interior=F, add=T)
+                graphics::axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
             }
 
             # add name to every plot
@@ -588,8 +1055,8 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
 
                 if (add_names_inset) {
                     
-                    if (i == 1) message("`add_names_inset` = T --> legend()")
-                    # prepare leend
+                    if (verbose) message("add names to subplot using base::legend() (`add_names_inset`=T) ...")
+                    # prepare legend
                     lepos <- "topleft"
                     letext <- znames[i]
                     leinset <- 0.025 # distance legend box from horizontal (and vertical plot margins 
@@ -639,7 +1106,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 # if add_names_topleft finished
                 } else if (add_names_topleft) {
 
-                    if (i == 1) message("`add_names_topleft` = T --> add `znames` on top left corner of each plot")
+                    if (verbose) message("add names to subplot in top left corner using base::text (`add_names_topleft`=T) ...")
                     text(par("usr")[1], par("usr")[4] + strheight("."), 
                          xpd=T, labels=znames[i], pos=4, cex=legend.cex)
 
@@ -651,12 +1118,12 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             box(lwd=lwd)
 
             ## overlay a subplot
-            if (verbose) message("check dots for 'subplot' ...")
-            if (any(dot_names == "subplot")) {
+            if (!is.null(subplot_list)) {
+                    
+                if (!any(search() == "package:TeachingDemos")) library(TeachingDemos)
+                if (verbose) message("add subplot_list to subplot in using TeachingDemos::subplot() ...")
 
-                for (spi in 1:length(subplot)) {
-
-                    if (!any(search() == "package:TeachingDemos")) library(TeachingDemos)
+                for (spi in seq_along(subplot_list)) {
 
                     if (top_bottom) {
                         # add subplot axis only in last column
@@ -664,20 +1131,20 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                     }
 
                     #op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
-                    sb <- subplot(fun=subplot[[spi]]$fun(sb=subplot[[spi]], 
-                                                         draw_axis_labels_inds=draw_axis_labels_inds, i=i, lwd=lwd),
-                                  x=grconvertX(subplot[[spi]]$fig_x, from="npc"),
-                                  y=grconvertY(subplot[[spi]]$fig_y, from="npc"),
-                                  type="plt")
+                    sb <- TeachingDemos::subplot(fun=subplot_list[[spi]]$fun(sb=subplot_list[[spi]], 
+                                                                        draw_axis_labels_inds=draw_axis_labels_inds, i=i, lwd=lwd),
+                                          x=grconvertX(subplot_list[[spi]]$fig_x, from="npc"),
+                                          y=grconvertY(subplot_list[[spi]]$fig_y, from="npc"),
+                                          type="plt")
                     #par(op) # switch back to main plot
 
-                } # for spi in subplot 
+                } # for spi in subplot_list 
 
-            } # if any(dot_names == "subplot")
+            } # if !is.null(subplot))
 
-            ## add something special to plot
-            if (F) {
-                message("add special stuff ... todo: give as argument list")
+            ## add something special to subplot
+            if (F) { # my special phd stuff
+                message("add special phd stuff")
 
                 # area averaging box
                 if (F && znames[i] == "H5") {
@@ -976,7 +1443,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
 
                 } # kelvin
 
-            } # add something special to plot
+            } # add something special to subplot
         
         } # if length(x) != nplots - 1 && i != nplots
 
@@ -1070,6 +1537,9 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             if (T) { # as in fields::image.plot()
                 message("iy = breaks !!!!!!!!!!!!!!!!!!!!")
                 iy <- breaks # use levels as indices in colorbar
+                # constant dy for useRaster=T usage
+                # --> not possible due to unequal zlevels, e.g. c(zlim[1], 2, 3, zlim[2])
+                #iy <- seq(min(iy), max(iy), l=length(iy)) 
             } else if (F) {
                 message("iy = axis.at.ind !!!!!!!!!!!!!!!!!!!!")
                 iy <- axis.at.ind # use indices as indices in colorbar
@@ -1100,8 +1570,10 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                   breaks=breaks, 
                   #breaks=1:nlevels,
                   col=cols,
-                  axes=F, lwd=lwd,
+                  axes=F, lwd=lwd, 
+                  xlab=NA, ylab=NA
                   #, add=T
+                  #, useRaster=T # does not work through iy
                   )
             
             # add my axis formats to user provided 'axis.args'
@@ -1143,10 +1615,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         dev.off()
     }
 
-    return(list(zlim=zlim, breaks=breaks, col=cols, nlevels=nlevels,
-                axis.at=axis.at, axis.labels=axis.labels,
-                layout_mat=layout_mat, layout_mat2=layout_mat2,
-                layout_widths=layout_widths, layout_heights=layout_heights))
+    return(return_list)
 
 } # function end
 

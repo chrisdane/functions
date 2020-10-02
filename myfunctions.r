@@ -263,6 +263,7 @@ speeds <- function(x=1, unit="cm/s") {
 # get file format
 cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
 
+    if (verbose) message("cdo_get_filetype() start with `verbose`=T ...")
     cmd <- paste0(cdo, " showformat ", fin)
     if (verbose) message("run `", cmd, "`")
     input_format <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))
@@ -312,7 +313,8 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
         if (verbose) message("--> input is not of type netcdf or not known")
         file_type <- "non-nc"
     }
-
+    
+    if (verbose) message("cdo_get_filetype() finished")
     return(list(file_type=file_type, exact_format=input_format$value))
 
 } # cdo_get_filetype
