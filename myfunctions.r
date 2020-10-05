@@ -283,6 +283,7 @@ speeds <- function(x=1, unit="cm/s") {
 # get file format
 cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
 
+    if (verbose) message("cdo_get_filetype() start with `verbose`=T ...")
     cmd <- paste0(cdo, " showformat ", fin)
     if (verbose) message("run `", cmd, "`")
     input_format <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))
@@ -319,30 +320,22 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
                 message("take last entry")
                 input_format$value <- input_format$value[length(input_format$value)]
             }
-            message("--> ", appendLF=F)
         }
     }
-    if (any(input_format$value == c("GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"))) {
-        if (verbose) message("convert to netcdf ...")
-        convert_to_nc <- T
-        file_type <- "grb"
-    } else if (any(input_format$value == c(# from cdo showformat:
-                                           "netCDF", "NetCDF", "NetCDF2", 
-                                           "NetCDF4 classic zip", "netCDF-4 classic model",
-                                           # from ncdump -k:
-                                           "64-bit offset"))) {
-        if (verbose) message("no need to convert to netcdf ...")
-        convert_to_nc <- F
+    if (any(input_format$value == c(# from cdo showformat:
+                                    "netCDF", "NetCDF", "NetCDF2", 
+                                    "NetCDF4 classic zip", "netCDF-4 classic model",
+                                    # from ncdump -k:
+                                    "64-bit offset"))) {
+        if (verbose) message("--> input is of type netcdf  ...")
         file_type <- "nc"
-    } else {
-        if (verbose) message("not defined in cdo_get_filetype() ",
-                             "-> assume that conversion to nc is not needed ",
-                             "-> set `convert_to_nc` to F and continue ...")
-        convert_to_nc <- F
-        file_type <- input_format$value
+    } else { # e.g. "GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"
+        if (verbose) message("--> input is not of type netcdf or not known")
+        file_type <- "non-nc"
     }
-
-    return(list(convert_to_nc=convert_to_nc, file_type=file_type))
+    
+    if (verbose) message("cdo_get_filetype() finished")
+    return(list(file_type=file_type, exact_format=input_format$value))
 
 } # cdo_get_filetype
 
