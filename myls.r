@@ -15,7 +15,7 @@ ls.objects <- function (pos=1, pattern, order.by,
                             format(x, units="auto") })
         mem <- data.frame(c("RSS physical", "VSZ virtual"), 
                           mem, prettyMem)
-        names(mem) <- c(paste0("$ ", pscmd), "Mem [B]", "PrettyMem") 
+        names(mem) <- c(paste0("`", pscmd, "`"), "Mem [B]", "PrettyMem") 
     }
 
     # sizes of objects loaded in current work-space

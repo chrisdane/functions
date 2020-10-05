@@ -50,7 +50,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
     all <- c(rs, matlabs, pythons,
              "mpl_gist_ncar", 
              ncviews,
-             grads)
+             grads,
+             colorbrewers)
 
     ##########################################################
 
@@ -161,7 +162,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
             } else if (names[i] %in% colorbrewers) {
 
                 library(RColorBrewer)
-                rgb <- t(col2rgb(brewer.pal(n=min(n, 11), name=names[i]))) # 11 is maximum n of the package
+                nmax <- RColorBrewer:::maxcolors[names[i]]
+                rgb <- t(col2rgb(RColorBrewer::brewer.pal(n=min(n, nmax), name=names[i])))
                 #print(str(rgb))
                 rgb <- rgb[dim(rgb)[1]:1,] # flip
 

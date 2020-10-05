@@ -8,9 +8,12 @@
 #    graphics::par(las=las, ..., no.readonly = FALSE)
 #} # usage: par(); plot(...)
 
-tryCatch.W.E <- function(expr) {
+# return R currently running executable
+Rexe <- function() {
+    return(paste0(R.home(), "/bin/exec/R"))
+}
 
-    # from `demo(error.catching)`
+tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
     W <- NULL
     w.handler <- function(w) { # warning handler
         W <<- w
@@ -19,7 +22,6 @@ tryCatch.W.E <- function(expr) {
     list(value=withCallingHandlers(tryCatch(expr, error=function(e) e),
                                    warning=w.handler), 
          warning=W)
-
 } # tryCatch.W.E
  
 # check if all elements of a list are identical
@@ -35,6 +37,24 @@ identical_list <- function(x) {
                     logical(1))
         if (all(check)) T else F
     }
+}
+
+# check of graphics::image()'s argument `useRaster` from graphics::image.default 
+check_irregular <- function(x, y) {
+    dx <- diff(x)
+    dy <- diff(y)
+    # all.equal(target, current, ...) returns
+    #   TRUE            if d <= tolereance with
+    #                       tolerance <- sqrt(.Machine$double.eps)
+    #                       d <- (sum(abs(target - current))/length(target))
+    #   a character     otherwise, giving the mean relative difference, 
+    #                   e.g. "Mean relative difference: 0.2"; or other 
+    #                   information like "Numeric: lengths (18, 1) differ"
+    #                   if the lengths of target and current differ
+    # isTRUE(x) returns
+    #   TRUE if is.logical(x) && length(x) == 1L && !is.na(x) && x
+    (length(dx) && !isTRUE(all.equal(dx, rep(dx[1], length(dx))))) ||
+    (length(dy) && !isTRUE(all.equal(dy, rep(dy[1], length(dy)))))
 }
 
 # minute/second degree to decimal degree longitude/latitude
@@ -629,6 +649,12 @@ myhelp <- function() {
              "      which:   find.package(\"packagename\")",
              "      version: packageVersion(\"packagename\")",
              "      archive: https://cran.r-project.org/src/contrib/Archive",
+             "   Functions ...",
+             "      C-object infos: e.g. \"graphics:::C_image\"", 
+             "      S3: getAnywhere(fun or \"fun\"); methods(fun or \"fun\")",
+             "      S4: showMethods(fun or \"fun\"); getMethods(fun or \"fun\")",
+             "   Find R ...",
+             "      executable: R.home()/bin/exec/R",
              "   Run R ...",
              "      in background:            $ Rscript script.r > test.log 2>&1 &",
              "      as script:                #!/usr/bin/env Rscript",
