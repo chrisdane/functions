@@ -1,5 +1,77 @@
 ## r
 
+# fields::splint without the print(x) and print(y) lines
+mysplint <- function (x, y, xgrid, wt = NULL, derivative = 0, lam = 0, df = NA, 
+    lambda = NULL, nx = NULL, digits = 8) 
+{
+    message("mysplint(): is fields::splint issue https://github.com/NCAR/fields/issues/6 solved?")
+    if (is.matrix(x)) {
+        if (ncol(x) > 1) {
+            xgrid <- y
+            y <- x[, 2]
+            x <- x[, 1]
+        }
+    }
+    if (is.list(x)) {
+        xgrid <- y
+        y <- x$y
+        x <- x$x
+    }
+    if (is.null(wt)) {
+        wt <- rep(1, length(x))
+    }
+    #print(x)
+    #print(y)
+    if (any(duplicated(x))) {
+        warning("Duplicate x's using the average value")
+        N <- length(x)
+        print(x)
+        print(y)
+        out <- Krig.replicates(list(x = x, y = y, weights = wt, 
+            N = N, Z = NULL), verbose = TRUE)
+        x <- out$xM
+        y <- out$yM
+        wt <- out$weightsM
+    }
+    if ((derivative > 2) | (derivative < 0)) 
+        stop("derivative must be 0,1,2")
+    if (length(x) != length(y)) 
+        stop("Lengths of x and y must match")
+    n <- length(x)
+    if (n > 50000) {
+        stop("splint not dimensioned for more than 50000 observations")
+    }
+    if (!is.na(df)) {
+        if ((df < 2) | (df > n)) {
+            stop("df out of range")
+        }
+        print(x)
+        print(wt)
+        lam <- sreg.df.to.lambda(df, x, wt)
+        print(lam)
+    }
+    if (!is.null(lambda)) {
+        lam <- lambda
+    }
+    igcv <- ifelse(lam == 0, 2, 0)
+    if (!is.null(nx)) {
+        xgrid <- seq(min(x), max(x), , nx)
+    }
+    ygrid <- .Fortran("css", PACKAGE = "fields", h = as.double(ifelse(igcv == 
+        2, 1, log(lam))), as.integer(n), as.double(x), as.double(y), 
+        wt = as.double(1/sqrt(wt)), sy = as.double(rep(0, n)), 
+        as.double(1), as.double(1), as.double(1), as.integer(length(xgrid)), 
+        as.double(xgrid), ygrid = as.double(rep(0, length(xgrid))), 
+        job = as.integer(c(igcv, 3, 0)), as.integer(derivative), 
+        as.integer(0))$ygrid
+    if (!is.null(nx)) {
+        return(list(x = xgrid, y = ygrid))
+    }
+    else {
+        return(ygrid)
+    }
+} # fields::splint
+
 color_function <- function(palname="demo", n=64, alpha=1, 
                            rgb_path, rgb_mat=NULL, rev=F, verbose=F) {
     
@@ -135,7 +207,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
                 }
 
             } else if (names[i] %in% ncviews) {
-                
+               
                 rgb <- scan(paste0(rgb_path, "/", names[i], ".h"), what="char", quiet=T)
                 #rgb <- scan("colormaps_banded.h", what="char", quiet=T)
                 # common to all .h files from ncview: only take entries between "{" and "}"
@@ -165,7 +237,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
                 nmax <- RColorBrewer:::maxcolors[names[i]]
                 rgb <- t(col2rgb(RColorBrewer::brewer.pal(n=min(n, nmax), name=names[i])))
                 #print(str(rgb))
-                rgb <- rgb[dim(rgb)[1]:1,] # flip
+                #rgb <- rgb[dim(rgb)[1]:1,] # flip
 
             }
 
@@ -204,11 +276,12 @@ color_function <- function(palname="demo", n=64, alpha=1,
     for (i in 1:ncol) {
 
         rgb <- rgb_list[[i]]
+        assign("rgb", rgb, envir=.GlobalEnv)
 
         if (range(rgb)[2] <= 1) {
-            maxColorValue <- 1
+            maxColorValue <<- 1
         } else {
-            maxColorValue <- 255
+            maxColorValue <<- 255
         }
         if (F) {
             print(names[i])
@@ -218,10 +291,11 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
         ## adapted from fields::jet.colors()
         temp <- matrix(NA, ncol = 3, nrow = n)
-        x <- seq(0, maxColorValue, l=dim(rgb)[1])
-        xg <- seq(0, maxColorValue, l=n)
+        x <<- seq(0, maxColorValue, l=dim(rgb)[1])
+        xg <<- seq(0, maxColorValue, l=n)
         for (k in 1:3) {
-            hold <- fields::splint(x=x, y=rgb[, k], xgrid=xg)
+            #hold <- fields::splint(x=x, y=rgb[, k], xgrid=xg)
+            hold <- mysplint(x=x, y=rgb[, k], xgrid=xg)
             hold[hold < 0] <- 0
             hold[hold > maxColorValue] <- maxColorValue
             if (maxColorValue == 255) {
