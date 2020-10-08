@@ -2,12 +2,6 @@
 
 ## my collection of small R functions
 
-# nicer default pars
-# attention: this overwrites the default par()
-#par <- function(las=1, ...) {
-#    graphics::par(las=las, ..., no.readonly = FALSE)
-#} # usage: par(); plot(...)
-
 # return R currently running executable
 Rexe <- function() {
     return(paste0(R.home(), "/bin/exec/R"))
@@ -23,7 +17,7 @@ tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
                                    warning=w.handler), 
          warning=W)
 } # tryCatch.W.E
- 
+
 # check if all elements of a list are identical
 # https://stackoverflow.com/questions/4752275/test-for-equality-among-all-elements-of-a-single-vector
 identical_list <- function(x) {
@@ -383,9 +377,14 @@ setDefaultPlotOptions <- function(plist=list(plot_type="png", bg_col="white", NA
     return(plist)
 }
 
+# nicer default pars
+# attention: this overwrites the default par()
+#par <- function(las=1, ...) {
+#    graphics::par(las=las, ..., no.readonly = FALSE)
+#} # usage: par(); plot(...)
+
 # paste my relevant plot options
 mypar <- function() {
-    
     if (is.null(dev.list())) {
         y <- askYesNo("mypar(): no plot open. would you like to run 'dev.new()'?", 
                       default=F, prompts=c("Yes", "No", "Cancel"))
@@ -393,7 +392,6 @@ mypar <- function() {
             dev.new()
         }
     }
-
     if (!is.null(dev.list())) {
         op <- par()
         message("current device no. ", dev.cur(), " is of type ", 
@@ -528,26 +526,26 @@ find_encoding <- function(test_symbol="ä", test_ctype="de") {
     # value so that "test_symbol" in interpreted in 
     # a good way.
     encoding <- iconvlist()
-    encoding <- sapply(encoding, function(x) iconv(test_letter, from=x))
+    encoding <- sapply(encoding, function(x) iconv(test_symbol, from=x))
     encoding <- encoding[!is.na(encoding)]
-    if (any(encoding == test_letter)) {
-        encoding <- encoding[which(encoding == test_letter)]
+    if (any(encoding == test_symbol)) {
+        encoding <- encoding[which(encoding == test_symbol)]
         message(paste0("encoding ", names(encoding), ": ", encoding, collapse="\n"))
         encoding <- names(encoding[1])
         message("use encoding ", encoding)
     } else {
-        message("Could not find a encoding to evaluate 'test_letter'=", test_letter)
+        message("Could not find a encoding to evaluate 'test_symbol'=", test_symbol)
     }
 	ctype <- Sys.getlocale("LC_CTYPE")
-	if (regexpr(test_ctype_pattern, ctype, ignore.case=T) == -1) {
+	if (regexpr(test_ctype, ctype, ignore.case=T) == -1) {
 		
 		# get available langs
 		locs <- system("locale -a", intern=T)
 		# check if german character type is possible
-		if (!any(regexpr(test_ctype_pattern, locs, ignore.case=T) != -1)) {
-			message("Could not find a locale contaning the pattern '", test_ctype_pattern, "' (case is ignored)")
+		if (!any(regexpr(test_ctype, locs, ignore.case=T) != -1)) {
+			message("Could not find a locale contaning the pattern '", test_ctype, "' (case is ignored)")
 		} else {
-			locs <- locs[which(regexpr(test_ctype_pattern, locs, ignore.case=T) != -1)]
+			locs <- locs[which(regexpr(test_ctype, locs, ignore.case=T) != -1)]
 			message("Sys.getlocalte(\"LC_CTYPE\"): ", ctype)
 			message("Run Sys.setlocale(\"LC_CTYPE\", \"", locs[1], "\")")
 			Sys.setlocale("LC_CTYPE", locs[1])
@@ -555,16 +553,52 @@ find_encoding <- function(test_symbol="ä", test_ctype="de") {
 		
 			# get available encodings
 			encoding <- iconvlist()
-			encoding <- sapply(encoding, function(x) iconv(test_letter, from=x))
-			if (any(encoding == test_letter)) {
-				encoding <- encoding[which(encoding == test_letter)[1]]
+			encoding <- sapply(encoding, function(x) iconv(test_symbol, from=x))
+			if (any(encoding == test_symbol)) {
+				encoding <- encoding[which(encoding == test_symbol)[1]]
 				message("encoding '", names(encoding), "': ", encoding)
 			} else {
-				message("Could not find a encoding to evaluate 'test_letter'=", test_letter)
+				message("Could not find a encoding to evaluate 'test_symbol'=", test_symbol)
 			}
-		} # if pattern test_ctype_pattern is contained in locale -a
-	} # if current LC_CTYPE does not contain test_ctype_pattern
+		} # if pattern test_ctype is contained in locale -a
+	} # if current LC_CTYPE does not contain test_ctype
 } # not ready
+
+# check gs command from grDevices::embedFonts()
+myembedFonts <- function (file, format, outfile = file, fontpaths = character(), 
+    options = character()) 
+{
+    if (!is.character(file) || length(file) != 1L || !nzchar(file)) 
+        stop("'file' must be a non-empty character string")
+    gsexe <- tools::find_gs_cmd()
+    if (!nzchar(gsexe)) 
+        stop("GhostScript was not found")
+    if (.Platform$OS.type == "windows") 
+        gsexe <- shortPathName(gsexe)
+    suffix <- gsub(".+[.]", "", file)
+    if (missing(format)) 
+        format <- switch(suffix, ps = , eps = "ps2write", pdf = "pdfwrite")
+    if (!is.character(format)) 
+        stop("invalid output format")
+    grDevices:::check_gs_type(gsexe, format)
+    tmpfile <- tempfile("Rembed")
+    if (length(fontpaths)) 
+        fontpaths <- paste0("-sFONTPATH=", shQuote(paste(fontpaths, 
+            collapse = .Platform$path.sep)))
+    args <- c(paste0("-dNOPAUSE -dBATCH -q -dAutoRotatePages=/None -sDEVICE=", 
+        format), paste0(" -sOutputFile=", shQuote(tmpfile)), 
+        fontpaths, options, shQuote(file))
+    message("run `", gsexe, " ", args, "` ...")
+    ret <- system2(gsexe, args)
+    if (ret != 0) 
+        stop(gettextf("status %d in running command '%s'", ret, 
+            cmd), domain = NA)
+    if (outfile != file) 
+        args[2] <- paste0(" -sOutputFile=", shQuote(outfile))
+    cmd <- paste(c(shQuote(gsexe), args), collapse = " ")
+    file.copy(tmpfile, outfile, overwrite = TRUE)
+    invisible(cmd)
+} # from grDevices::embedFonts()
 
 myErrorFun <- function() {
     # default: getOption("error") = NULL
