@@ -227,9 +227,23 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
 
 # Get the proportion variation explained. See this website for more details: http://goo.gl/jte8X
 # http://www.gettinggeneticsdone.com/2011/08/sync-your-rprofile-across-multiple-r.html
-rsq <- function(predicted, actual) {
-    # "fraction of variance explained by the model"
-    1-sum((actual-predicted)^2)/sum((actual-mean(actual))^2)
+get_rsq <- function(predicted, actual) {
+    # "goodness of fit" = 
+    # "coefficient of determination" = 
+    # "fraction of variance explained by the model" = 
+    # "Multiple R-squared:"-result of lm()
+    1-sum((predicted-actual)^2)/sum((actual-mean(actual))^2)
+}
+
+# get p-value of linear model
+get_pval <- function(lm) {
+    if (class(lm) != "lm") stop("input must be of class \"lm\"")
+    a <- sum((lm$model[[1]]-mean(lm$model[[1]]))^2) # model[[1]] is actual data that was modeled by predictors model[[2..]]
+    b <- sum(lm$res^2)
+    n_predictors <- lm$rank-1
+    n_df <- lm$df.residual
+    c <- (a-b)/n_predictors/(b/n_df)
+    1-pf(c, n_predictors, n_df)
 }
 
 grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
