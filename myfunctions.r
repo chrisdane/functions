@@ -69,9 +69,7 @@ is.leap <- function(years) {
 
 reorder_legend <- function(le) {
     # check input
-    if (le$ncol < 1) {
-        warning("reorder_legend(): le$ncol=", ncol, ". set to 1")
-    }
+    if (le$ncol < 1) warning("reorder_legend(): le$ncol=", ncol, ". set to 1")
     le$ncol <- max(1, le$ncol)
     n <- length(le$text)
     nrow <- ceiling(n/le$ncol)
@@ -271,7 +269,6 @@ col2rgba <- function(x, alpha) {
 
 # convert velocities with units package
 speeds <- function(x=1, unit="cm/s") {
-
     library(units) # valid_udunits()
     x <- set_units(x=x, value=unit, mode="standard")
     lengths <- c("0.1mm", "mm", "cm", "10cm", "m", "10m", "100m", "km", "3km", "10km", "100km", "1000km")
@@ -350,12 +347,13 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
 # set my default plot options
 setDefaultPlotOptions <- function(plist=list(plot_type="png", bg_col="white", NA_col="gray65", 
                                              contour_labcex=1,
+                                             a4_width_in=8.26, a4_height_in=11.68,
                                              ts_width=2666, ts_height=1600, 
                                              ts_width_m=2000, ts_height_m=1600,
                                              depth_width=2666, depth_weight=1600,
                                              map_width=2666, map_height=2000,
                                              scatter_width=2666, scatter_height=2666,
-                                             useRaster=T, dpi=400, inch=7, 
+                                             useRaster=T, ppi=400, inch=7, pointsize=12, 
                                              family_png="sans", family_pdf="sans"), ...) {
     dot_list <- list(...)
     dot_names <- names(dot_list)
@@ -534,30 +532,37 @@ mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
 } # mymonth.name function
 
 
-find_encoding <- function(test_symbol="ä", test_ctype="de") {
+get_encoding <- function(test_symbol="ä", test_ctype="de", verbose=F) {
     
-    # find and possibly :
-    # value so that "test_symbol" in interpreted in 
-    # a good way.
     encoding <- iconvlist()
+    n <- length(encoding)
     encoding <- sapply(encoding, function(x) iconv(test_symbol, from=x))
-    encoding <- encoding[!is.na(encoding)]
+    if (any(is.na(encoding))) encoding <- encoding[!is.na(encoding)]
     if (any(encoding == test_symbol)) {
         encoding <- encoding[which(encoding == test_symbol)]
-        message(paste0("encoding ", names(encoding), ": ", encoding, collapse="\n"))
+        if (verbose) {
+            message(length(encoding), "/", n, 
+                    " encodings can print test_symbol \"", test_symbol, "\":")
+            message(paste(names(encoding), collapse=" "))
+        }
         encoding <- names(encoding[1])
-        message("use encoding ", encoding)
+        message("get_encoding(): first found encoding that matches \"", 
+                test_symbol, "\": ", encoding)
     } else {
-        message("Could not find a encoding to evaluate 'test_symbol'=", test_symbol)
+        message("could not find an encoding to evaluate test_symbol = \"", 
+                test_symbol, "\"")
     }
 	ctype <- Sys.getlocale("LC_CTYPE")
+
+    # repeat for ctype 
 	if (regexpr(test_ctype, ctype, ignore.case=T) == -1) {
 		
 		# get available langs
 		locs <- system("locale -a", intern=T)
 		# check if german character type is possible
 		if (!any(regexpr(test_ctype, locs, ignore.case=T) != -1)) {
-			message("Could not find a locale contaning the pattern '", test_ctype, "' (case is ignored)")
+			message("could not find a locale contaning the pattern \"", 
+                    test_ctype, "\" (case is ignored)")
 		} else {
 			locs <- locs[which(regexpr(test_ctype, locs, ignore.case=T) != -1)]
 			message("Sys.getlocalte(\"LC_CTYPE\"): ", ctype)
@@ -567,16 +572,28 @@ find_encoding <- function(test_symbol="ä", test_ctype="de") {
 		
 			# get available encodings
 			encoding <- iconvlist()
+            n <- length(encoding)
 			encoding <- sapply(encoding, function(x) iconv(test_symbol, from=x))
 			if (any(encoding == test_symbol)) {
-				encoding <- encoding[which(encoding == test_symbol)[1]]
-				message("encoding '", names(encoding), "': ", encoding)
+                if (verbose) {
+                    message(length(encoding), "/", n, 
+                            " encodings can print test_symbol \"", test_symbol, "\":")
+                    message(paste(names(encoding), collapse=" "))
+                }
+                encoding <- names(encoding[1])
+                message("get_encoding(): first found encoding that matches \"", 
+                        test_symbol, "\": ", encoding)
 			} else {
-				message("Could not find a encoding to evaluate 'test_symbol'=", test_symbol)
+				message("could not find an encoding to evaluate test_symbol = \"", 
+                        test_symbol, "\"")
 			}
 		} # if pattern test_ctype is contained in locale -a
-	} # if current LC_CTYPE does not contain test_ctype
-} # not ready
+	} else {
+        if (verbose) message("test_ctype = \"", test_ctype, 
+                             "\" in `Sys.getlocale(\"LC_CTYPE\")` = ", ctype) 
+    } # if current LC_CTYPE does not contain test_ctype
+    return(encoding)
+} # get_encoding
 
 # check gs command from grDevices::embedFonts()
 myembedFonts <- function (file, format, outfile = file, fontpaths = character(), 
