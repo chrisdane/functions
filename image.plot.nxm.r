@@ -15,7 +15,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                            width_png=2000, height_png=1666, res=300, 
                            width_pdf=7, height_pdf=7,
                            axis.args=NULL, add_names_inset=F, add_names_topleft=T,
-                           legend.args=NULL, legend.line=7, legend.cex=1.25,
+                           legend.args=NULL, legend.line=6, legend.cex=0.85,
                            family="sans", lwd=0.5, lwd.ticks=0.5, 
                            verbose=F,
                            ...) {
@@ -55,7 +55,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     if (!is.list(z)) stop("z must be list")
 
     # capture additional arguments (aka ellipsis, dots, ...)
-    dot_list <- list(...)
+    dot_list <- list(...) # todo: use base::chkDots(...)?
     ndots <- length(dot_list)
     dot_names <- names(dot_list)
     if (verbose && ndots > 0) {
@@ -242,6 +242,17 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         }
     } else {
         addland_list <- NULL
+    }
+    
+    if (any(dot_names == "point_list")) {
+        point_list <- dot_list$point_list
+        if (!is.null(point_list)) {
+            if (length(point_list) != length(z)) { 
+                stop("provided point_list is of length ", length(point_list), " but nz = ", nz)
+            }
+        }
+    } else {
+        point_list <- vector("list", l=nz) # all NULL
     }
     
     if (any(dot_names == "segment_list")) {
@@ -530,7 +541,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         cat("layout_heights=")
         dput(layout_heights)
         cat("layout_mat2=")
-        dput(layout_mat2)
+        print(layout_mat2)
     }
 
     ## Open new or use already open plot device
@@ -557,14 +568,12 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             family=family)
     }
     
-    if (verbose) message("open image plot ...")
-    
+    if (verbose) message("run layout() ...")
     layout(layout_mat2, widths=layout_widths, heights=layout_heights)
     #layout.show(n=max(layout_mat2))
+    par(mar=rep(0.5, t=4)) # distance between sub-figures [rows]
 	if (add_names_topleft) { # increase vertical distance between sub figures
-        par(mar=c(1.5, 0.5, 1.5, 0.5)) 
-    } else {
-        par(mar=rep(0.5, t=4)) # distance between sub-figures [rows]
+        par(mar=c(0.5, 0.5, 1.5, 0.5)) 
     }
     if (verbose) {
         cat("fig=")
@@ -1077,10 +1086,29 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             } # if !is.null(addland_list)
             #message("par(\"usr\") = ")
             #dput(par("usr"))
+            
+            # add additional stuff as points if available
+            if (!is.null(point_list[[i]])) {
+                if (verbose) message("add provided `point_list[[", i, "]]` to subplot using graphics::points() ...")
+                if (is.null(point_list[[i]]$x) || is.null(point_list[[i]]$y)) {
+                    message("point_list[[", i, "]]$x` or point_list[[", i, "]]$y` are NULL. cannot add points") 
+                } else {
+                    if (is.null(point_list[[i]]$col)) point_list[[i]]$col <- "black"
+                    if (is.null(point_list[[i]]$bg)) point_list[[i]]$bg <- "black"
+                    if (is.null(point_list[[i]]$pch)) point_list[[i]]$pch <- 4
+                    if (is.null(point_list[[i]]$lwd)) point_list[[i]]$lwd <- lwd
+                    if (is.null(point_list[[i]]$cex)) point_list[[i]]$cex <- 1
+                    graphics::points(x=point_list[[i]]$x, y=point_list[[i]]$y,
+                                     col=point_list[[i]]$col, bg=point_list[[i]]$bg,
+                                     pch=point_list[[i]]$pch, lwd=point_list[[i]]$lwd, 
+                                     cex=point_list[[i]]$cex)
+                }
+            } # if !is.null(point_list[[i]])
            
             # add additional stuff as segments if available
             if (!is.null(segment_list)) {
                 if (verbose) message("add provided `segment_list` to subplot using graphics::segments() ...")
+                message("todo: distinguish between settings")
                 graphics::segments(x0=segment_list$x0, y0=segment_list$y0,
                                    x1=segment_list$x1, y1=segment_list$y1, lwd=lwd)
             } # if !is.null(segment_list)
@@ -1604,15 +1632,19 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             if (verbose) message("par(new=T)")
             par(new=T, pty="m", err=-1)
             ix <- 1:2
-            if (T) { # as in fields::image.plot()
+            if (F) { # as in fields::image.plot()
                 message("iy = breaks !!!!!!!!!!!!!!!!!!!!")
                 iy <- breaks # use levels as indices in colorbar
                 # constant dy for useRaster=T usage
                 # --> not possible due to unequal zlevels, e.g. c(zlim[1], 2, 3, zlim[2])
                 #iy <- seq(min(iy), max(iy), l=length(iy)) 
-            } else if (F) {
+                colorbar_breaks <- breaks
+                colorbar_at <- axis.at
+            } else if (T) {
                 message("iy = axis.at.ind !!!!!!!!!!!!!!!!!!!!")
                 iy <- axis.at.ind # use indices as indices in colorbar
+                colorbar_breaks <- seq_len(nlevels)
+                colorbar_at <- axis.at.ind
             }
             midpoints <- (iy[1:(length(iy) - 1)] + iy[2:length(iy)])/2
             iz <- matrix(midpoints, nrow=1, ncol=length(midpoints))
@@ -1635,14 +1667,10 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             if (verbose) message("image(breaks=breaks)")
             #if (verbose) message("image(breaks=1:nlevels)")
             image(ix, iy, iz,
-                  #y=y_midpoints,
-                  #z=array(breaks, c(1, nlevels)),
-                  breaks=breaks, 
-                  #breaks=1:nlevels,
+                  breaks=colorbar_breaks,
                   col=cols,
                   axes=F, lwd=lwd, 
                   xlab=NA, ylab=NA
-                  #, add=T
                   #, useRaster=T # does not work through iy
                   )
             
@@ -1650,8 +1678,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             axis.args <- c(list(side=ifelse(horizontal, 1, 4),
                                 #, mgp=c(3, 1, 0), 
                                 las=ifelse(horizontal, 0, 2),
-                                at=axis.at,
-                                #at=axis.at.ind, 
+                                at=colorbar_at,
                                 labels=axis.labels,
                                 lwd=0, lwd.ticks=lwd.ticks,
                                 cex.axis=1.5),

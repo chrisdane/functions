@@ -140,7 +140,9 @@ color_function <- function(palname="demo", n=64, alpha=1,
         rgb_list <- vector("list", l=nnames) # every item in rgb_list needs to be n x 3
         names(rgb_list) <- names
 
-        for (i in 1:nnames) {
+        for (i in seq_len(nnames)) {
+
+            #message("pal ", i, "/", nnames, ": ", names[i], " ...")
 
             if (names[i] %in% rs) {
 
@@ -237,8 +239,9 @@ color_function <- function(palname="demo", n=64, alpha=1,
                 nmax <- RColorBrewer:::maxcolors[names[i]]
                 rgb <- t(col2rgb(RColorBrewer::brewer.pal(n=min(n, nmax), name=names[i])))
                 #print(str(rgb))
-                #rgb <- rgb[dim(rgb)[1]:1,] # flip
-
+                if (any(names[i] == c("PiYG", "PRGn", "RdBu", "RdGy", "RdYlBu", "RdYlGn", "Spectral"))) {
+                    rgb <- rgb[dim(rgb)[1]:1,] # flip
+                }
             }
 
             if (length(class(rgb)) == 1 && class(rgb) == "function") { # built-in function was not overwritten

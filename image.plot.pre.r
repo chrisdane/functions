@@ -15,6 +15,8 @@ image.plot.pre <- function(zlim,
     if (any(is.na(zlim))) stop("zlim must not be NA")
     if (is.null(nlevels)) nlevels <- 11
     if (is.null(max_labels)) max_labels <- 15
+    if (is.null(axis.zoom)) axis.zoom <- F
+    if (is.null(axis.addzlims)) axis.addzlims <- F
     if (missing(colors_script)) {
         colors_script <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r")
         if (F) message("colors_script: ", colors_script)
