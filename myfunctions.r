@@ -235,7 +235,7 @@ get_rsq <- function(predicted, actual) {
     1-sum((predicted-actual)^2)/sum((actual-mean(actual))^2)
 }
 
-# get p-value of linear model
+# get p-value of linear model; from 3.2.1 of faraways book
 get_pval <- function(lm) {
     if (class(lm) != "lm") stop("input must be of class \"lm\"")
     a <- sum((lm$model[[1]]-mean(lm$model[[1]]))^2) # model[[1]] is actual data that was modeled by predictors model[[2..]]
