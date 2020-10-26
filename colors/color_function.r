@@ -4,7 +4,6 @@
 mysplint <- function (x, y, xgrid, wt = NULL, derivative = 0, lam = 0, df = NA, 
     lambda = NULL, nx = NULL, digits = 8) 
 {
-    message("mysplint(): is fields::splint issue https://github.com/NCAR/fields/issues/6 solved?")
     if (is.matrix(x)) {
         if (ncol(x) > 1) {
             xgrid <- y
@@ -282,9 +281,9 @@ color_function <- function(palname="demo", n=64, alpha=1,
         assign("rgb", rgb, envir=.GlobalEnv)
 
         if (range(rgb)[2] <= 1) {
-            maxColorValue <<- 1
+            maxColorValue <- 1
         } else {
-            maxColorValue <<- 255
+            maxColorValue <- 255
         }
         if (F) {
             print(names[i])
@@ -294,10 +293,11 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
         ## adapted from fields::jet.colors()
         temp <- matrix(NA, ncol = 3, nrow = n)
-        x <<- seq(0, maxColorValue, l=dim(rgb)[1])
-        xg <<- seq(0, maxColorValue, l=n)
+        x <- seq(0, maxColorValue, l=dim(rgb)[1])
+        xg <- seq(0, maxColorValue, l=n)
         for (k in 1:3) {
             #hold <- fields::splint(x=x, y=rgb[, k], xgrid=xg)
+            if (k == 1) message("mysplint(): is fields::splint issue https://github.com/NCAR/fields/issues/6 solved?")
             hold <- mysplint(x=x, y=rgb[, k], xgrid=xg)
             hold[hold < 0] <- 0
             hold[hold > maxColorValue] <- maxColorValue

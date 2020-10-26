@@ -344,6 +344,23 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
 
 } # cdo_get_filetype
 
+# get coordinates of selected ('clicked') point on plot
+get_coords <- function(...) {
+
+    # open plot with world map if no plot is already open 
+    if (is.null(dev.list())) {
+        library(maps)
+        message("run maps::map(\"world\", interior=F) ...")
+        map("world", interior=F)
+        message("par(\"usr\") = ", appendLF=F)
+        dput(par("usr"))
+    } 
+    options(locatorBell=F) # turn off system beep
+    message("run `graphics::locator()` ... (to exit the locator, hit any mouse ",
+            "button but the first while the mouse is over the plot device and looks like a cross) ...")
+    graphics::locator(type="o", ...)
+} # get_coords
+
 # set my default plot options
 setDefaultPlotOptions <- function(plist=list(plot_type="png", bg_col="white", NA_col="gray65", 
                                              contour_labcex=1,
@@ -704,7 +721,7 @@ myhelp <- function() {
              "               old <- old.packages(lib=.libPaths()[1])",
              "               dtupdate::github_update(auto.install=T, ask=T, dependencies=T)",
              "      remove:  remove.packages(\"pkg\", lib=\"lib\")",
-             "      which:   packageDescription(\"pkg\"); find.package(\"pkg\"); maintainer(\"pkg\"); library(help=\"pkg\")",
+             "      which:   packageDescription(\"pkg\"); packageVersion(\"pkg\"); find.package(\"pkg\"); maintainer(\"pkg\"); library(help=\"pkg\")",
              "      archive: https://cran.r-project.org/src/contrib/Archive",
              "      help:    https://cran.r-project.org/doc/FAQ/R-FAQ.html",
              "   Functions ...",

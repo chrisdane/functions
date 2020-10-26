@@ -1674,21 +1674,21 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                   #, useRaster=T # does not work through iy
                   )
             
-            # add my axis formats to user provided 'axis.args'
+            # add colorbar axis labels
             axis.args <- c(list(side=ifelse(horizontal, 1, 4),
                                 #, mgp=c(3, 1, 0), 
                                 las=ifelse(horizontal, 0, 2),
                                 at=colorbar_at,
                                 labels=axis.labels,
                                 lwd=0, lwd.ticks=lwd.ticks,
-                                cex.axis=1.5),
+                                cex.axis=1),
                            axis.args)
             if (!is.null(axis.args)) {
                 if (verbose) message("do.call(\"axis\", axis.args) ...")
                 do.call("axis", axis.args)
             }
            
-            # add colorbar label
+            # add colorbar text
             #axis(4, at=axis.at, labels=axis.labels, las=2, 
             #     lwd=0, lwd.ticks=lwd.ticks, cex.axis=1.5)
             legend.args <- list(text=as.expression(zlab), 
