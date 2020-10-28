@@ -18,6 +18,24 @@ tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
          warning=W)
 } # tryCatch.W.E
 
+checkfun <- function() {
+    message("myfunctions.r: sys.parent() = ", sys.parent(), 
+            ", current frame sys.nframe() = ", sys.nframe())
+    # copypaste/Rscript: pa0,fr0; checkfun(): pa0,fr1; source("file.r") = pa3,fr4
+    f1 <- function() message("f1(): sys.parent() = ", sys.parent(), 
+                             ", current frame sys.nframe() = ", sys.nframe())
+    f2 <- function() f1(); f3 <- function() f2()
+    message("run f1"); f1() # copypaste/Rscript: pa0,fr1; checkfun() = pa1,fr2; source("file.r") = pa0,fr5
+    message("run f2"); f2() # copypaste/Rscript: pa1,fr2; checkfun() = pa2,fr3; source("file.r") = pa5,fr6
+    message("run f3"); f3() # copyüaste/Rscript: pa2,fr3; checkfun() = pa3,fr4; source("file.r") = pa6,fr7
+    # --> test if run from file or as function:
+    #if (sys.parent() == 3L && sys.nframe() == 4L) { # run `source(file.r")`
+    #    me <- "file.r"
+    #} else { # run `fun()`
+    #    me <- normalizePath(getSrcFilename(fun, full.names=T))
+    #}
+} # checkfun
+
 # check if all elements of a list are identical
 # https://stackoverflow.com/questions/4752275/test-for-equality-among-all-elements-of-a-single-vector
 identical_list <- function(x) {
@@ -118,8 +136,11 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
     #   origin_out (numeric; origin of output years; default: 0 BC/AD)
     # output:
     #   dates (POSIXlt; date values with respect to `origin_out`)
+    if (missing(years)) stop("must provide years")
+    if (!is.numeric(years)) stop("years must be numeric")
 
     if (verbose > 0) {
+        message("************** todo: check numeric year.dec values ***************")
         message("years:")
         print(head(years))
         print(tail(years))
@@ -131,16 +152,19 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
     years_ge_zero_lt_10000 <- which(years >= 0 & years < 10000) # case 1
     years_ge_zero_ge_10000 <- which(years >= 0 & years >= 10000) # case 2
     years_lt_zero <- which(years < 0) # case 3
+    
+    # capture NA
+    nainds <- which(is.na(years))
         
     # case 1
     if (length(years_ge_zero_lt_10000) > 0) { # as.POSIXlt("0-1-1") to as.POSIXlt("9999-12-31") -> ok
         if (verbose > 0) {
-            message("years[years_ge_zero_lt_10000]:")
+            message("case 1 years[years_ge_zero_lt_10000]:")
             cat(capture.output(str(years[years_ge_zero_lt_10000])), sep="\n")
         }
         lt_ge_zero_lt_10000 <- as.POSIXlt(paste0(years[years_ge_zero_lt_10000], "-06-30"), tz="UTC") 
         if (verbose > 0) {
-            message("lt_ge_zero_lt_10000:")
+            message("case 1 lt_ge_zero_lt_10000:")
             cat(capture.output(str(lt_ge_zero_lt_10000)), sep="\n")
         }
     } # case 1
@@ -152,11 +176,11 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
             by <- paste0(years[years_ge_zero_ge_10000][yeari], " years")
             tmp <- seq.POSIXt(from=as.POSIXlt("0000-06-30", tz="UTC"), l=2, b=by, tz="UTC")[2]
             lt_ge_zero_ge_10000[yeari] <- as.POSIXlt(tmp)
-            if (verbose > 1) message("year ", years[years_ge_zero_ge_10000][yeari], ": from 0 by ", by, " --> ", 
+            if (verbose > 1) message("case 2 year ", years[years_ge_zero_ge_10000][yeari], ": from 0 by ", by, " --> ", 
                                      lt_ge_zero_ge_10000[yeari], " since ", origin_in)
         } # for yeari
         if (verbose > 0) {
-            message("lt_ge_zero_ge_10000:")
+            message("case 2 lt_ge_zero_ge_10000:")
             cat(capture.output(str(lt_ge_zero_ge_10000)), sep="\n")
         }
     } # case 2
@@ -168,11 +192,11 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
             by <- paste0(years[years_lt_zero][yeari], " years")
             tmp <- seq.POSIXt(from=as.POSIXlt("0000-06-30", tz="UTC"), l=2, b=by, tz="UTC")[2]
             lt_lt_zero[yeari] <- as.POSIXlt(tmp)
-            if (verbose > 1) message("year ", years[years_lt_zero][yeari], ": from 0 by ", by, " --> ", 
+            if (verbose > 1) message("case 3 year ", years[years_lt_zero][yeari], ": from 0 by ", by, " --> ", 
                                      lt_lt_zero[yeari], " since ", origin_in)
         } # for yeari
         if (verbose > 0) {
-            message("lt_lt_zero:")
+            message("case 3 lt_lt_zero:")
             cat(capture.output(str(lt_lt_zero)), sep="\n")
         }
 
@@ -180,6 +204,9 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
 
     # combine all cases
     posixlt <- as.POSIXlt(seq.POSIXt(as.POSIXlt("0-1-1", tz="UTC"), b="1 day", l=length(years))) # placeholder
+    if (length(nainds) > 0) {
+        posixlt[nainds] <- NA
+    }
     if (length(years_ge_zero_lt_10000) > 0) {
         posixlt[years_ge_zero_lt_10000] <- lt_ge_zero_lt_10000
     }
@@ -209,8 +236,8 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
     } # if origin_out != origin_in or not
 
     # append origin
-    posixlt$origin <- origin_out
-    if (verbose > 0) message("class(posixlt) = ", class(posixlt))
+    attributes(posixlt)$origin <- origin_out
+    if (verbose > 0) message("class(posixlt) = ", paste(class(posixlt), collapse=", "))
     
     # fix time zone
     #posixlt$zone <- rep("UTC", t=length(posixlt)) # todo: this breaks if input `years` is of length 1
@@ -236,7 +263,8 @@ get_rsq <- function(predicted, actual) {
 # get p-value of linear model; from 3.2.1 of faraways book
 get_pval <- function(lm) {
     if (class(lm) != "lm") stop("input must be of class \"lm\"")
-    a <- sum((lm$model[[1]]-mean(lm$model[[1]]))^2) # model[[1]] is actual data that was modeled by predictors model[[2..]]
+    # model[[1]] is actual data that was modeled by predictors model[[2..]]
+    a <- sum((lm$model[[1]]-mean(lm$model[[1]]))^2) 
     b <- sum(lm$res^2)
     n_predictors <- lm$rank-1
     n_df <- lm$df.residual
@@ -260,12 +288,34 @@ grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
 
 # color2rgb
 col2rgba <- function(x, alpha) {
+    if (missing(x)) stop("must provide colors")
     if (missing(alpha)) {
         apply(col2rgb(x)/255, 2, function(x) rgb(matrix(x, ncol=3)))
     } else {
         apply(col2rgb(x)/255, 2, function(x) rgb(matrix(x, ncol=3), alpha=alpha))
     }
 }
+
+# my colors
+mycols <- function(n) {
+    if (n == 1) { # mycols my colors nicer than R defaults
+        cols <- "black"
+    } else if (n == 2) {
+        cols <- c("black", "#E41A1C") # black, myred
+    } else if (n >= 3) {
+        # black, myred, myblue instead of R default (black, red, blue)
+        cols <- c("black", "#E41A1C", "#377EB8") 
+        if (n > 3) {
+            if (F) {
+                cols <- c(cols, 4:n)
+            } else if (T) {
+                library(RColorBrewer) # https://www.r-bloggers.com/palettes-in-r/
+                cols <- c(cols, brewer.pal(max(3, n), "Dark2")[1:(n-3)])
+            }
+        }
+    }
+    return(cols)
+} # mycols
 
 # convert velocities with units package
 speeds <- function(x=1, unit="cm/s") {
@@ -728,6 +778,8 @@ myhelp <- function() {
              "      C-object infos: e.g. \"graphics:::C_image\"", 
              "      S3: getAnywhere(fun or \"fun\"); methods(fun or \"fun\")",
              "      S4: showMethods(fun or \"fun\"); getMethods(fun or \"fun\")",
+             "      .Internal/.Primitive: pryr::show_c_source, e.g. `show_c_source(.Internal(mean(x)))`",
+             "      R source code: https://github.com/wch/r-source.git",
              "   Find R ...",
              "      executable: R.home()/bin/exec/R",
              "   Run R ...",
