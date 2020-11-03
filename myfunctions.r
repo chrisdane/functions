@@ -127,20 +127,141 @@ ht <- function(d, nmax_per_side=15) {
     }
 } # ht()
 
+# convert decimal year yyyy.f to YYYY-MM-DD HH:MM:SS 
+yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
+    # simpler: lubridate::date_decimal() but this function has a bug:
+    # as.POSIXlt(lubridate::date_decimal(seq(2000, b=1/12, l=12)))$mon+1 = 
+    # 1  1  3  4  5  6  7  8  9 10 10 12
+    #yearsdec <- seq(-1-2*1/12, 11/12, b=1/12) # with -0.
+    #yearsdec <- c(seq(-2-2*1/12, -1.0-1/12, b=1/12), seq(0, b=1/12, l=14)) # wout -0.
+    #yearsdec <- seq(1, b=1/12, l=12)
+    #yearsdec <- seq(1, 2, l=365)
+    #yearsdec <- seq(0.00000000000000000000000, 0.08333333333329999426109, l=30)
+    #yearsdec <- seq(0.08333333333329999426109, 0.16666666666669999186112, l=30)
+    #yearsdec <- seq(0.83333333333329995262773, 0.91666666666670004737227, l=30)
+    #yearsdec <- seq(0.91666666666670004737227, 1, l=30)
+    if (missing(yearsdec)) stop("yearsdec missing")
+    if (!is.numeric(yearsdec)) stop("yearsdec must be numeric")
+    options("digits"=22, scipen=999999999)
+    nonNAinds <- which(!is.na(yearsdec))
+    # rounding issue: https://github.com/tidyverse/lubridate/issues/833
+    round <- 13 # round necessary; this needs to be imroved 
+    #yearsf <- round(as.numeric(yearsdec), 13)
+    yearsf <- round(yearsdec[nonNAinds], round)
+    #                                   yearsdec             lubri            my
+    #1  -1.1666666666666667406815349750104360282 -2-11-01 04:00:00 -2-11-1 0:0:0
+    #2  -1.0833333333333334813630699500208720565 -2-12-01 14:00:00 -2-12-1 0:0:0
+    #3  -1.0000000000000000000000000000000000000 -1-01-01 00:00:00  -1-1-1 0:0:0
+    #4  -0.9166666666666667406815349750104360282 -1-01-30 12:00:00  -1-2-1 0:0:0
+    #5  -0.8333333333333334813630699500208720565 -1-03-02 00:00:00  -1-3-1 0:0:0
+    #6  -0.7500000000000001110223024625156540424 -1-04-01 12:00:00  -1-4-1 0:0:0
+    #7  -0.6666666666666667406815349750104360282 -1-05-02 00:00:00  -1-5-1 0:0:0
+    #8  -0.5833333333333334813630699500208720565 -1-06-01 12:00:00  -1-6-1 0:0:0
+    #9  -0.5000000000000001110223024625156540424 -1-07-02 00:00:00  -1-7-1 0:0:0
+    #10 -0.4166666666666667406815349750104360282 -1-08-01 12:00:00  -1-8-1 0:0:0
+    #11 -0.3333333333333334813630699500208720565 -1-09-01 00:00:00  -1-9-1 0:0:0
+    #12 -0.2500000000000001110223024625156540424 -1-10-01 12:00:00 -1-10-1 0:0:0
+    #13 -0.1666666666666667406815349750104360282 -1-11-01 00:00:00 -1-11-1 0:0:0
+    #14 -0.0833333333333334813630699500208720565 -1-12-01 12:00:00 -1-12-1 0:0:0
+    #15 -0.0000000000000002220446049250313080847  0-01-01 00:00:00   0-1-1 0:0:0
+    #16  0.0833333333333332593184650249895639718  0-01-31 12:00:00   0-2-1 0:0:0
+    #17  0.1666666666666665186369300499791279435  0-03-02 00:00:00   0-3-1 0:0:0
+    #18  0.2499999999999997779553950749686919153  0-04-01 12:00:00   0-4-1 0:0:0
+    #19  0.3333333333333332593184650249895639718  0-05-02 00:00:00   0-5-1 0:0:0
+    #20  0.4166666666666665186369300499791279435  0-06-01 12:00:00   0-6-1 0:0:0
+    #21  0.4999999999999997779553950749686919153  0-07-02 00:00:00   0-7-1 0:0:0
+    #22  0.5833333333333332593184650249895639718  0-08-01 12:00:00   0-8-1 0:0:0
+    #23  0.6666666666666665186369300499791279435  0-09-01 00:00:00   0-9-1 0:0:0
+    #24  0.7499999999999997779553950749686919153  0-10-01 12:00:00  0-10-1 0:0:0
+    #25  0.8333333333333332593184650249895639718  0-11-01 00:00:00  0-11-1 0:0:0
+    #26  0.9166666666666662965923251249478198588  0-12-01 12:00:00  0-12-1 0:0:0    
+    if (F) { # this does not work
+        if (any(yearsf >= -1 & yearsf < 0)) {
+            message("there are some `-1 <= yearsdec < 0`. these are not defined since ",
+                    "trunc(-0.5) = 0 = trunc(0.5) so decimal years -0.5 and 0.5 would ",
+                    "yield the same year (year 0), whereas e.g. trunc(-1.5) = -1 != ",
+                    "trunc(1.5) = 1.")
+            yearsf[yearsf >= -1 & yearsf < 0] <- yearsf[yearsf >= -1 & yearsf < 0] - 1
+            #yearsf[yearsf < 0] <- yearsf[yearsf < 0] - 1
+        }
+    } else if (T) { # shift negative years by -1 but not e.g. -1.0, -2.0
+        if (any(yearsf < 0 & yearsf %% 1 != 0)) { 
+            yearsf[yearsf < 0 & yearsf %% 1 != 0] <- yearsf[yearsf < 0 & yearsf %% 1 != 0] - 1
+        }
+    }
+    years <- trunc(yearsf)
+    yearsrel <- yearsf - years
+    yearsrel[yearsrel < 0] <- 1 - abs(yearsrel[yearsrel < 0])
+    yearsrel <- round(yearsrel, round)
+    monthsrel_lookup <- round((0:11)/12, round) 
+    months <- findInterval(x=yearsrel, vec=monthsrel_lookup)
+    monthsrel <- monthsrel_lookup[months]
+    dayspm <- c(31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    dayspm <- dayspm[months]
+    inds <- which(((years %% 4 == 0) & (years %% 100 != 0)) | (years %% 400 == 0)) # leap
+    inds <- inds[which(dayspm[inds] == 29)]
+    dayspm[inds] <- 28
+    dmons <- yearsrel
+    dmons <- dmons - monthsrel
+    dmons[months < 12] <- dmons[months < 12]/
+        (monthsrel_lookup[months[months < 12]+1] - monthsrel_lookup[months[months < 12]])
+    dmons[months == 12] <- dmons[months == 12]/(1 - monthsrel_lookup[months[months == 12]])
+    daysf <- dmons*dayspm + 1 # + 1 since day must be > 0 for POSIX*
+    days <- trunc(daysf); daysrel <- daysf - days
+    if (any(daysrel < 0)) stop("should not happen")
+    hoursf <- 24*daysrel; hours <- trunc(hoursf); hoursrel <- hoursf - hours
+    minsf <- 60*hoursrel; mins <- trunc(minsf); minsrel <- minsf - mins
+    secsf <- 60*minsrel; secs <- trunc(secsf)
+    if (verbose) {
+        print(head(data.frame(yearsdec, yearsf, years, yearsrel, 
+                              months, monthsrel, dayspm, dmons,
+                              daysf, days, daysrel, hoursf, hours, hoursrel,
+                              minsf, mins, minsrel, secsf, secs), n=37))
+    }
+    text <- paste0(years, "-", months, "-", days, " ", hours, ":", mins, ":", secs)
+    if (length(nonNAinds) != length(yearsdec)) {
+        years2 <- months2 <- days2 <- hours2 <- mins2 <- secs2 <- text2 <- rep(NA, t=length(yearsdec))
+        years2[nonNAinds] <- years
+        months2[nonNAinds] <- months
+        days2[nonNAinds] <- days
+        hours2[nonNAinds] <- hours
+        mins2[nonNAinds] <- mins
+        secs2[nonNAinds] <- secs
+        text2[nonNAinds] <- text
+        years <- years2; months <- months2; days <- days2 
+        hours <- hours2; mins <- mins2; secs <- secs2
+        text <- text2
+    }
+    return(list(ymdhms=list(year=years, mon=months, day=days, hour=hours, min=mins, sec=secs),
+                text=text))
+} # yearsdec_to_ymdhms
+
+
 # make POSIX time with negative years
-make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbose=0) {
+make_posixlt_origin <- function(years, origin_in=0, origin_out, verbose=0) {
+
+    # simpler: lubridate::date_decimal() but this function has a bug:
+    # as.POSIXlt(lubridate::date_decimal(seq(2000, b=1/12, l=12)))$mon+1 = 
+    # 1  1  3  4  5  6  7  8  9 10 10 12
 
     # input: 
-    #   years (numeric; negative for before `origin_in`)
-    #   origin_in (numeric; origin of input years; default: 0 BC/AD)
-    #   origin_out (numeric; origin of output years; default: 0 BC/AD)
+    #   years (numeric; negative for "before `origin_in`")
+    #   origin_in (numeric; origin of input years; default: 0 CE)
+    #   origin_out (numeric; origin of output years; default: same as `origin_in`)
     # output:
     #   dates (POSIXlt; date values with respect to `origin_out`)
+  
+    # check
     if (missing(years)) stop("must provide years")
     if (!is.numeric(years)) stop("years must be numeric")
-
+    nonNAinds <- which(!is.na(years))
+    yearsin <- years
+    years <- years[nonNAinds]
+    if (!is.numeric(origin_in)) stop("origin_in must be numeric")
+    if (missing(origin_out)) origin_out <- origin_in
+    if (!is.numeric(verbose)) stop("verbose must be numeric")
+    
     if (verbose > 0) {
-        message("************** todo: check numeric year.dec values ***************")
         message("years:")
         print(head(years))
         print(tail(years))
@@ -148,21 +269,32 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
                 "origin_out = ", origin_out)
     }
 
+    # capture yyyy.f
+    ymdhms <- yearsdec_to_ymdhms(years)
+    if (verbose > 0) {
+        message("ymdhms:")
+        print(head(ymdhms$text))
+        print(tail(ymdhms$text))
+    }
+    years <- ymdhms$ymdhms$year
+    months <- ymdhms$ymdhms$mon
+    days <- ymdhms$ymdhms$day
+
     # capture different cases
     years_ge_zero_lt_10000 <- which(years >= 0 & years < 10000) # case 1
     years_ge_zero_ge_10000 <- which(years >= 0 & years >= 10000) # case 2
     years_lt_zero <- which(years < 0) # case 3
-    
-    # capture NA
-    nainds <- which(is.na(years))
         
     # case 1
-    if (length(years_ge_zero_lt_10000) > 0) { # as.POSIXlt("0-1-1") to as.POSIXlt("9999-12-31") -> ok
+    # as.POSIXlt("0-1-1") to as.POSIXlt("9999-12-31") -> ok
+    if (length(years_ge_zero_lt_10000) > 0) { 
         if (verbose > 0) {
             message("case 1 years[years_ge_zero_lt_10000]:")
             cat(capture.output(str(years[years_ge_zero_lt_10000])), sep="\n")
         }
-        lt_ge_zero_lt_10000 <- as.POSIXlt(paste0(years[years_ge_zero_lt_10000], "-06-30"), tz="UTC") 
+        lt_ge_zero_lt_10000 <- as.POSIXlt(paste0(years[years_ge_zero_lt_10000], "-",
+                                                 months[years_ge_zero_lt_10000], "-",
+                                                 days[years_ge_zero_lt_10000]), tz="UTC") 
         if (verbose > 0) {
             message("case 1 lt_ge_zero_lt_10000:")
             cat(capture.output(str(lt_ge_zero_lt_10000)), sep="\n")
@@ -170,11 +302,15 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
     } # case 1
 
     # case 2
-    if (length(years_ge_zero_ge_10000) > 0) { # as.POSIXlt("10000-1-1") and above -> error "not in a standard unambiguous format"
+    # as.POSIXlt("10000-1-1") and above -> error "not in a standard unambiguous format"
+    if (length(years_ge_zero_ge_10000) > 0) { 
         lt_ge_zero_ge_10000 <- as.POSIXlt(paste0("1337-06-30"), tz="UTC") # placeholder for saving results
         for (yeari in seq_along(years_ge_zero_ge_10000)) {
             by <- paste0(years[years_ge_zero_ge_10000][yeari], " years")
-            tmp <- seq.POSIXt(from=as.POSIXlt("0000-06-30", tz="UTC"), l=2, b=by, tz="UTC")[2]
+            tmp <- seq.POSIXt(from=as.POSIXlt(paste0("0000-",
+                                                     months[years_ge_zero_ge_10000][yeari], "-",
+                                                     days[years_ge_zero_ge_10000][yeari]), 
+                                              tz="UTC"), l=2, b=by, tz="UTC")[2]
             lt_ge_zero_ge_10000[yeari] <- as.POSIXlt(tmp)
             if (verbose > 1) message("case 2 year ", years[years_ge_zero_ge_10000][yeari], ": from 0 by ", by, " --> ", 
                                      lt_ge_zero_ge_10000[yeari], " since ", origin_in)
@@ -186,11 +322,15 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
     } # case 2
 
     # case 3
-    if (length(years_lt_zero) > 0) { # below or equal as.POSIXlt("-1-1-1") --> negative year gives error "not in a standard unambiguous format" 
+    # below or equal as.POSIXlt("-1-1-1") --> negative year gives error "not in a standard unambiguous format" 
+    if (length(years_lt_zero) > 0) { 
         lt_lt_zero <- as.POSIXlt(paste0("1337-06-30"), tz="UTC") # placeholder for saving results
         for (yeari in seq_along(years[years_lt_zero])) {
             by <- paste0(years[years_lt_zero][yeari], " years")
-            tmp <- seq.POSIXt(from=as.POSIXlt("0000-06-30", tz="UTC"), l=2, b=by, tz="UTC")[2]
+            tmp <- seq.POSIXt(from=as.POSIXlt(paste0("0000-",
+                                                     months[years_lt_zero][yeari], "-",
+                                                     days[years_lt_zero][yeari]), 
+                                              tz="UTC"), l=2, b=by, tz="UTC")[2]
             lt_lt_zero[yeari] <- as.POSIXlt(tmp)
             if (verbose > 1) message("case 3 year ", years[years_lt_zero][yeari], ": from 0 by ", by, " --> ", 
                                      lt_lt_zero[yeari], " since ", origin_in)
@@ -203,18 +343,19 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
     } # if any negative years since origin_in
 
     # combine all cases
-    posixlt <- as.POSIXlt(seq.POSIXt(as.POSIXlt("0-1-1", tz="UTC"), b="1 day", l=length(years))) # placeholder
-    if (length(nainds) > 0) {
-        posixlt[nainds] <- NA
-    }
+    posixlt <- as.POSIXlt(seq.POSIXt(as.POSIXlt("0-1-1", tz="UTC"), b="1 day", 
+                                     l=length(yearsin))) # placeholder
     if (length(years_ge_zero_lt_10000) > 0) {
-        posixlt[years_ge_zero_lt_10000] <- lt_ge_zero_lt_10000
+        posixlt[nonNAinds[years_ge_zero_lt_10000]] <- lt_ge_zero_lt_10000
     }
     if (length(years_ge_zero_ge_10000) > 0) {
-        posixlt[years_ge_zero_ge_10000] <- lt_ge_zero_ge_10000
+        posixlt[nonNAinds[years_ge_zero_ge_10000]] <- lt_ge_zero_ge_10000
     }
     if (length(years_lt_zero) > 0) {
-        posixlt[years_lt_zero] <- lt_lt_zero
+        posixlt[nonNAinds[years_lt_zero]] <- lt_lt_zero
+    }
+    if (length(nonNAinds) != length(yearsin)) {
+        posixlt[seq_along(yearsin)[-nonNAinds]] <- NA
     }
     if (verbose > 0) {
         message("posixlt:")
@@ -248,7 +389,7 @@ make_posixlt_origin_function <- function(years, origin_in=0, origin_out=0, verbo
 
     return(posixlt)
 
-} # make_posixlt_origin_function
+} # make_posixlt_origin
 
 # Get the proportion variation explained. See this website for more details: http://goo.gl/jte8X
 # http://www.gettinggeneticsdone.com/2011/08/sync-your-rprofile-across-multiple-r.html
