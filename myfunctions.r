@@ -196,11 +196,11 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
     monthsrel_lookup <- round((0:11)/12, round) 
     months <- findInterval(x=yearsrel, vec=monthsrel_lookup)
     monthsrel <- monthsrel_lookup[months]
-    dayspm <- c(31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    dayspm <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
     dayspm <- dayspm[months]
     inds <- which(((years %% 4 == 0) & (years %% 100 != 0)) | (years %% 400 == 0)) # leap
-    inds <- inds[which(dayspm[inds] == 29)]
-    dayspm[inds] <- 28
+    inds <- inds[which(dayspm[inds] == 28)]
+    dayspm[inds] <- 29
     dmons <- yearsrel
     dmons <- dmons - monthsrel
     dmons[months < 12] <- dmons[months < 12]/
