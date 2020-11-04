@@ -16,6 +16,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                            width_pdf=7, height_pdf=7,
                            axis.args=NULL, add_names_inset=F, add_names_topleft=T,
                            legend.args=NULL, legend.line=6, legend.cex=0.85,
+                           colorbar.cex=1.25,
                            family="sans", lwd=0.5, lwd.ticks=0.5, 
                            verbose=F,
                            ...) {
@@ -1681,7 +1682,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                                 at=colorbar_at,
                                 labels=axis.labels,
                                 lwd=0, lwd.ticks=lwd.ticks,
-                                cex.axis=1),
+                                cex.axis=colorbar.cex),
                            axis.args)
             if (!is.null(axis.args)) {
                 if (verbose) message("do.call(\"axis\", axis.args) ...")

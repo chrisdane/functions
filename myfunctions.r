@@ -142,7 +142,7 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
     #yearsdec <- seq(0.91666666666670004737227, 1, l=30)
     if (missing(yearsdec)) stop("yearsdec missing")
     if (!is.numeric(yearsdec)) stop("yearsdec must be numeric")
-    options("digits"=22, scipen=999999999)
+    #options("digits"=22, scipen=999999999)
     nonNAinds <- which(!is.na(yearsdec))
     # rounding issue: https://github.com/tidyverse/lubridate/issues/833
     round <- 13 # round necessary; this needs to be imroved 
