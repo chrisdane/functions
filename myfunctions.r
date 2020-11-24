@@ -1,131 +1,13 @@
-## R
+# r
 
-## my collection of small R functions
+## my collection of  R functions that I need again and again
 
-# return R currently running executable
-Rexe <- function() {
-    return(paste0(R.home(), "/bin/exec/R"))
-}
-
-tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
-    W <- NULL
-    w.handler <- function(w) { # warning handler
-        W <<- w
-        invokeRestart("muffleWarning")
-    }
-    list(value=withCallingHandlers(tryCatch(expr, error=function(e) e),
-                                   warning=w.handler), 
-         warning=W)
-} # tryCatch.W.E
-
-checkfun <- function() {
-    message("myfunctions.r: sys.parent() = ", sys.parent(), 
-            ", current frame sys.nframe() = ", sys.nframe())
-    # copypaste/Rscript: pa0,fr0; checkfun(): pa0,fr1; source("file.r") = pa3,fr4
-    f1 <- function() message("f1(): sys.parent() = ", sys.parent(), 
-                             ", current frame sys.nframe() = ", sys.nframe())
-    f2 <- function() f1(); f3 <- function() f2()
-    message("run f1"); f1() # copypaste/Rscript: pa0,fr1; checkfun() = pa1,fr2; source("file.r") = pa0,fr5
-    message("run f2"); f2() # copypaste/Rscript: pa1,fr2; checkfun() = pa2,fr3; source("file.r") = pa5,fr6
-    message("run f3"); f3() # copyüaste/Rscript: pa2,fr3; checkfun() = pa3,fr4; source("file.r") = pa6,fr7
-    # --> test if run from file or as function:
-    #if (sys.parent() == 3L && sys.nframe() == 4L) { # run `source(file.r")`
-    #    me <- "file.r"
-    #} else { # run `fun()`
-    #    me <- normalizePath(getSrcFilename(fun, full.names=T))
-    #}
-} # checkfun
-
-# check if all elements of a list are identical
-# https://stackoverflow.com/questions/4752275/test-for-equality-among-all-elements-of-a-single-vector
-identical_list <- function(x) {
-    if (length(x) == 1) {
-        return(T)
-    } else if (length(x) == 0) {
-        return(F)
-    } else {
-        check <- vapply(1:(length(x)-1),
-                    function(n) identical(x[[n]], x[[n+1]]),
-                    logical(1))
-        if (all(check)) T else F
-    }
-}
-
-# check of graphics::image()'s argument `useRaster` from graphics::image.default 
-check_irregular <- function(x, y) {
-    dx <- diff(x)
-    dy <- diff(y)
-    # all.equal(target, current, ...) returns
-    #   TRUE            if d <= tolereance with
-    #                       tolerance <- sqrt(.Machine$double.eps)
-    #                       d <- (sum(abs(target - current))/length(target))
-    #   a character     otherwise, giving the mean relative difference, 
-    #                   e.g. "Mean relative difference: 0.2"; or other 
-    #                   information like "Numeric: lengths (18, 1) differ"
-    #                   if the lengths of target and current differ
-    # isTRUE(x) returns
-    #   TRUE if is.logical(x) && length(x) == 1L && !is.na(x) && x
-    (length(dx) && !isTRUE(all.equal(dx, rep(dx[1], length(dx))))) ||
-    (length(dy) && !isTRUE(all.equal(dy, rep(dy[1], length(dy)))))
-}
-
-# minute/second degree to decimal degree longitude/latitude
-deg2dec <- function(deg=0.0, min=0.0, sec=0.0) {
-    if (length(deg) == 1 && length(min) == 1 && length(sec) == 1) {
-        message("deg2dec(): dec = deg + min/60 + sec/3600 = ", deg, " + ", min, "/60 + ", sec, "/3600")
-    } else {
-        message("deg2dec(): dec = deg + min/60 + sec/3600")
-    }
-    dec <- deg + min/60 + sec/3600
-    return(dec)
-} # deg2dec
+## section 1: geo-physical stuff
 
 # leap years
 is.leap <- function(years) {
     return(((years %% 4 == 0) & (years %% 100 != 0)) | (years %% 400 == 0))
 }
-
-reorder_legend <- function(le) {
-    # check input
-    if (le$ncol < 1) warning("reorder_legend(): le$ncol=", ncol, ". set to 1")
-    le$ncol <- max(1, le$ncol)
-    n <- length(le$text)
-    nrow <- ceiling(n/le$ncol)
-    # https://stackoverflow.com/questions/39552682/base-r-horizontal-legend-with-multiple-rows
-    MyOrder <- as.vector(matrix(1:(nrow*le$ncol), nrow=nrow, ncol=le$ncol, byrow=T))
-    
-    # reorder every list element of length n
-    for (i in 1:length(le)) {
-        if (length(le[[i]]) == n) {
-            le[[i]] <- le[[i]][MyOrder]
-        }
-    }
-    return(le)
-} # reorder_legend
-
-myma <- function(x, order, verbose=F, ...) {
-    if (verbose) {
-        message("yields the same result as\n,
-                forecast::ma(x, order=order, centre=ifelse(order %% 2 == 0, F, T))\n
-                monthly ts --> order=36 --> 3a ma\n
-                daily   ts --> order=\n")
-    }
-    y <- stats::filter(x, filter=rep(1/order, t=order))
-}
-
-ht <- function(d, nmax_per_side=15) {
-    if (!is.null(dim(d)) && length(dim(d)) > 2) stop("ht(): input d needs to be 1- or 2-dimensional")
-    if (is.null(dim(d))) nd <- length(d)
-    if (!is.null(dim(d))) nd <- dim(d)[1]
-    if (nd <= 2*nmax_per_side) {
-        print(d)
-    } else {
-        print(head(d, n=nmax_per_side))
-        #message(system('bold=`tput bold`; printf "   ${bold}\u22ee"', intern=T))
-        message(system('printf "   \u22ee"', intern=T))
-        print(tail(d, n=nmax_per_side))
-    }
-} # ht()
 
 # convert decimal year yyyy.f to YYYY-MM-DD HH:MM:SS 
 yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
@@ -236,9 +118,9 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
                 text=text))
 } # yearsdec_to_ymdhms
 
-
 # make POSIX time with negative years
-make_posixlt_origin <- function(years, origin_in=0, origin_out, verbose=0) {
+make_posixlt_origin <- function(years, origin_in=0, origin_out, 
+                                allow_sticky=T, verbose=0) {
 
     # simpler: lubridate::date_decimal() but this function has a bug:
     # as.POSIXlt(lubridate::date_decimal(seq(2000, b=1/12, l=12)))$mon+1 = 
@@ -251,6 +133,9 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out, verbose=0) {
     # output:
     #   dates (POSIXlt; date values with respect to `origin_out`)
   
+    # optional dependency: `sticky::sticky()` keeps the attribute 
+    # `origin` also after subset of the returned POSIXlt object
+
     # check
     if (missing(years)) stop("must provide years")
     if (!is.numeric(years)) stop("years must be numeric")
@@ -386,10 +271,57 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out, verbose=0) {
 
     # sort
     #posixlt <- sort(posixlt)
+    
+    # make own `origin` attribute sticky
+    if (allow_sticky) {
+        if (verbose > 0) message("load sticky package and make `origin` attribute permanent. ",
+                                 "set `allow_sticky=F` if you do not want that.")
+        if (any(search() == "package:sticky")) library(sticky)
+        posixlt <- sticky::sticky(posixlt)
+    } # if allow_sticky
 
     return(posixlt)
 
 } # make_posixlt_origin
+
+# minute/second degree to decimal degree longitude/latitude
+deg2dec <- function(deg=0.0, min=0.0, sec=0.0) {
+    if (length(deg) == 1 && length(min) == 1 && length(sec) == 1) {
+        message("deg2dec(): dec = deg + min/60 + sec/3600 = ", deg, " + ", min, "/60 + ", sec, "/3600")
+    } else {
+        message("deg2dec(): dec = deg + min/60 + sec/3600")
+    }
+    dec <- deg + min/60 + sec/3600
+    return(dec)
+} # deg2dec
+
+# convert longitudes from 0,360 to -180,180
+convert_lon_360_to_180 <- function(lon360, data360=NULL, data360_lonind=NULL) {
+    if (missing(lon360)) stop("provide `lon360`")
+    west_of_180_inds <- which(lon360 < 180)
+    east_of_180_inds <- which(lon360 >= 180)
+    lon180 <- lon360 - 180
+    ret <- list(lon180=lon180)
+    if (!is.null(data360)) {
+        if (is.null(data360_lonind)) stop("provided `data360` but not `data360_lonind`")
+        data360 <- as.array(data360)
+        cmdeast <- rep(",", t=length(dim(data360))) 
+        cmdeast[data360_lonind] <- paste0("east_of_180_inds")
+        cmdeast <- paste(cmdeast, collapse="")
+        cmdwest <- rep(",", t=length(dim(data360))) 
+        cmdwest[data360_lonind] <- paste0("west_of_180_inds")
+        cmdwest <- paste(cmdwest, collapse="")
+        cmd <- paste0("data180 <- abind(data360[", cmdeast, "], ",
+                                       "data360[", cmdwest, "], ",
+                                       "along=", data360_lonind, ")")
+        message("convert_lon_360_to_180(): run `", cmd, "` ...")
+        library(abind)
+        eval(parse(text=cmd))
+        dimnames(data180) <- NULL
+        ret$data180 <- data180
+    } # if !is.null(data)
+    return(ret)
+} # convert_lon_360_to_180
 
 # Get the proportion variation explained. See this website for more details: http://goo.gl/jte8X
 # http://www.gettinggeneticsdone.com/2011/08/sync-your-rprofile-across-multiple-r.html
@@ -403,6 +335,7 @@ get_rsq <- function(predicted, actual) {
 
 # get p-value of linear model; from 3.2.1 of faraways book
 get_pval <- function(lm) {
+    # todo: precision is not as high as `summary(lm)$coefficients[2,4]`
     if (class(lm) != "lm") stop("input must be of class \"lm\"")
     # model[[1]] is actual data that was modeled by predictors model[[2..]]
     a <- sum((lm$model[[1]]-mean(lm$model[[1]]))^2) 
@@ -412,6 +345,134 @@ get_pval <- function(lm) {
     c <- (a-b)/n_predictors/(b/n_df)
     1-pf(c, n_predictors, n_df)
 }
+
+# convert velocities with units package
+speeds <- function(x=1, unit="cm/s") {
+    library(units) # valid_udunits()
+    x <- set_units(x=x, value=unit, mode="standard")
+    lengths <- c("0.1mm", "mm", "cm", "10cm", "m", "10m", "100m", "km", "3km", "10km", "100km", "1000km")
+    times <- c("s", "min", "h", "day", "month", "year", "kyear", "Myear")
+    vec <- as.vector(outer(lengths, times, paste, sep="/"))
+    for (i in 1:length(vec)) vec[i] <- set_units(x, value=vec[i], mode="standard")
+    mat <- matrix(as.numeric(vec), nrow=length(lengths))
+    rownames(mat) <- lengths; colnames(mat) <- times
+    oo <- getOption("scipen") # oldoption
+    options("scipen"=100); message("scipen=", getOption("scipen"))
+    print(mat)
+    options("scipen"=oo); message("scipen=", getOption("scipen"))
+    invisible(mat)
+
+} # speeds function
+
+## section 2: r-stuff
+
+# return R currently running executable
+Rexe <- function() return(paste0(R.home(), "/bin/exec/R"))
+
+tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
+    W <- NULL
+    w.handler <- function(w) { # warning handler
+        W <<- w
+        invokeRestart("muffleWarning")
+    }
+    list(value=withCallingHandlers(tryCatch(expr, error=function(e) e),
+                                   warning=w.handler), 
+         warning=W)
+} # tryCatch.W.E
+
+# will never understand this
+checkfun <- function() {
+    message("myfunctions.r: sys.parent() = ", sys.parent(), 
+            ", current frame sys.nframe() = ", sys.nframe())
+    # copypaste/Rscript: pa0,fr0; checkfun(): pa0,fr1; source("file.r") = pa3,fr4
+    f1 <- function() message("f1(): sys.parent() = ", sys.parent(), 
+                             ", current frame sys.nframe() = ", sys.nframe())
+    f2 <- function() f1(); f3 <- function() f2()
+    message("run f1"); f1() # copypaste/Rscript: pa0,fr1; checkfun() = pa1,fr2; source("file.r") = pa0,fr5
+    message("run f2"); f2() # copypaste/Rscript: pa1,fr2; checkfun() = pa2,fr3; source("file.r") = pa5,fr6
+    message("run f3"); f3() # copyüaste/Rscript: pa2,fr3; checkfun() = pa3,fr4; source("file.r") = pa6,fr7
+    # --> test if run from file or as function:
+    #if (sys.parent() == 3L && sys.nframe() == 4L) { # run `source(file.r")`
+    #    me <- "file.r"
+    #} else { # run `fun()`
+    #    me <- normalizePath(getSrcFilename(fun, full.names=T))
+    #}
+} # checkfun
+
+# check if all elements of a list are identical
+# https://stackoverflow.com/questions/4752275/test-for-equality-among-all-elements-of-a-single-vector
+identical_list <- function(x) {
+    if (length(x) == 1) {
+        return(T)
+    } else if (length(x) == 0) {
+        return(F)
+    } else {
+        check <- vapply(1:(length(x)-1),
+                    function(n) identical(x[[n]], x[[n+1]]),
+                    logical(1))
+        if (all(check)) T else F
+    }
+}
+
+# check of graphics::image()'s argument `useRaster` from graphics::image.default 
+check_irregular <- function(x, y) {
+    dx <- diff(x)
+    dy <- diff(y)
+    # all.equal(target, current, ...) returns
+    #   TRUE            if d <= tolereance with
+    #                       tolerance <- sqrt(.Machine$double.eps)
+    #                       d <- (sum(abs(target - current))/length(target))
+    #   a character     otherwise, giving the mean relative difference, 
+    #                   e.g. "Mean relative difference: 0.2"; or other 
+    #                   information like "Numeric: lengths (18, 1) differ"
+    #                   if the lengths of target and current differ
+    # isTRUE(x) returns
+    #   TRUE if is.logical(x) && length(x) == 1L && !is.na(x) && x
+    (length(dx) && !isTRUE(all.equal(dx, rep(dx[1], length(dx))))) ||
+    (length(dy) && !isTRUE(all.equal(dy, rep(dy[1], length(dy)))))
+}
+
+reorder_legend <- function(le) {
+    # check input
+    if (le$ncol < 1) warning("reorder_legend(): le$ncol=", ncol, ". set to 1")
+    le$ncol <- max(1, le$ncol)
+    n <- length(le$text)
+    nrow <- ceiling(n/le$ncol)
+    # https://stackoverflow.com/questions/39552682/base-r-horizontal-legend-with-multiple-rows
+    MyOrder <- as.vector(matrix(1:(nrow*le$ncol), nrow=nrow, ncol=le$ncol, byrow=T))
+    
+    # reorder every list element of length n
+    for (i in 1:length(le)) {
+        if (length(le[[i]]) == n) {
+            le[[i]] <- le[[i]][MyOrder]
+        }
+    }
+    return(le)
+} # reorder_legend
+
+myma <- function(x, order, verbose=F, ...) {
+    if (verbose) {
+        message("yields the same result as\n,
+                forecast::ma(x, order=order, centre=ifelse(order %% 2 == 0, F, T))\n
+                monthly ts --> order=36 --> 3a ma\n
+                daily   ts --> order=\n")
+    }
+    y <- stats::filter(x, filter=rep(1/order, t=order))
+}
+
+ht <- function(d, nmax_per_side=15) {
+    if (!is.null(dim(d)) && length(dim(d)) > 2) stop("ht(): input d needs to be 1- or 2-dimensional")
+    if (is.null(dim(d))) nd <- length(d)
+    if (!is.null(dim(d))) nd <- dim(d)[1]
+    if (nd <= 2*nmax_per_side) {
+        print(d)
+    } else {
+        print(head(d, n=nmax_per_side))
+        #message(system('bold=`tput bold`; printf "   ${bold}\u22ee"', intern=T))
+        message(system('printf "   \u22ee"', intern=T))
+        print(tail(d, n=nmax_per_side))
+    }
+} # ht()
 
 grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
     # in GRL, 1 paper consists of 12 "publication units" (PU) max.
@@ -458,27 +519,25 @@ mycols <- function(n) {
     return(cols)
 } # mycols
 
-# convert velocities with units package
-speeds <- function(x=1, unit="cm/s") {
-    library(units) # valid_udunits()
-    x <- set_units(x=x, value=unit, mode="standard")
-    lengths <- c("0.1mm", "mm", "cm", "10cm", "m", "10m", "100m", "km", "3km", "10km", "100km", "1000km")
-    times <- c("s", "min", "h", "day", "month", "year", "kyear", "Myear")
-    vec <- as.vector(outer(lengths, times, paste, sep="/"))
-    for (i in 1:length(vec)) vec[i] <- set_units(x, value=vec[i], mode="standard")
-    mat <- matrix(as.numeric(vec), nrow=length(lengths))
-    rownames(mat) <- lengths; colnames(mat) <- times
-    oo <- getOption("scipen") # oldoption
-    options("scipen"=100); message("scipen=", getOption("scipen"))
-    print(mat)
-    options("scipen"=oo); message("scipen=", getOption("scipen"))
-    invisible(mat)
+# get coordinates of selected ('clicked') point on plot
+get_coords <- function(...) {
 
-} # speeds function
+    # open plot with world map if no plot is already open 
+    if (is.null(dev.list())) {
+        library(maps)
+        message("run maps::map(\"world\", interior=F) ...")
+        map("world", interior=F)
+        message("par(\"usr\") = ", appendLF=F)
+        dput(par("usr"))
+    } 
+    options(locatorBell=F) # turn off system beep
+    message("run `graphics::locator()` ... (to exit the locator, hit any mouse ",
+            "button but the first while the mouse is over the plot device and looks like a cross) ...")
+    graphics::locator(type="o", ...)
+} # get_coords
 
 # get file format
 cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
-
     if (verbose) message("cdo_get_filetype() start with `verbose`=T ...")
     cmd <- paste0(cdo, " showformat ", fin)
     if (verbose) message("run `", cmd, "`")
@@ -532,25 +591,7 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
     
     if (verbose) message("cdo_get_filetype() finished")
     return(list(file_type=file_type, exact_format=input_format$value))
-
 } # cdo_get_filetype
-
-# get coordinates of selected ('clicked') point on plot
-get_coords <- function(...) {
-
-    # open plot with world map if no plot is already open 
-    if (is.null(dev.list())) {
-        library(maps)
-        message("run maps::map(\"world\", interior=F) ...")
-        map("world", interior=F)
-        message("par(\"usr\") = ", appendLF=F)
-        dput(par("usr"))
-    } 
-    options(locatorBell=F) # turn off system beep
-    message("run `graphics::locator()` ... (to exit the locator, hit any mouse ",
-            "button but the first while the mouse is over the plot device and looks like a cross) ...")
-    graphics::locator(type="o", ...)
-} # get_coords
 
 # set my default plot options
 setDefaultPlotOptions <- function(plist=list(plot_type="png", bg_col="white", NA_col="gray65", 
@@ -739,6 +780,16 @@ mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
 
 } # mymonth.name function
 
+# convert human readable to bytes
+# https://stackoverflow.com/questions/10910688/converting-kilobytes-megabytes-etc-to-bytes-in-r/49380514
+size2byte <- function(x, unit) {
+    if (any(!is.finite(x)) || any(!is.character(unit))) stop("x must be finite and unit must be character")
+    if (any(is.na(match(unit, c("B", "K", "M", "G", "T", "P"))))) {
+        stop("`unit` must be one of \"B\", \"K\", \"M\", \"G\", \"T\" or \"P\"")
+    }
+    mult <- c("B"=1,  "K"=1024,  "M"=1024^2,  "G"=1024^3,  "T"=1024^4,  "P"=1024^5)
+    x * unname(mult[unit])
+} # size2byte function
 
 get_encoding <- function(test_symbol="ä", test_ctype="de", verbose=F) {
     
@@ -900,6 +951,8 @@ myhelp <- function() {
              "                  install.packages(\"rgdal\", configure.args=\"--with-gdal-config=/sw/rhel6-x64/gdal-2.1.3-gcc48/bin/gdal-config --with-proj-include=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/include --with-proj-lib=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/lib\")",
              "                  export LD_LIBRARY_PATH=/sw/rhel6-x64/gdal-2.1.3-gcc48/lib/:$LD_LIBRARY_PATH",
              "                  export LD_LIBRARY_PATH=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/lib/:$LD_LIBRARY_PATH",
+             "               rJava:",
+             "                  install default-jre; R CMD javareconf",
              "               devtools::install_github(\"user/package\", args=\"--with-keep.source\")",
              "               withr::with_libpaths(new=\"libpath\", install_github(\"user/package\"))",
              "      compile: R CMD build \"package directory\"",
@@ -947,4 +1000,5 @@ myhelp <- function() {
 #install.packages("units", configure.args=c("--with-udunits2-lib=/sw/rhel6-x64/util/udunits-2.2.26-gcc64/lib"
 #                                           ,"--with-udunits2-include=/sw/rhel6-x64/util/udunits-2.2.26-gcc64/include"
 #                                           ))
+
 
