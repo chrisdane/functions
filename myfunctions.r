@@ -594,24 +594,24 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
 } # cdo_get_filetype
 
 # set my default plot options
-setDefaultPlotOptions <- function(plist=list(plot_type="png", bg_col="white", NA_col="gray65", 
-                                             contour_labcex=1,
-                                             a4_width_in=8.26, a4_height_in=11.68,
-                                             ts_width=2666, ts_height=1600, 
-                                             ts_width_m=2000, ts_height_m=1600,
-                                             depth_width=2666, depth_weight=1600,
-                                             map_width=2666, map_height=2000,
-                                             scatter_width=2666, scatter_height=2666,
-                                             useRaster=T, ppi=400, inch=7, pointsize=12, 
-                                             family_png="sans", family_pdf="sans"), ...) {
+myDefaultPlotOptions <- function(plist=list(plot_type="pdf", bg_col="white", NA_col="gray65", 
+                                            contour_labcex=1,
+                                            a4_width_in=8.26, a4_height_in=11.68,
+                                            ts_width=2666, ts_height=1600, 
+                                            ts_width_m=2000, ts_height_m=1600,
+                                            depth_width=2666, depth_weight=1600,
+                                            map_width=2666, map_height=2000,
+                                            scatter_width=2666, scatter_height=2666,
+                                            useRaster=T, ppi=400, inch=7, pointsize=12, 
+                                            family_png="sans", family_pdf="sans"), verbose=F, ...) {
     dot_list <- list(...)
     dot_names <- names(dot_list)
     if (length(dot_list) > 0) {
         for (i in 1:length(dot_list)) {
-            if (i == 1) message("*** setDefaultPlotOptions() start ***")
+            if (verbose && i == 1) message("*** myDefaultPlotOptions() start ***")
             if (dot_names[i] == "plot_type") {
                 if (!any(dot_list[[i]] == c("png", "pdf"))) {
-                    stop("setDefaultPlotOptions(): given plot_type ", 
+                    stop("myDefaultPlotOptions(): given plot_type ", 
                          dot_list[[i]], " not defined.")
                 }
                 if (dot_list[[i]] == plist$plot_type) {
@@ -628,7 +628,7 @@ setDefaultPlotOptions <- function(plist=list(plot_type="png", bg_col="white", NA
             if (T) message("argument \"", dot_names[i], "\" provided. overwrite default \"", 
                            plist[[dot_names[i]]], "\" with \"", dot_list[[i]], "\"")
             plist[[dot_names[i]]] <- dot_list[[i]]
-            if (i == length(dot_list)) message("*** setDefaultPlotOptions() finished ***")
+            if (i == length(dot_list)) message("*** myDefaultPlotOptions() finished ***")
             ## Note: 
             # print(str(dot_list[[i]]))
             # returns the value AND NULL
@@ -636,7 +636,7 @@ setDefaultPlotOptions <- function(plist=list(plot_type="png", bg_col="white", NA
         } # for all arguments in dots `...`
     } # if any dots arguments given
     return(plist)
-}
+} # myDefaultPlotOptions
 
 # nicer default pars
 # attention: this overwrites the default par()
