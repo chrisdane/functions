@@ -253,7 +253,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             }
         }
     } else {
-        point_list <- vector("list", l=nz) # all NULL
+        point_list <- vector("list", l=nz)
     }
     
     if (any(dot_names == "segment_list")) {
@@ -266,6 +266,25 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         }
     } else {
         segment_list <- NULL
+    }
+    
+    if (any(dot_names == "text_list")) {
+        text_list <- dot_list$text_list
+        if (!is.null(text_list)) {
+            if (length(text_list) != length(z)) { 
+                stop("provided text_list is of length ", length(text_list), " but nz = ", nz)
+            }
+            for (i in seq_along(text_list)) {
+                if (!is.null(text_list[[i]])) {
+                    if (is.null(text_list[[i]]$x)) stop("provided `text_list[[", i, "]]$x` is missing")
+                    if (is.null(text_list[[i]]$y)) stop("provided `text_list[[", i, "]]$y` is missing")
+                    if (is.null(text_list[[i]]$labels)) stop("provided `text_list[[", i, "]]$labels` is missing")
+                    if (is.null(text_list[[i]]$col)) text_list[[i]]$col <- "black"
+                }
+            }
+        }
+    } else {
+        text_list <- vector("list", l=nz)
     }
 
     if (any(dot_names == "cmd_list")) {
@@ -1114,6 +1133,12 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                                    x1=segment_list$x1, y1=segment_list$y1, lwd=lwd)
             } # if !is.null(segment_list)
 
+            if (!is.null(text_list[[i]])) {
+                if (verbose) message("add provided `text_list[[", i, "]]` to subplot using graphics::text() ...")
+                graphics::text(x=text_list[[i]]$x, y=text_list[[i]]$y,
+                               labels=text_list[[i]]$labels, col=text_list[[i]]$col)
+            } # if !is.null(text_list[[i]])
+            
             # add cmd stuff to every plot
             if (!is.null(cmd_list)) {
                 if (verbose) message("add provided `cmd_list` to subplot using base::eval(base::parse()) ...")
