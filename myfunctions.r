@@ -582,7 +582,7 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
                                     "NetCDF4 classic zip", "netCDF-4 classic model",
                                     # from ncdump -k:
                                     "64-bit offset"))) {
-        if (verbose) message("--> input is of type netcdf  ...")
+        if (verbose) message("--> input is of type netcdf")
         file_type <- "nc"
     } else { # e.g. "GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"
         if (verbose) message("--> input is not of type netcdf or not known")
