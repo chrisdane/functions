@@ -460,17 +460,33 @@ myma <- function(x, order, verbose=F, ...) {
     y <- stats::filter(x, filter=rep(1/order, t=order))
 }
 
-ht <- function(d, nmax_per_side=15) {
-    if (!is.null(dim(d)) && length(dim(d)) > 2) stop("ht(): input d needs to be 1- or 2-dimensional")
-    if (is.null(dim(d))) nd <- length(d)
-    if (!is.null(dim(d))) nd <- dim(d)[1]
-    if (nd <= 2*nmax_per_side) {
-        print(d)
-    } else {
-        print(head(d, n=nmax_per_side))
-        #message(system('bold=`tput bold`; printf "   ${bold}\u22ee"', intern=T))
+ht <- function(obj, nmax_per_side=15) {
+    if (is.null(dim(obj))) obj <- matrix(obj, ncol=1)
+    if (length(dim(obj)) > 2) stop("obj must be vector or 1- or 2-dimensional")
+    nrow <- dim(obj)[1]
+    ncol <- dim(obj)[2]
+    if (nrow <= 2*nmax_per_side) { # obj shorter than head+tail
+        print(obj)
+    } else { # obj longer than head+tail
+        h <- head(obj, n=nmax_per_side)
+        t <- tail(obj, n=nmax_per_side, keepnums=T)
+        max_nchar_rownames <- max(nchar(rownames(t)))
+        rownames <- paste0("[", seq_len(dim(h)[1]), ",]") # from FSA::headtail()
+        inds <- which(nchar(rownames) < max_nchar_rownames)
+        if (length(inds) > 0) {
+            rownames[inds] <- paste0(sapply(max_nchar_rownames - nchar(rownames[inds]), 
+                                            function(x) paste(rep(" ", t=x), collapse="")),
+                                     rownames[inds])
+        }
+        rownames(h) <- rownames
+        colnames <- paste0(paste(rep(" ", t=max_nchar_rownames), collapse=""), "[,1]") # 1st column
+        if (ncol > 1) {
+            colnames <- c(colnames, paste0("[,", seq_len(dim(h)[2]-1)+1, "]")) # all other columns
+        }
+        colnames(h) <- colnames
+        write.table(format(h, justify="right"), quote=F) # dont use print() to supress col names
         message(system('printf "   \u22ee"', intern=T))
-        print(tail(d, n=nmax_per_side))
+        write.table(format(t, justify="right"), col.names=F, quote=F)
     }
 } # ht()
 

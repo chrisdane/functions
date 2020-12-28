@@ -1,4 +1,5 @@
-## R
+# r
+
 update.check <- function() {
     inst <- packageStatus()
     inds <- which(inst$inst$Status == "upgrade") # ok upgrade unavailable
@@ -7,9 +8,9 @@ update.check <- function() {
         print(inst$inst[inds,c("Package", "Version", "Status", "LibPath")])
         message("")
         yn <- menu(choices=c("yes", "no"), 
-                   title="Run update.packages(instlib=.libPaths()[1], ask=F, checkBuilt=T) now?")
+                   title="Run utils::update.packages(instlib=.libPaths()[1], ask=F, checkBuilt=T) now?")
         if (yn == 1) {
-            update.packages(instlib=.libPaths()[1], ask=F, checkBuilt=T)
+            utils::update.packages(instlib=.libPaths()[1], ask=F, checkBuilt=T)
         }
     } else {
         message("All packages uptodate.")
@@ -21,4 +22,5 @@ update.check <- function() {
     }
 
     #return(inst)
-}
+} # update.check
+
