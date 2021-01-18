@@ -460,6 +460,7 @@ myma <- function(x, order, verbose=F, ...) {
     y <- stats::filter(x, filter=rep(1/order, t=order))
 }
 
+# headtail
 ht <- function(x, n=15, ...) {
     # from FSA::headtail
     if (!(is.matrix(x) | is.data.frame(x))) 
@@ -476,7 +477,7 @@ ht <- function(x, n=15, ...) {
         t <- utils::tail(x, n, keepnums=T, ...)
         tmp <- rbind(h, t)
     }
-    tmp
+    print(tmp)
 } # ht()
 
 grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
@@ -608,32 +609,74 @@ myDefaultPlotOptions <- function(plist=list(plot_type="pdf", bg_col="white", NA_
                                             map_width=2666, map_height=2000,
                                             scatter_width=2666, scatter_height=2666,
                                             useRaster=T, ppi=400, inch=7, pointsize=12, 
-                                            family_png="sans", family_pdf="sans"), verbose=F, ...) {
+                                            family_png="sans", family_pdf="sans",
+                                            pdf_embed_fun="grDevices::embedFonts"), verbose=F, ...) {
     dot_list <- list(...)
     dot_names <- names(dot_list)
     if (length(dot_list) > 0) {
-        for (i in 1:length(dot_list)) {
+        for (i in seq_along(dot_list)) {
             if (verbose && i == 1) message("*** myDefaultPlotOptions() start ***")
             if (dot_names[i] == "plot_type") {
                 if (!any(dot_list[[i]] == c("png", "pdf"))) {
                     stop("myDefaultPlotOptions(): given plot_type ", 
-                         dot_list[[i]], " not defined.")
+                         dot_list[[i]], " must be one of \"png\" or \"pdf\"")
                 }
-                if (dot_list[[i]] == plist$plot_type) {
+                if (dot_list[[i]] == plist$plot_type) { # if wanted is already default
                     next # argument
                 }
             }
-            if (any(dot_names[i] == c("family_png", "family_pdf"))) {
-                if (any(search() == "package:extrafont")) {
-                    if (!any(fonts() == dot_list[[i]])) { # do not update font
-                        next # argument 
+            # check if provided pdf family is available
+            # -> for png, system falls back to default automatically if wanted font is not available
+            # -> for pdf, an error is raised
+            if (dot_names[i] == "family_pdf") {
+                # check if wanted font is one of system defaults
+                fonts <- names(grDevices::pdfFonts())
+                if (!any(fonts == dot_list[[i]])) { # if wanted font is not any system default
+                    message("wanted family_pdf = \"", dot_list[[i]], "\" is not included in ", 
+                            length(fonts), " currently loaded grDevices::pdfFonts()")
+                    if (!any(search() == "package:extrafont")) { # try to load extrafont package
+                        message("run `require(extrafont)`")
+                        suppressMessages(require("extrafont"))
+                    }
+                    if (any(search() == "package:extrafont")) { # try to load extrafont package
+                        fonts <- extrafont::fonts()
+                        message("wanted family_pdf = \"", dot_list[[i]], "\" ", appendLF=F)
+                        if (!any(fonts == dot_list[[i]])) { # wanted font not avilable
+                            message("is also not included in ", length(fonts), 
+                                    " currently loaded extrafont::fonts(). use default \"",
+                                    plist$family_pdf, "\" ...")
+                            dot_list[[i]] <- plist$family_pdf
+                        } else { # wanted font available through extrafont package
+                            message("is included in extrafont::fonts()")
+                        }
+                    } else { # extrafont package not available
+                        message("use default \"", plist$family_pdf, "\" ...")
+                        dot_list[[i]] <- plist$family_pdf
                     }
                 }
+                # check if embed command needs to be adjusted
+                # -> font provided by `extrafont` package must be imbedded with `extrafont::embed_fonts()` 
+                #    instead with default grDevices::embedFonts()`
+                if (dot_list[[i]] != plist$family_pdf) { # if change is applied
+                    if (any(search() == "package:extrafont")) { # check if wanted front comes from grDevices or extrafont
+                        extrafont_fonts <- fonts()
+                        default_fonts <- names(pdfFonts()) # includes default and extrafont-fonts
+                        # strange workaround: once extrafont is loaded, one cannot infer the default fonts anymore 
+                        default_fonts <- setdiff(default_fonts, extrafont_fonts) 
+                        if (!(dot_list[[i]] %in% default_fonts)) {
+                            message("change `pdf_embed_fun` from default \"", plist$pdf_embed_fun, 
+                                    "\" to \"extrafont::embed_fonts\" ...")
+                            plist$pdf_embed_fun <- "extrafont::embed_fonts"
+                        }
+                    }
+                }
+            } # if argument is `family_pdf`
+            if (dot_list[[i]] != plist[[dot_names[i]]]) { # if change from default
+                message("argument \"", dot_names[i], "\" provided -> overwrite default \"", 
+                        plist[[dot_names[i]]], "\" with \"", dot_list[[i]], "\"")
+                plist[[dot_names[i]]] <- dot_list[[i]]
             }
-            if (T) message("argument \"", dot_names[i], "\" provided. overwrite default \"", 
-                           plist[[dot_names[i]]], "\" with \"", dot_list[[i]], "\"")
-            plist[[dot_names[i]]] <- dot_list[[i]]
-            if (i == length(dot_list)) message("*** myDefaultPlotOptions() finished ***")
+            if (verbose && i == length(dot_list)) message("*** myDefaultPlotOptions() finished ***")
             ## Note: 
             # print(str(dot_list[[i]]))
             # returns the value AND NULL
@@ -927,9 +970,12 @@ mynews <- function() {
 myhelp <- function() {
 	tmp <- c("   Built-in constants ...",
              "      LETTERS, letters, month.abb, month.name, pi",
-             "   extrafont ...",
+             "   default fonts/encodings ...",
+             "      pdfFonts(); encodings <- list.files(system.file(\"enc\", package=\"grDevices\"))",
+             "      embed: grDevices::embedFonts(plotname, outfile=plotname)",
+             "   non-default fonts: package \"extrafont\"",
              "      font_import() (loadfonts()), fonts(), font_install(\"fontcm\"), \"CM *\"",
-             "      embed_fonts(\"plot.pdf\", outfile=\"plot_embed.pdf\") (PostScript knows only 14 base fonts)",
+             "      embed: embed_fonts(plotname, outfile=plotname)",
              "      evince -> File -> Properties -> Fonts -> \"Embedded subset\"",
              "      library(extrafontdb) (reset)",
              "   available locales ...",
