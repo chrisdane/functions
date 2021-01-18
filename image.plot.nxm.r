@@ -1,6 +1,7 @@
 image.plot.nxm <- function(x, y, z, n, m, dry=F, 
                            individual_zlim=F,
                            horizontal=F, top_bottom=F, add_title=T,
+                           cex.znames=1,
                            xlab="xaxis", ylab="yaxis", zlab="Variable [unit]",
                            cex.axis=1.25,
                            bgcol="white", NAcol="gray", poly_border_col=NA, 
@@ -496,7 +497,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     } else if (any(dot_names == "y_labels")) {
         y_labels <- dot_list[["y_labels"]]
     }
-
+                    
     if (any(dot_names == "znames")) {
         znames <- dot_list[["znames"]]
     } else { # if not provided: default: a) 1, b) 2, ...
@@ -1101,6 +1102,16 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                     graphics::segments(x0=addland_list$data$x0, y0=addland_list$data$y0,
                                        x1=addland_list$data$x1, y1=addland_list$data$y1, lwd=lwd)
                 }
+                
+                # special:
+                if (!is.null(cmd_list)) {
+                    if (verbose) message("add provided `cmd_list` to subplot in addland section using base::eval(base::parse()) ...")
+                    for (j in seq_along(cmd_list)) {
+                        if (verbose) message("   run `", cmd_list[[j]], "` ...")
+                        eval(parse(text=cmd_list[[j]]))
+                    }
+                } # if !is.null(cmd_list)
+                
                 #par(op) # switch back to main plot; somehow this breaks layout()'s subplot counting
                 par(usr=op$usr) # only restore coords; todo: is this enough?
             } # if !is.null(addland_list)
@@ -1224,7 +1235,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                                #legend=as.expression(paste0(letters[i], ") ", znames[i])),
                                col="black", lty=NA, lwd=lwd, pch=NA,
                                x.intersp=lexintersp,
-                               cex=cex.axis, bty="n")
+                               cex=cex.znames, bty="n")
                     }
 
                 # if add_names_topleft finished
@@ -1232,7 +1243,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
 
                     if (verbose) message("add names to subplot in top left corner using base::text (`add_names_topleft`=T) ...")
                     text(par("usr")[1], par("usr")[4] + strheight("."), 
-                         xpd=T, labels=znames[i], pos=4, cex=legend.cex)
+                         xpd=T, labels=znames[i], pos=4, cex=cex.znames)
 
                 } # add_names_inset or add_names_topleft
 
