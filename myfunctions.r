@@ -346,6 +346,51 @@ get_pval <- function(lm) {
     1-pf(c, n_predictors, n_df)
 }
 
+# effective sample size after thiebaux and zwiers 1984
+# --> formulated as in hannachi et al. 2007: `n_eff = n * (1 + 2 * sum_{k=1}^{n-1} (1-k/n) * \rho(k))^{-1}
+neff <- function(ts) {
+    if (missing(ts)) stop("ts missing")
+    if (!is.null(dim(ts))) {
+        if (length(dim(ts)) > 1) stop("ts must be vector")
+        ts <- as.vector(ts)
+    }
+    # autocorrelation rho
+    rho <- stats::acf(ts, lag.max=length(ts)-1, plot=F)
+    rho <- rho$acf[seq_len(length(ts) - 1)]
+    fac <- 1 - seq_len(length(rho))/length(ts)
+    neff <- length(ts)*(1 + 2 * sum(fac * rho))^-1
+    as.integer(neff)
+} # neff function
+
+# eigenvalue and -vector uncertainty after north et al. 1982
+# --> formulated as in hannachi et al. 2007
+rule_of_thumb <- function(eigenval, eigenvec=NULL) {
+    if (missing(eigenval)) stop("must provide eigenval")
+    neff <- neff(eigenval)
+    eigenval.err <- eigenval * sqrt(2/neff)
+    # rest from sinkr::northTest
+    upper.lim <- eigenval + eigenval.err
+    lower.lim <- eigenval - eigenval.err
+    sig <- rep(1, length(eigenval))
+    for (i in seq(sig)) {
+        if ((i - 1) %in% seq(sig)) {
+            if (upper.lim[i] > lower.lim[i - 1]) 
+                sig[i] <- 0
+        }
+        if ((i + 1) %in% seq(sig)) {
+            if (lower.lim[i] < upper.lim[i + 1]) 
+                sig[i] <- 0
+        }
+    }
+    result <- list(eigenval = eigenval, eigenval.err = eigenval.err, 
+        upper.lim = upper.lim, lower.lim = lower.lim, sig = sig, 
+        n.sig = min(which(sig == 0)) - 1)
+    if (!missing(eigenvec)) { # calc uncerstaintied of eigenvectors
+        # todo
+    }
+    result
+} # rule_of_thumb function
+
 # convert velocities with units package
 speeds <- function(x=1, unit="cm/s") {
     library(units) # valid_udunits()
@@ -1019,6 +1064,7 @@ myhelp <- function() {
              "      which:   packageDescription(\"pkg\"); packageVersion(\"pkg\"); find.package(\"pkg\"); maintainer(\"pkg\"); library(help=\"pkg\")",
              "      archive: https://cran.r-project.org/src/contrib/Archive",
              "      help:    https://cran.r-project.org/doc/FAQ/R-FAQ.html",
+             "      data:    data(package=\"pkg\")",
              "   Functions ...",
              "      C-object infos: e.g. \"graphics:::C_image\"", 
              "      S3: getAnywhere(fun or \"fun\"); methods(fun or \"fun\")",

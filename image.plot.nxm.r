@@ -39,7 +39,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         }
     }
    
-    # necessary input
+    # necessary input; in contrast to the demo case above
     if (!missing(x)) {
         if (missing(y)) stop("y is missing")
         if (missing(z)) stop("z is missing")
@@ -52,10 +52,20 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         if (missing(x)) stop("x is missing")
         if (missing(y)) stop("y is missing")
     }
-    if (!is.list(x)) stop("x must be list")
-    if (!is.list(y)) stop("y must be list")
-    if (!is.list(z)) stop("z must be list")
-
+    if (!is.list(z)) z <- list(z)
+    if (!is.list(x)) {
+        xl <- vector("list", l=length(z))
+        for (i in seq_along(z)) xl[[i]] <- x
+        x <- xl; rm(xl)
+    }
+    if (!is.list(y)) {
+        yl <- vector("list", l=length(z))
+        for (i in seq_along(z)) yl[[i]] <- y
+        y <- yl; rm(yl)
+    }
+    if (length(x) != length(z)) stop("x and z must have same length")
+    if (length(y) != length(z)) stop("y and z must have same length")
+    
     # capture additional arguments (aka ellipsis, dots, ...)
     dot_list <- list(...) # todo: use base::chkDots(...)?
     ndots <- length(dot_list)
@@ -63,35 +73,42 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     if (verbose && ndots > 0) {
         message("dots:")
         for (i in 1:length(dot_list)) {
-            message("dots[[", i, "]]: ", dot_names[i])
+            message("*******************\ndots[[", i, "]]: ", dot_names[i])
             cat(capture.output(str(dot_list[[i]])), sep="\n")
         }
     }
 
     # figure out nrow and ncol aready here that dry run is faster
     # just learned: grDevices::n2mfrow(nplots) is doing the trick
-    if (missing(n) && missing(m)) { # default
-        if (length(z) == 1) {
-            n <- 1; m <- 1 
-        } else if (length(z) == 2) {
-            # what should be default?
-            if (F) { # 1 row, 2 cols
-                n <- 1; m <- 2
-            } else if (T) { # 2 rows, 1 col
-                n <- 2; m <- 1
-            }
-        } else if (length(z) == 3) {
-            n <- 3; m <- 1
-        } else {
-            n <- ceiling(sqrt(length(z)))
-            m <- length(z) - n
-        }
-        if (verbose) message("automatically derived (nrow,ncol) = (n,m) = (", n, ",", m, ")") 
-    } # if n and m are missing
-    if (verbose) message("   n x m = ", n, " x ", m, " ...")
-    nplots <- n*m
     nz <- length(z) 
-    if (nplots < nz) stop("nplots = n x m = ", n, " x ", m, " < length(z) = ", nz)
+    if (missing(n) || missing(m)) { # default
+        if (missing(n) && missing(m)) {
+            nm <- grDevices::n2mfrow(nz)
+            n <- nm[1]; m <- nm[2]
+            if (F && nz == 2) { # special case: should nrow,ncol = 2,1 (default) or 1,2?
+                n <- 1; m <- 2
+            }
+        } else {
+            if (missing(n)) {
+                n <- ceiling(nz/m)
+                if (verbose) {
+                    message("provided m = ", m, " cols x automatic n = ", n, 
+                            " rows = ", n*m)
+                }
+            } else if (missing(m)) {
+                m <- ceiling(nz/n)
+                if (verbose) {
+                    message("provided n = ", n, " rows x automatic m = ", m, 
+                            " cols = ", n*m)
+                }
+            }
+        } # if n or m or both are missing
+    } # if n or m are missing
+    if (verbose) message("--> n x m = ", n, " x ", m, " ...")
+    nplots <- n*m
+    if (nplots < nz) {
+        stop("the obtained n*m = ", n*m, " < nz = ", nz, ". re-run with proper n (nrow) or/and m (ncol)")
+    }
 
     # decide which axes are drawn to which subplot
     # n=nrow, m=ncol
@@ -380,7 +397,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     if (useRaster) {
         # todo: what is the thr for useRaster? dev.capabilities("rasterImage")$rasterImage must be "yes" or "non-missing"
         if (!contour_only) {
-            message("`useRaster`=T --> check if x,y are regular for graphics::image(..., useRaster=T) usage ...")
+            if (verbose) message("`useRaster`=T --> check if x,y are regular for graphics::image(..., useRaster=T) usage ...")
             for (i in seq_along(z)) {
                 #if (any(grepl("POSIX", class(x[[i]])))) { # does not help; unique(dt) are more than 1; 
                 #    dt <- mean(difftime(x[[i]][2:length(x[[i]])], x[[1]][1:(length(x[[i]])-1)]))
@@ -393,7 +410,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         } # only check if image() will be used
 
         if (!is.null(image_list)) {
-            message("`useRaster`=T --> check provided `image_list` if x,y are regular for graphics::image(..., useRaster=T) usage ...")
+            if (verbose) message("`useRaster`=T --> check provided `image_list` if x,y are regular for graphics::image(..., useRaster=T) usage ...")
             for (i in seq_along(image_list$x)) {
                 image_list$x[[i]] <- seq(min(image_list$x[[i]], na.rm=T), max(image_list$x[[i]], na.rm=T), 
                                          l=length(image_list$x[[i]]))
@@ -1037,7 +1054,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                     if (addland_list$type == "map") {
                         if (addland_list$data == "world") {
                             addland_list$xlim <- c(-183.77640, 194.04724)
-                        } else if (addland_list == "world2") {
+                        } else if (addland_list$data == "world2") {
                             addland_list$xlim <- c(3.666292, 363.666292)
                         }
                     } else if (addland_list$type == "segments") {
@@ -1670,7 +1687,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             par(new=T, pty="m", err=-1)
             ix <- 1:2
             if (F) { # as in fields::image.plot()
-                message("iy = breaks !!!!!!!!!!!!!!!!!!!!")
+                if (verbose) message("iy = breaks !!!!!!!!!!!!!!!!!!!!")
                 iy <- breaks # use levels as indices in colorbar
                 # constant dy for useRaster=T usage
                 # --> not possible due to unequal zlevels, e.g. c(zlim[1], 2, 3, zlim[2])
@@ -1678,7 +1695,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 colorbar_breaks <- breaks
                 colorbar_at <- axis.at
             } else if (T) {
-                message("iy = axis.at.ind !!!!!!!!!!!!!!!!!!!!")
+                if (verbose) message("iy = axis.at.ind !!!!!!!!!!!!!!!!!!!!")
                 iy <- axis.at.ind # use indices as indices in colorbar
                 colorbar_breaks <- seq_len(nlevels)
                 colorbar_at <- axis.at.ind
