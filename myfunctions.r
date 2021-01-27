@@ -364,7 +364,7 @@ neff <- function(ts) {
 
 # eigenvalue and -vector uncertainty after north et al. 1982
 # --> formulated as in hannachi et al. 2007
-rule_of_thumb <- function(eigenval, eigenvec=NULL) {
+north_etal_1982_rule <- function(eigenval, eigenvec=NULL) {
     if (missing(eigenval)) stop("must provide eigenval")
     neff <- neff(eigenval)
     eigenval.err <- eigenval * sqrt(2/neff)
@@ -389,7 +389,7 @@ rule_of_thumb <- function(eigenval, eigenvec=NULL) {
         # todo
     }
     result
-} # rule_of_thumb function
+} # north_etal_1982_rule function
 
 # convert velocities with units package
 speeds <- function(x=1, unit="cm/s") {
