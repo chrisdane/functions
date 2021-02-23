@@ -7,9 +7,9 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                            bgcol="white", NAcol="gray", poly_border_col=NA, 
                            useRaster=T,
                            contour_only=F, add_contour=T, contour_include_zero=T,
-                           contour_posneg_soliddashed=F, contour_posneg_redblue=F,
+                           contour_posneg_soliddashed=T, contour_posneg_redblue=F,
                            contour_smooth=F, contour_smooth_n_pixel_thr=5, contour_spar=0.5,
-                           contour_labcex=1, contour_vfont=NULL, #c("sans serif", "bold"), 
+                           contour_labcex=1, contour_drawlabels=T, contour_vfont=NULL, #c("sans serif", "bold"), 
                            type="active", plotname="testplot",
                            cm_bottom=2, cm_left=2.5, cm_top=1,
                            cm_right=4, colorbar_width_cm=0.45, colorbar_dist_cm=0.2,
@@ -212,6 +212,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             if (is.null(contour_list$y)) stop("provided `contour_list` but `contour_list$y` is missing")
             if (is.null(contour_list$z)) stop("provided `contour_list` but `contour_list$z` is missing")
             if (is.null(contour_list$levels)) stop("provided `contour_list` but `contour_list$levels` is missing")
+            if (!is.null(contour_list$drawlabels)) contour_drawlabels <- contour_list$drawlabels
         }
     } else {
         contour_list <- NULL
@@ -357,9 +358,8 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     if (add_contour || contour_only || !is.null(contour_list)) {
         if (contour_posneg_soliddashed && contour_posneg_redblue) {
             message("both `contour_posneg_soliddashed` and `contour_posneg_redblue` cannot be true.",
-                    " set both to false (default) and continue ...")
+                    " set the latter to false (default) and continue ...")
             contour_posneg_redblue <- F
-            contour_posneg_soliddashed <- F
         }
     }
 
@@ -716,12 +716,12 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                         if (contour_posneg_soliddashed) {
                             graphics::contour(x[[i]], y[[i]], z[[i]],
                                               add=T, levels=axis.at.neg, 
-                                              labcex=contour_labcex, vfont=contour_vfont,
+                                              labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               lty=2, axes=F, xlab="n", lwd=lwd)
                         } else if (contour_posneg_redblue) {
                             graphics::contour(x[[i]], y[[i]], z[[i]],
                                               add=T, levels=axis.at.neg, 
-                                              labcex=contour_labcex, vfont=contour_vfont,
+                                              labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               lty=1, col="blue", axes=F, xlab="n", lwd=lwd)
                         }
                     } # if any neg values
@@ -736,12 +736,12 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                         if (contour_posneg_soliddashed) {
                             graphics::contour(x[[i]], y[[i]], z[[i]],
                                               add=T, levels=axis.at.pos, 
-                                              labcex=contour_labcex, vfont=contour_vfont,
+                                              labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               lty=1, axes=F, xlab="n", lwd=lwd)
                         } else if (contour_posneg_redblue) {
                             graphics::contour(x[[i]], y[[i]], z[[i]],
                                               add=T, levels=axis.at.pos, 
-                                              labcex=contour_labcex, vfont=contour_vfont,
+                                              labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               lty=1, col="red", axes=F, xlab="n", lwd=lwd)
                         }
                     } # if any pos values
@@ -759,7 +759,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                     }
                     graphics::contour(x[[i]], y[[i]], z[[i]],
                                       add=T, levels=tmp, 
-                                      labcex=contour_labcex, vfont=contour_vfont,
+                                      labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                       axes=F, xlab="n", lwd=lwd)
                 } # if distinguish between positive and negative contours or not
 
@@ -810,7 +810,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                         } else if (contour_posneg_redblue) {
                             if (verbose) message("`contour_posneg_redblue`=T --> use red lines for pos and blue lines for neg values ...")
                         }
-                        if (any(axis.at < 0)) { # add negative values
+                        if (any(contour_list$levels < 0)) { # add negative values
                             
                             axis.at.neg <- contour_list$levels[contour_list$levels < 0]
                             if (contour_posneg_soliddashed) {
@@ -823,7 +823,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                             if (!contour_smooth) {
                                 graphics::contour(contour_list$x[[i]], contour_list$y[[i]], contour_list$z[[i]],
                                                   add=T, levels=axis.at.neg,
-                                                  labcex=contour_labcex, vfont=contour_vfont,
+                                                  labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                                   col=col, lty=lty, axes=F, xlab="n", lwd=lwd)
                             } else if (contour_smooth) {
                                 if (verbose) message("`contour_smooth`=T --> smooth negative contours longer than ",
@@ -866,7 +866,8 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                             
                         } # if any neg values
                         
-                        if (any(axis.at >= 0)) { # add positive values
+                        if (any(contour_list$levels >= 0)) { # add positive values
+                            
                             axis.at.pos <- contour_list$levels[contour_list$levels >= 0]
                             if (!contour_include_zero) {
                                 if (any(axis.at.pos == 0)) {
@@ -884,7 +885,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                             if (!contour_smooth) {
                                 graphics::contour(contour_list$x[[i]], contour_list$y[[i]], contour_list$z[[i]],
                                                   add=T, levels=axis.at.pos,
-                                                  labcex=contour_labcex, vfont=contour_vfont,
+                                                  labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                                   col=col, lty=lty, axes=F, xlab="n", lwd=lwd)
                             } else if (contour_smooth) {
                                 if (verbose) message("`contour_smooth`=T --> smooth positive contours longer than ",
@@ -942,7 +943,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                         if (!contour_smooth) {
                             graphics::contour(contour_list$x[[i]], contour_list$y[[i]], contour_list$z[[i]],
                                               add=T, levels=tmp, 
-                                              labcex=contour_labcex, vfont=contour_vfont,
+                                              labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               axes=F, xlab="n", lwd=lwd)
                         } else if (contour_smooth) {
                             if (verbose) message("`contour_smooth`=T --> smooth positive contours longer than ",
