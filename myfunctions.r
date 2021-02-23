@@ -334,8 +334,53 @@ get_rsq <- function(predicted, actual) {
 }
 
 # get p-value of linear model; from 3.2.1 of faraways book
-get_pval <- function(lm) {
-    # todo: precision is not as high as `summary(lm)$coefficients[2,4]`
+get_pval <- function(model) {
+    ## lm calculation:
+    # https://madrury.github.io/jekyll/update/statistics/2016/07/20/lm-in-R.html
+    # lm() calls lm.fit()
+    # from lm.fit(): z <- .Call(C_Cdqrls, x, y, tol, FALSE)
+    #                coef <- z$coefficients
+    # C_Cdqrls is defined in src/library/stats/src/lm.c:
+    #    F77_CALL(dqrls)(REAL(qr), &n, &p, REAL(y), &ny, &rtol,
+    # fortrans dqrls is defined src/appl/dqrls.f:
+    #    call dqrdc2(x,n,n,p,tol,k,qraux,jpvt,work)
+    # fortrans dqrdc2 is defined src/appl/dqrdc2.f:
+    #
+    if (F) { # run lm example
+        if (F) {
+            ctl <- c(4.17,5.58,5.18,6.11,4.50,4.61,5.17,4.53,5.33,5.14)
+            trt <- c(4.81,4.17,4.41,3.59,5.87,3.83,6.03,4.89,4.32,4.69)
+            group <- gl(2, 10, 20, labels = c("Ctl","Trt"))
+            weight <- c(ctl, trt)
+            model <- lm(weight ~ group)
+            predictors <- as.matrix(cbind(1, group))
+        } else if (T) {
+            library(faraway)
+            data(gala)
+            model <- lm(Species ~ Area + Elevation + Nearest + Scruz + Adjacent, data=gala)
+            predictors <- as.matrix(cbind(1, gala[,-c(1, 2)]))
+        }
+        rss <- sum(model$residuals^2) # residual standard error
+        resvar <- rss/model$df.residual # df.residual =? n - npredictors
+        se <- summary(model)$coefficients[,2]
+        ## summary of lm:
+        # `summary(model)` calls `summary.lm(model)`
+        if (F) { # get "std. error", se, of the parameters:
+            if (F) { # from summary.lm:
+                Qr <- model$qr # actually: stats:::qr.lm(model)
+                p1 <- seq_len(model$rank) # 1:rank of the fitted linear model (rank =? number of predictors)
+                R <- chol2inv(Qr$qr[p1, p1, drop = FALSE])
+                se <- sqrt(diag(R) * resvar) # this is the standard error of the estimated coefficients/parameters
+            } else if (F) { # or
+                var_cov_mat <- vcov(model) # variance-covariance matrix = model$qr
+                se <- sqrt(diag(var_cov_mat))
+            } else if (F) { # or
+                xtxi <- solve(t(predictors) %*% predictors)
+                se <- sqrt(diag(xtxi))*sqrt(resvar)
+            }
+        }
+    } # run lm example
+    # todo: precision is not as high as `summary(model)$coefficients[2,4]`
     if (class(lm) != "lm") stop("input must be of class \"lm\"")
     # model[[1]] is actual data that was modeled by predictors model[[2..]]
     a <- sum((lm$model[[1]]-mean(lm$model[[1]]))^2) 
