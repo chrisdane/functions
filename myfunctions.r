@@ -137,33 +137,46 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
     # `origin` also after subset of the returned POSIXlt object
 
     # check
-    if (missing(years)) stop("must provide years")
-    if (!is.numeric(years)) stop("years must be numeric")
-    nonNAinds <- which(!is.na(years))
-    yearsin <- years
-    years <- years[nonNAinds]
+    if (missing(years)) stop("must provide years (integer, numeric or POSIX*)")
+    if (!is.integer(years) && 
+        !is.numeric(years) && 
+        !any(grepl("posix", class(years), ignore.case=T))) {
+        stop("years must be integer, numeric or POSIX*")
+    }
     if (!is.numeric(origin_in)) stop("origin_in must be numeric")
     if (missing(origin_out)) origin_out <- origin_in
     if (!is.numeric(verbose)) stop("verbose must be numeric")
     
+    nyearsin <- length(years)
+    nonNAinds <- which(!is.na(years))
+    nnonNA <- length(nonNAinds)
+    years <- years[nonNAinds]
+    
     if (verbose > 0) {
-        message("years:")
+        message(nnonNA, "/", nyearsin, " non-NA years:")
         print(head(years))
         print(tail(years))
         message("origin_in = ", origin_in, "\n",
                 "origin_out = ", origin_out)
     }
 
-    # capture yyyy.f
-    ymdhms <- yearsdec_to_ymdhms(years)
-    if (verbose > 0) {
-        message("ymdhms:")
-        print(head(ymdhms$text))
-        print(tail(ymdhms$text))
+    # capture yyyy.f if input is numeric
+    if (is.integer(years) || is.numeric(years)) {
+        ymdhms <- yearsdec_to_ymdhms(years)
+        if (verbose > 0) {
+            message("ymdhms:")
+            print(head(ymdhms$text))
+            print(tail(ymdhms$text))
+        }
+        years <- ymdhms$ymdhms$year
+        months <- ymdhms$ymdhms$mon
+        days <- ymdhms$ymdhms$day
+    } else if (any(grepl("posix", class(years), ignore.case=T))) {
+        if (any(class(years) == "POSIXct")) years <- as.POSIXlt(years)
+        months <- years$mon + 1L
+        days <- years$mday
+        years <- years$year + 1900L
     }
-    years <- ymdhms$ymdhms$year
-    months <- ymdhms$ymdhms$mon
-    days <- ymdhms$ymdhms$day
 
     # capture different cases
     years_ge_zero_lt_10000 <- which(years >= 0 & years < 10000) # case 1
@@ -229,7 +242,7 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
 
     # combine all cases
     posixlt <- as.POSIXlt(seq.POSIXt(as.POSIXlt("0-1-1", tz="UTC"), b="1 day", 
-                                     l=length(yearsin))) # placeholder
+                                     l=nyearsin)) # placeholder
     if (length(years_ge_zero_lt_10000) > 0) {
         posixlt[nonNAinds[years_ge_zero_lt_10000]] <- lt_ge_zero_lt_10000
     }
@@ -239,8 +252,8 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
     if (length(years_lt_zero) > 0) {
         posixlt[nonNAinds[years_lt_zero]] <- lt_lt_zero
     }
-    if (length(nonNAinds) != length(yearsin)) {
-        posixlt[seq_along(yearsin)[-nonNAinds]] <- NA
+    if (length(nonNAinds) != nyearsin) {
+        posixlt[seq_len(nyearsin)[-nonNAinds]] <- NA
     }
     if (verbose > 0) {
         message("posixlt:")
