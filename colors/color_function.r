@@ -209,6 +209,17 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
             } else if (names[i] %in% ncviews) {
                
+                if (!exists("trimws")) {
+                    # from R > 3.2 in case used R version is <= 3.2
+                    trimws <- function (x, which = c("both", "left", "right"), whitespace = "[ \t\r\n]")
+                    {
+                        which <- match.arg(which)
+                        mysub <- function(re, x) sub(re, "", x, perl = TRUE)
+                        switch(which, left = mysub(paste0("^", whitespace, "+"),
+                            x), right = mysub(paste0(whitespace, "+$"), x), both = mysub(paste0(whitespace,
+                            "+$"), mysub(paste0("^", whitespace, "+"), x)))
+                    }
+                }
                 rgb <- scan(paste0(rgb_path, "/", names[i], ".h"), what="char", quiet=T)
                 #rgb <- scan("colormaps_banded.h", what="char", quiet=T)
                 # common to all .h files from ncview: only take entries between "{" and "}"
