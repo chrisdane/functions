@@ -212,7 +212,8 @@ image.plot.pre <- function(zlim,
         } # if axis.zoom
     
     } # is zlevels are given by user or not 
-    if (verbose) cat("final zlevels (n=", length(zlevels), ") = ", zlevels, "\n")
+    if (verbose) cat("final zlevels (n=", length(zlevels), ") = ", 
+                     paste(zlevels, collapse=", "), "\n", sep="")
 
     ## Number of z levels
     nlevels <- length(zlevels)

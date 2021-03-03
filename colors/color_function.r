@@ -246,7 +246,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
             } else if (names[i] %in% colorbrewers) {
 
                 library(RColorBrewer)
-                nmax <- RColorBrewer:::maxcolors[names[i]]
+                nmax <- RColorBrewer:::maxcolors[i]
+                #message("n=", n, ", nmax=", nmax, ", names[", i, "]=", names[i])
                 rgb <- t(col2rgb(RColorBrewer::brewer.pal(n=min(n, nmax), name=names[i])))
                 #print(str(rgb))
                 if (any(names[i] == c("PiYG", "PRGn", "RdBu", "RdGy", "RdYlBu", "RdYlGn", "Spectral"))) {
