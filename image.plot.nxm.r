@@ -84,6 +84,19 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     if (missing(n) || missing(m)) { # default
         if (missing(n) && missing(m)) {
             nm <- grDevices::n2mfrow(nz)
+            # nz: nrow ncol
+            # 1: 1 1
+            # 2: 2 1
+            # 3: 3 1
+            # 4: 2 2
+            # 5: 3 2
+            # 6: 3 2
+            # 7: 3 3
+            # 8: 3 3
+            if (nz == 8) nm <- c(4, 2)
+            # 9: 3 3
+            # 10: 4 3
+            if (nz == 10) nm <- c(5, 2)
             n <- nm[1]; m <- nm[2]
             if (F && nz == 2) { # special case: should nrow,ncol = 2,1 (default) or 1,2?
                 n <- 1; m <- 2
@@ -239,25 +252,32 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     if (any(dot_names == "addland_list")) {
         addland_list <- dot_list$addland_list
         if (!is.null(addland_list)) {
-            if (!is.null(addland_list$data)) {
-                if (is.character(addland_list$data)) {
-                    if (!any(addland_list$data == c("world", "world2"))) {
-                        stop("provided `addland_list` must have `addland_list$data` = \"world\" ",
-                             "(-180,180 lons) or \"world2\" (0,360 lons)")
-                    }
-                    if (!any(search() == "package:maps")) library(maps)
-                    addland_list$type <- "map"
-                } else {
-                    if (length(addland_list$data) == 4 && 
-                        all(names(addland_list$data) == c("x0", "y0", "x1", "y1"))) {
-                        # add checks
-                        addland_list$type <- "segments"
+            if (length(addland_list) != length(z)) { 
+                stop("provided addland_list is of length ", length(addland_list), " but nz = ", nz)
+            }
+            for (i in seq_along(addland_list)) {
+                if (!is.na(addland_list[[i]])) {
+                    if (!is.null(addland_list[[i]]$data)) {
+                        if (is.character(addland_list[[i]]$data)) {
+                            if (!any(addland_list[[i]]$data == c("world", "world2"))) {
+                                stop("provided `addland_list[[", i, "]]$data` must be ",
+                                     "\"world\" (for lons -180,...,180) or \"world2\" (for lons 0,...,360)")
+                            }
+                            if (!any(search() == "package:maps")) library(maps)
+                            addland_list[[i]]$type <- "map"
+                        } else {
+                            if (length(addland_list[[i]]$data) == 4 && 
+                                all(names(addland_list[[i]]$data) == c("x0", "y0", "x1", "y1"))) {
+                                # add checks
+                                addland_list[[i]]$type <- "segments"
+                            } else {
+                                stop("`addland_list[[", i, "]]$data` -structure not implemented yet")
+                            }
+                        }
                     } else {
-                        stop("other addland_list structures not implemented yet")
+                        stop("provided `addland_list[[", i, "]]$data` is null")
                     }
                 }
-            } else {
-                stop("provided `addland_list` has no `data` entry.")
             }
         }
     } else {
@@ -278,10 +298,17 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     if (any(dot_names == "segment_list")) {
         segment_list <- dot_list$segment_list
         if (!is.null(segment_list)) {
-            if (is.null(segment_list$x0)) stop("provided `segment_list` but `segment_list$x0` is missing")
-            if (is.null(segment_list$y0)) stop("provided `segment_list` but `segment_list$y0` is missing")
-            if (is.null(segment_list$x1)) stop("provided `segment_list` but `segment_list$x1` is missing")
-            if (is.null(segment_list$y1)) stop("provided `segment_list` but `segment_list$y1` is missing")
+            if (length(segment_list) != length(z)) { 
+                stop("provided segment_list is of length ", length(segment_list), " but nz = ", nz)
+            }
+            for (i in seq_along(segment_list)) {
+                if (!is.na(segment_list[[i]])) {
+                    if (is.null(segment_list[[i]]$x0)) stop("provided `segment_list[[", i, "]]$x0` is missing")
+                    if (is.null(segment_list[[i]]$y0)) stop("provided `segment_list[[", i, "]]$y0` is missing")
+                    if (is.null(segment_list[[i]]$x1)) stop("provided `segment_list[[", i, "]]$x1` is missing")
+                    if (is.null(segment_list[[i]]$y1)) stop("provided `segment_list[[", i, "]]$y1` is missing")
+                }
+            }
         }
     } else {
         segment_list <- NULL
@@ -294,7 +321,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 stop("provided text_list is of length ", length(text_list), " but nz = ", nz)
             }
             for (i in seq_along(text_list)) {
-                if (!is.null(text_list[[i]])) {
+                if (!is.na(text_list[[i]])) {
                     if (is.null(text_list[[i]]$x)) stop("provided `text_list[[", i, "]]$x` is missing")
                     if (is.null(text_list[[i]]$y)) stop("provided `text_list[[", i, "]]$y` is missing")
                     if (is.null(text_list[[i]]$labels)) stop("provided `text_list[[", i, "]]$labels` is missing")
@@ -310,8 +337,11 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         cmd_list <- dot_list$cmd_list
         if (!is.null(cmd_list)) {
             for (i in seq_along(cmd_list)) {
-                if (typeof(cmd_list[[i]]) != "character") {
-                    stop("provided `cmd_list` but cmd_list[[", i, "]] = ", dput(cmd_list[[i]]))
+                if (!is.na(cmd_list[[i]])) {
+                    if (typeof(cmd_list[[i]]) != "character") {
+                        stop("provided `cmd_list[[", i, "]]` = ", dput(cmd_list[[i]]), 
+                             "\nmust be of type character")
+                    }
                 }
             }
         }
@@ -321,7 +351,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     
     if (any(dot_names == "subplot_list")) {
         subplot_list <- dot_list$subplot_list
-        if (!is.null(cmd_list)) {
+        if (!is.null(subplot_list)) {
             stop("todo")
         }
     } else {
@@ -1042,97 +1072,108 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             } # if (!is.null(quiver_list))
             
             # add land
-            if (!is.null(addland_list)) {
+            if (!is.null(addland_list) && !is.na(addland_list[[i]])) {
                 if (verbose) {
-                    if (addland_list$type == "map") {
-                        message("add provided `addland_list` to subplot using maps::map() with `addland_list$data` = ", 
-                                addland_list$data, " ...")
-                    } else if (addland_list$type == "segments") {
-                        message("add provided `addland_list` to subplot using graphics::segments() ...")
+                    if (addland_list[[i]]$type == "map") {
+                        message("add provided `addland_list[[", i, "]]` to subplot using ",
+                                "maps::map() with `addland_list$data` = ", addland_list[[i]]$data, " ...")
+                    } else if (addland_list[[i]]$type == "segments") {
+                        message("add provided `addland_list[[", i, "]]` to subplot using graphics::segments() ...")
                     }
                 }
-                if (is.null(addland_list$xlim)) {
-                    if (addland_list$type == "map") {
-                        if (addland_list$data == "world") {
-                            addland_list$xlim <- c(-183.77640, 194.04724)
-                        } else if (addland_list$data == "world2") {
-                            addland_list$xlim <- c(3.666292, 363.666292)
+                if (is.null(addland_list[[i]]$xlim)) {
+                    if (addland_list[[i]]$type == "map") {
+                        if (addland_list[[i]]$data == "world") {
+                            addland_list[[i]]$xlim <- c(-183.77640, 194.04724)
+                        } else if (addland_list[[i]]$data == "world2") {
+                            addland_list[[i]]$xlim <- c(3.666292, 363.666292)
                         }
-                    } else if (addland_list$type == "segments") {
-                        addland_list$xlim <- range(addland_list$data$x0, 
-                                                   addland_list$data$x1, na.rm=T)
+                    } else if (addland_list[[i]]$type == "segments") {
+                        addland_list[[i]]$xlim <- range(addland_list[[i]]$data$x0, 
+                                                   addland_list[[i]]$data$x1, na.rm=T)
                     }
-                } else if (!is.null(addland_list$xlim)) {
-                    if (length(addland_list$xlim) == 1) {
-                        if (addland_list$xlim == "xlim") {
-                            addland_list$xlim <- xlim
+                } else if (!is.null(addland_list[[i]]$xlim)) {
+                    if (length(addland_list[[i]]$xlim) == 1) {
+                        if (addland_list[[i]]$xlim == "xlim") {
+                            addland_list[[i]]$xlim <- xlim
                         } else {
-                            stop("`addland_list$xlim` must be missing or \"xlim\" or numeric of length 2")
+                            stop("`addland_list[[", i, "]]$xlim` must be missing or ",
+                                 "\"xlim\" or numeric of length 2")
                         }
-                    } else if (length(addland_list$xlim) == 2) {
-                        if (!is.numeric(addland_list$xlim)) { 
-                            stop("`addland_list$xlim` must be missing or \"xlim\" or numeric of length 2")
+                    } else if (length(addland_list[[i]]$xlim) == 2) {
+                        if (!is.numeric(addland_list[[i]]$xlim)) { 
+                            stop("`addland_list[[", i, "]]$xlim` must be missing or ",
+                                 "\"xlim\" or numeric of length 2")
                         }
                     } else {
-                        stop("`addland_list$xlim` must be missing or \"xlim\" or numeric of length 2")
+                        stop("`addland_list[[i]]$xlim` must be missing or ",
+                             "\"xlim\" or numeric of length 2")
                     }
                 } # is.null(addland$xlim) or not
-                if (is.null(addland_list$ylim)) {
-                    if (addland_list$type == "map") {
-                        if (addland_list$data == "world") {
-                            addland_list$ylim <- c(-86.91386, 85.32129)
-                        } else if (addland_list$data == "world2") {
-                            addland_list$ylim <- c(-91.760620, 85.370223)
+                if (is.null(addland_list[[i]]$ylim)) {
+                    if (addland_list[[i]]$type == "map") {
+                        if (addland_list[[i]]$data == "world") {
+                            addland_list[[i]]$ylim <- c(-86.91386, 85.32129)
+                        } else if (addland_list[[i]]$data == "world2") {
+                            addland_list[[i]]$ylim <- c(-91.760620, 85.370223)
                         }
-                    } else if (addland_list$type == "segments") {
-                    addland_list$ylim <- range(addland_list$data$y0, 
-                                               addland_list$data$y1, na.rm=T)
+                    } else if (addland_list[[i]]$type == "segments") {
+                    addland_list[[i]]$ylim <- range(addland_list[[i]]$data$y0, 
+                                               addland_list[[i]]$data$y1, na.rm=T)
                     }
-                } else if (!is.null(addland_list$ylim)) {
-                    if (length(addland_list$ylim) == 1) {
-                        if (addland_list$ylim == "ylim") {
-                            addland_list$ylim <- ylim
+                } else if (!is.null(addland_list[[i]]$ylim)) {
+                    if (length(addland_list[[i]]$ylim) == 1) {
+                        if (addland_list[[i]]$ylim == "ylim") {
+                            addland_list[[i]]$ylim <- ylim
                         } else {
-                            stop("`addland_list$ylim` must be missing or \"ylim\" or numeric of length 2")
+                            stop("`addland_list[[", i, "]]$ylim` must be missing or ",
+                                 "\"ylim\" or numeric of length 2")
                         }
-                    } else if (length(addland_list$ylim) == 2) {
-                        if (!is.numeric(addland_list$ylim)) { 
-                            stop("`addland_list$ylim` must be missing or \"ylim\" or numeric of length 2")
+                    } else if (length(addland_list[[i]]$ylim) == 2) {
+                        if (!is.numeric(addland_list[[i]]$ylim)) { 
+                            stop("`addland_list[[", i, "]]$ylim` must be missing or ",
+                                 "\"ylim\" or numeric of length 2")
                         }
                     } else {
-                        stop("`addland_list$ylim` must be missing or \"ylim\" or numeric of length 2")
+                        stop("`addland_list[[", i, "]]$ylim` must be missing or ",
+                             "\"ylim\" or numeric of length 2")
                     }
                 } # is.null(addland_list$ylim) or not
                 if (verbose) {
-                    message("`addland_list$xlim` = ", addland_list$xlim[1], ", ", addland_list$xlim[2])
-                    message("`addland_list$ylim` = ", addland_list$ylim[1], ", ", addland_list$ylim[2])
+                    message("`addland_list[[i]]$xlim` = ", addland_list[[i]]$xlim[1], ", ", 
+                            addland_list[[i]]$xlim[2])
+                    message("`addland_list[[i]]$ylim` = ", addland_list[[i]]$ylim[1], ", ", 
+                            addland_list[[i]]$ylim[2])
                 }
                 
                 # add land stuff to every plot
                 op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
                 par(new=T)
-                plot(addland_list$xlim, addland_list$ylim, t="n",
+                plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, t="n",
                      axes=F, xlab=NA, ylab=NA,
                      xaxs="i", yaxs="i")
-                if (addland_list$type == "map") {
-                    maps::map(addland_list$data, interior=F, add=T, lwd=lwd)
-                } else if (addland_list$type == "segments") {
-                    graphics::segments(x0=addland_list$data$x0, y0=addland_list$data$y0,
-                                       x1=addland_list$data$x1, y1=addland_list$data$y1, lwd=lwd)
+                if (addland_list[[i]]$type == "map") {
+                    maps::map(addland_list[[i]]$data, interior=F, add=T, lwd=lwd)
+                } else if (addland_list[[i]]$type == "segments") {
+                    graphics::segments(x0=addland_list[[i]]$data$x0, 
+                                       y0=addland_list[[i]]$data$y0,
+                                       x1=addland_list[[i]]$data$x1, 
+                                       y1=addland_list[[i]]$data$y1, lwd=lwd)
                 }
                 
                 # special:
-                if (!is.null(cmd_list)) {
-                    if (verbose) message("add provided `cmd_list` to subplot in addland section using base::eval(base::parse()) ...")
-                    for (j in seq_along(cmd_list)) {
-                        if (verbose) message("   run `", cmd_list[[j]], "` ...")
-                        eval(parse(text=cmd_list[[j]]))
+                if (T && !is.null(cmd_list) && !is.na(cmd_list[[i]])) {
+                    if (verbose) message("special: add provided `cmd_list` to subplot in addland ",
+                                         "section using base::eval(base::parse()) ...")
+                    for (j in seq_along(cmd_list[[i]])) {
+                        if (verbose) message("   run `", cmd_list[[i]][[j]], "` ...")
+                        eval(parse(text=cmd_list[[i]][[j]]))
                     }
-                } # if !is.null(cmd_list)
+                } # if !is.null(cmd_list) && !is.na(cmd_list[[i]])
                 
                 #par(op) # switch back to main plot; somehow this breaks layout()'s subplot counting
                 par(usr=op$usr) # only restore coords; todo: is this enough?
-            } # if !is.null(addland_list)
+            } # if !is.null(addland_list) && !is.na(addland_list[[i]])
             #message("par(\"usr\") = ")
             #dput(par("usr"))
             
@@ -1155,12 +1196,11 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             } # if !is.null(point_list[[i]])
            
             # add additional stuff as segments if available
-            if (!is.null(segment_list)) {
-                if (verbose) message("add provided `segment_list` to subplot using graphics::segments() ...")
-                message("todo: distinguish between settings")
-                graphics::segments(x0=segment_list$x0, y0=segment_list$y0,
-                                   x1=segment_list$x1, y1=segment_list$y1, lwd=lwd)
-            } # if !is.null(segment_list)
+            if (!is.null(segment_list[[i]])) {
+                if (verbose) message("add provided `segment_list[[", i, "]]` to subplot using graphics::segments() ...")
+                graphics::segments(x0=segment_list[[i]]$x0, y0=segment_list[[i]]$y0,
+                                   x1=segment_list[[i]]$x1, y1=segment_list[[i]]$y1, lwd=lwd)
+            } # if !is.null(segment_list[[i]])
 
             if (!is.null(text_list[[i]])) {
                 if (verbose) message("add provided `text_list[[", i, "]]` to subplot using graphics::text() ...")
