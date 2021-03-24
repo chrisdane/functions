@@ -256,7 +256,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 stop("provided addland_list is of length ", length(addland_list), " but nz = ", nz)
             }
             for (i in seq_along(addland_list)) {
-                if (!is.na(addland_list[[i]])) {
+                if (!is.na(addland_list[i])) {
                     if (!is.null(addland_list[[i]]$data)) {
                         if (is.character(addland_list[[i]]$data)) {
                             if (!any(addland_list[[i]]$data == c("world", "world2"))) {
@@ -1072,7 +1072,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             } # if (!is.null(quiver_list))
             
             # add land
-            if (!is.null(addland_list) && !is.na(addland_list[[i]])) {
+            if (!is.null(addland_list) && !is.na(addland_list[i])) {
                 if (verbose) {
                     if (addland_list[[i]]$type == "map") {
                         message("add provided `addland_list[[", i, "]]` to subplot using ",
@@ -1173,7 +1173,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 
                 #par(op) # switch back to main plot; somehow this breaks layout()'s subplot counting
                 par(usr=op$usr) # only restore coords; todo: is this enough?
-            } # if !is.null(addland_list) && !is.na(addland_list[[i]])
+            } # if !is.null(addland_list) && !is.na(addland_list[i])
             #message("par(\"usr\") = ")
             #dput(par("usr"))
             
