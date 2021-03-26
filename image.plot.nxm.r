@@ -1731,13 +1731,15 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 if (verbose) message("iy = breaks !!!!!!!!!!!!!!!!!!!!")
                 iy <- breaks # use levels as indices in colorbar
                 # constant dy for useRaster=T usage
-                # --> not possible due to unequal zlevels, e.g. c(zlim[1], 2, 3, zlim[2])
+                # --> maybe not possible due to unequal zlevels, e.g. c(zlim[1], 2, 3, zlim[2])
                 #iy <- seq(min(iy), max(iy), l=length(iy)) 
                 colorbar_breaks <- breaks
                 colorbar_at <- axis.at
             } else if (T) {
-                if (verbose) message("iy = axis.at.ind !!!!!!!!!!!!!!!!!!!!")
-                iy <- axis.at.ind # use indices as indices in colorbar
+                #if (verbose) message("iy = axis.at.ind !!!!!!!!!!!!!!!!!!!!")
+                #iy <- axis.at.ind # use indices as indices in colorbar
+                if (verbose) message("iy = seq_len(nlevels) !!!!!!!!!!!!!!!!!!!!")
+                iy <- seq_len(nlevels)
                 colorbar_breaks <- seq_len(nlevels)
                 colorbar_at <- axis.at.ind
             }
@@ -1759,8 +1761,6 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             }
 
             # add colorbar
-            if (verbose) message("image(breaks=breaks)")
-            #if (verbose) message("image(breaks=1:nlevels)")
             image(ix, iy, iz,
                   breaks=colorbar_breaks,
                   col=cols,
