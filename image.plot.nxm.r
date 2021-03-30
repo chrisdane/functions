@@ -302,7 +302,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 stop("provided segment_list is of length ", length(segment_list), " but nz = ", nz)
             }
             for (i in seq_along(segment_list)) {
-                if (!is.na(segment_list[[i]])) {
+                if (!is.na(segment_list[i])) {
                     if (is.null(segment_list[[i]]$x0)) stop("provided `segment_list[[", i, "]]$x0` is missing")
                     if (is.null(segment_list[[i]]$y0)) stop("provided `segment_list[[", i, "]]$y0` is missing")
                     if (is.null(segment_list[[i]]$x1)) stop("provided `segment_list[[", i, "]]$x1` is missing")
@@ -321,7 +321,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 stop("provided text_list is of length ", length(text_list), " but nz = ", nz)
             }
             for (i in seq_along(text_list)) {
-                if (!is.na(text_list[[i]])) {
+                if (!is.na(text_list[i])) {
                     if (is.null(text_list[[i]]$x)) stop("provided `text_list[[", i, "]]$x` is missing")
                     if (is.null(text_list[[i]]$y)) stop("provided `text_list[[", i, "]]$y` is missing")
                     if (is.null(text_list[[i]]$labels)) stop("provided `text_list[[", i, "]]$labels` is missing")
@@ -337,7 +337,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         cmd_list <- dot_list$cmd_list
         if (!is.null(cmd_list)) {
             for (i in seq_along(cmd_list)) {
-                if (!is.na(cmd_list[[i]])) {
+                if (!is.na(cmd_list[i])) {
                     if (typeof(cmd_list[[i]]) != "character") {
                         stop("provided `cmd_list[[", i, "]]` = ", dput(cmd_list[[i]]), 
                              "\nmust be of type character")
@@ -1162,14 +1162,14 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 }
                 
                 # special:
-                if (T && !is.null(cmd_list) && !is.na(cmd_list[[i]])) {
+                if (T && !is.null(cmd_list) && !is.na(cmd_list[i])) {
                     if (verbose) message("special: add provided `cmd_list` to subplot in addland ",
                                          "section using base::eval(base::parse()) ...")
                     for (j in seq_along(cmd_list[[i]])) {
                         if (verbose) message("   run `", cmd_list[[i]][[j]], "` ...")
                         eval(parse(text=cmd_list[[i]][[j]]))
                     }
-                } # if !is.null(cmd_list) && !is.na(cmd_list[[i]])
+                } # if !is.null(cmd_list) && !is.na(cmd_list[i])
                 
                 #par(op) # switch back to main plot; somehow this breaks layout()'s subplot counting
                 par(usr=op$usr) # only restore coords; todo: is this enough?
