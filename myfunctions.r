@@ -624,22 +624,15 @@ col2rgba <- function(x, alpha) {
 
 # my colors
 mycols <- function(n) {
-    if (n == 1) { # mycols my colors nicer than R defaults
-        cols <- "black"
-    } else if (n == 2) {
-        cols <- c("black", "#E41A1C") # black, myred
-    } else if (n >= 3) {
-        # black, myred, myblue instead of R default (black, red, blue)
-        cols <- c("black", "#E41A1C", "#377EB8") 
-        if (n > 3) {
-            if (F) {
-                cols <- c(cols, 4:n)
-            } else if (T) {
-                library(RColorBrewer) # https://www.r-bloggers.com/palettes-in-r/
-                cols <- c(cols, brewer.pal(max(3, n), "Dark2")[1:(n-3)])
-            }
-        }
+    cols <- "black"
+    if (n > 1) cols <- c(cols, "#E41A1C") # myred
+    if (n > 2) cols <- c(cols, "#377EB8") # myblue
+    if (n > 3) {
+        library(RColorBrewer) # https://www.r-bloggers.com/palettes-in-r/
+        cols <- c(cols, brewer.pal(min(8, max(3, n)), "Dark2"))
+        cols <- cols[seq_len(min(length(cols), n))]
     }
+    if (n > 3+8) cols <- c(cols, (3+8+1):n) # add default until end
     return(cols)
 } # mycols
 
