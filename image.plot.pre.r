@@ -22,7 +22,7 @@ image.plot.pre <- function(zlim,
     if (missing(colors_script)) {
         if (verbose) message("find colors_script ... ", appendLF=F)
         #colors_script <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r")
-        colors_script <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r")
+        colors_script <- "~/scripts/r/functions/colors/color_function.r"
         if (verbose) message(colors_script)
     }
     if (verbose) cat("given zlim =", zlim, "\n")

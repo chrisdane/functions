@@ -1,6 +1,7 @@
 ## r
 
 # fields::splint without the print(x) and print(y) lines
+# mysplint() not needed anymore: fields::splint issue https://github.com/NCAR/fields/issues/6 is solved
 mysplint <- function (x, y, xgrid, wt = NULL, derivative = 0, lam = 0, df = NA, 
     lambda = NULL, nx = NULL, digits = 8) 
 {
@@ -308,9 +309,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
         x <- seq(0, maxColorValue, l=dim(rgb)[1])
         xg <- seq(0, maxColorValue, l=n)
         for (k in 1:3) {
-            #hold <- fields::splint(x=x, y=rgb[, k], xgrid=xg)
-            if (k == 1) message("mysplint(): is fields::splint issue https://github.com/NCAR/fields/issues/6 solved?")
-            hold <- mysplint(x=x, y=rgb[, k], xgrid=xg)
+            hold <- fields::splint(x=x, y=rgb[, k], xgrid=xg)
+            #hold <- mysplint(x=x, y=rgb[, k], xgrid=xg)
             hold[hold < 0] <- 0
             hold[hold > maxColorValue] <- maxColorValue
             if (maxColorValue == 255) {
