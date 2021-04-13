@@ -247,8 +247,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
             } else if (names[i] %in% colorbrewers) {
 
                 library(RColorBrewer)
-                nmax <- RColorBrewer:::maxcolors[i]
-                #message("n=", n, ", nmax=", nmax, ", names[", i, "]=", names[i])
+                nmax <- RColorBrewer:::maxcolors[names[i]]
+                message("n=", n, ", nmax=", nmax, ", names[", i, "]=", names[i])
                 rgb <- t(col2rgb(RColorBrewer::brewer.pal(n=min(n, nmax), name=names[i])))
                 #print(str(rgb))
                 if (any(names[i] == c("PiYG", "PRGn", "RdBu", "RdGy", "RdYlBu", "RdYlGn", "Spectral"))) {
@@ -333,12 +333,12 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
     } # for i nnames
 
+    ## plot demo
     if (palname == "demo") {
-
-        ## plot demo
         #graphics.off()
         dev.new()
-        par(mar=c(5, 4, 4, 8)) # space for names
+        if (F) pdf("color_function.pdf", height=0.5*ncol)
+        par(mar=c(5, 4, 4, 8)) # increase right border for palnames
         x <- 1:n
         y <- 1:ncol
         z <- array(1:(n*ncol), c(n, ncol))
@@ -354,13 +354,11 @@ color_function <- function(palname="demo", n=64, alpha=1,
               add=T, axes=F, useRaster=T,
               xlab=NA, ylab=NA)
         abline(h=seq(1.5, ncol - 0.5, b=1))
-        box()
-
-        # add names
         lex <- rep(n, t=nnames)
         text(lex, y, names, pos=4, xpd=T)
-
-    }
+        box()
+        if (F) dev.off()
+    } # plot demo
 
     if (length(cols_list) == 1) {
         return(cols_list[[1]])
