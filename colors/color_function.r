@@ -1,4 +1,4 @@
-## r
+# r
 
 # fields::splint without the print(x) and print(y) lines
 # mysplint() not needed anymore: fields::splint issue https://github.com/NCAR/fields/issues/6 is solved

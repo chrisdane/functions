@@ -652,7 +652,7 @@ image.plot.pre <- function(zlim,
             # default colors for non-anomaly-colorbar
             if (is.null(palname)) { 
                 #palname <- "grads_anomaly"
-                #palname <- "colormaps_3gauss" # like ncview
+                #palname <- "colormaps_3gauss" # ncview's default
                 palname <- "Spectral" # from RColorBrewer
                 if (verbose) message("palname not provided; use default ", palname, " ...")
             }
