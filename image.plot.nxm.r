@@ -664,18 +664,35 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         dput(par("pty"))
     }
 
-    # for every plot 
+    # for every plot
+    if (T) {
+        projection <- T
+        message("this is the projection test")
+    }
 	for (i in seq_len(nplots)) {
 
         if (verbose) message("\n**************************************\n",
                              "subplot ", i, "/", nplots, " (nz = ", nz, ") ...")
         
         # Open i-th subplot device
-        plot(x_plot, y_plot, t="n",
-			 #xlim=xlim, ylim=ylim, 
-             axes=F, xlab=NA, ylab=NA,
-			 xaxs="i", yaxs="i")
-       
+        if (!projection) { # default
+            plot(x_plot, y_plot, t="n",
+                 #xlim=xlim, ylim=ylim, 
+                 axes=F, xlab=NA, ylab=NA,
+                 xaxs="i", yaxs="i")
+      
+        } else if (projection) {
+            p <- "+proj=ortho +lat_0=30 +lon_0=-45" # orthographic
+            xy <- expand.grid(x=x[[i]], y=y[[i]], KEEP.OUT.ATTRS=F)
+            oce::mapPlot(xy$x, xy$y, projection=p,
+                         grid=T, 
+                         #type="n", 
+                         longitudelim=c(-95, -5), 
+                         latitudelim=c(20, 90),
+                         axes=F, drawBox=F)
+        
+        } # if projection or not
+    
         # its possible that there are less data to plot than nrow*ncols (e.g. length(x) = 5, ncol=2, nrow=3)
         # --> do not plot anything if (length(x) == nplots - 1 && i == nplots)
         if (length(x) == nplots - 1 && i == nplots) { 
@@ -698,21 +715,31 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 if (any(is.na(z[[i]]))) {
                     if (verbose) message("`z[[", i, "]]` has missing values (NA) --> add missing values ",
                                          "to subplot with color `NAcol`=", NAcol, " using graphics::image() ...")
-                    graphics::image(x[[i]], y[[i]], array(1, c(nx, ny)),
-                                    add=T, col=NAcol,
-                                    axes=F, xlab="n", ylab="n",
-                                    useRaster=useRaster)
-                }
+                    if (!projection) {
+                        graphics::image(x[[i]], y[[i]], array(1, c(nx, ny)),
+                                        add=T, col=NAcol,
+                                        axes=F, xlab="n", ylab="n",
+                                        useRaster=useRaster)
+                    } else if (projection) {
+                        oce::mapImage(x[[i]], y[[i]], array(1, c(nx, ny)), 
+                                      col=NAcol, filledContour=T) # filledContour interpolates data
+                    }
+                } # if any NA
 
                 # add actual data
                 if (individual_zlim) {
                     stop("combination `contour_only`=F and `individual_zlim`=T not implemented yet")
                 }
-                graphics::image(x[[i]], y[[i]], z[[i]], 
-                                add=T, col=cols, breaks=breaks,
-                                axes=F, xlab="n", ylab="n", 
-                                useRaster=useRaster)
-
+                if (!projection) {
+                    graphics::image(x[[i]], y[[i]], z[[i]], 
+                                    add=T, col=cols, breaks=breaks,
+                                    axes=F, xlab="n", ylab="n", 
+                                    useRaster=useRaster)
+                } else if (projection) {
+                    oce::mapImage(x[[i]], y[[i]], z[[i]],
+                                  breaks=breaks,
+                                  filledContour=F, gridder=NA)
+                }
             } # if !contour_only
 
             # add contour to subplot
@@ -1230,14 +1257,14 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             if (verbose) message("add axes to subplot using graphics::axis() ...")
             if (left_axis_inds[i]) {
                 graphics::axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
-                     lwd=0, lwd.ticks=lwd.ticks)
+                               lwd=0, lwd.ticks=lwd.ticks)
                 mtext(ylab, side=2, line=5, cex=1)
             } else { # just ticks
                 graphics::axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
             }
             if (bottom_axis_inds[i]) {
                 graphics::axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
-                     lwd=0, lwd.ticks=lwd.ticks)
+                               lwd=0, lwd.ticks=lwd.ticks)
                 mtext(xlab, side=1, line=3, cex=1)
             } else { # just ticks
                 graphics::axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
