@@ -683,10 +683,9 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
       
         } else if (projection) {
             p <- "+proj=ortho +lat_0=30 +lon_0=-45" # orthographic
-            xy <- expand.grid(x=x[[i]], y=y[[i]], KEEP.OUT.ATTRS=F)
-            oce::mapPlot(xy$x, xy$y, projection=p,
-                         grid=T, 
-                         #type="n", 
+            xy <- expand.grid(lon=x[[i]], lat=y[[i]], KEEP.OUT.ATTRS=F)
+            oce::mapPlot(xy$lon, xy$lat, projection=p,
+                         grid=F, type="n", 
                          longitudelim=c(-95, -5), 
                          latitudelim=c(20, 90),
                          axes=F, drawBox=F)
