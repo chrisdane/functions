@@ -720,8 +720,10 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                                         axes=F, xlab="n", ylab="n",
                                         useRaster=useRaster)
                     } else if (projection) {
-                        oce::mapImage(x[[i]], y[[i]], array(1, c(nx, ny)), 
-                                      col=NAcol, filledContour=T) # filledContour interpolates data
+                        if (F) { # use `missingColor` arg of mapImage below instead
+                            oce::mapImage(x[[i]], y[[i]], array(1, c(nx, ny)), 
+                                          col=NAcol, filledContour=F) # filledContour interpolates data
+                        }
                     }
                 } # if any NA
 
@@ -736,8 +738,10 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                                     useRaster=useRaster)
                 } else if (projection) {
                     oce::mapImage(x[[i]], y[[i]], z[[i]],
-                                  breaks=breaks,
-                                  filledContour=F, gridder=NA)
+                                  breaks=breaks, col=cols,
+                                  #filledContour=T, gridder="interp", # "binMean2D" "interp"
+                                  missingColor=NAcol,
+                                  debug=0) # 0
                 }
             } # if !contour_only
 
