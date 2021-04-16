@@ -729,9 +729,9 @@ myDefaultPlotOptions <- function(plist=list(plot_type="pdf", bg_col="white", NA_
         for (i in seq_along(dot_list)) {
             if (verbose && i == 1) message("*** myDefaultPlotOptions() start ***")
             if (dot_names[i] == "plot_type") {
-                if (!any(dot_list[[i]] == c("png", "pdf"))) {
+                if (!any(dot_list[[i]] == c("png", "pdf", "active"))) {
                     stop("myDefaultPlotOptions(): given plot_type ", 
-                         dot_list[[i]], " must be one of \"png\" or \"pdf\"")
+                         dot_list[[i]], " must be one of \"png\", \"pdf\" or \"active\"")
                 }
                 if (dot_list[[i]] == plist$plot_type) { # if wanted is already default
                     next # argument

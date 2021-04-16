@@ -1,4 +1,5 @@
-image.plot.nxm <- function(x, y, z, n, m, dry=F, 
+image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F, 
+                           add_grid=F, proj=NULL, zoomfac=NULL,
                            individual_zlim=F,
                            horizontal=F, top_bottom=F, add_title=T,
                            cex.znames=1,
@@ -16,7 +17,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                            width_png=2000, height_png=1666, res=300, 
                            width_pdf=7, height_pdf=7,
                            axis.args=NULL, add_names_inset=F, add_names_topleft=T,
-                           legend.args=NULL, legend.line=6, legend.cex=0.85,
+                           legend.args=NULL, legend.line=5, legend.cex=0.85,
                            colorbar.cex=1.25,
                            family="sans", lwd=0.5, lwd.ticks=0.5, 
                            verbose=F,
@@ -81,8 +82,8 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     # figure out nrow and ncol aready here that dry run is faster
     # just learned: grDevices::n2mfrow(nplots) is doing the trick
     nz <- length(z) 
-    if (missing(n) || missing(m)) { # default
-        if (missing(n) && missing(m)) {
+    if (is.null(n) || is.null(m)) { # default
+        if (is.null(n) && is.null(m)) {
             nm <- grDevices::n2mfrow(nz)
             # nz: nrow ncol
             # 1: 1 1
@@ -102,13 +103,13 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 n <- 1; m <- 2
             }
         } else {
-            if (missing(n)) {
+            if (is.null(n)) {
                 n <- ceiling(nz/m)
                 if (verbose) {
                     message("provided m = ", m, " cols x automatic n = ", n, 
                             " rows = ", n*m)
                 }
-            } else if (missing(m)) {
+            } else if (is.null(m)) {
                 m <- ceiling(nz/n)
                 if (verbose) {
                     message("provided n = ", n, " rows x automatic m = ", m, 
@@ -118,6 +119,8 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         } # if n or m or both are missing
     } # if n or m are missing
     if (verbose) message("--> n x m = ", n, " x ", m, " ...")
+    
+    # nplots based on derived number of rows (n) and columns (m)
     nplots <- n*m
     if (nplots < nz) {
         stop("the obtained n*m = ", n*m, " < nz = ", nz, ". re-run with proper n (nrow) or/and m (ncol)")
@@ -189,11 +192,18 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         if (verbose) message("`dry`=F --> run function with `dry`=T do stop here and return nrow and ncol")
     }
 
-    # derive nplots based on derived number of rows (n) and columns (m)
+    # further checks
     if (add_names_inset && add_names_topleft) {
         stop("decide where to put legend: either `add_names_inset` or `add_names_topleft` can be true")
     }
-   
+    if (!is.null(zoomfac)) {
+        if (!is.numeric(zoomfac)) stop("`zoomfac` must be numeric")
+    }
+    if (!is.null(proj)) {
+        if (!is.character(proj)) stop("`proj` must be character")
+        if (!any(search() == "package:oce")) library(oce)
+    }
+
     # check additional objects if provided
     if (any(dot_names == "image_list")) {
         image_list <- dot_list$image_list
@@ -457,90 +467,125 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         cat(capture.output(str(y)), sep="\n")
     }
 
-    ## Prepare plot
+    # unique xlim ylim
     if (!any(dot_names == "xlim")) {
         xlim <- range(x, na.rm=T)
-        if (verbose) {
-            cat("automatic xlim =")
-            dput(xlim)
-        }
+        if (verbose) cat("automatic ")
     } else if (any(dot_names == "xlim")) {
         xlim <- dot_list[["xlim"]]
-        if (verbose) {
-            cat("provided xlim =")
-            dput(xlim)
-        }
-    }   
+        if (verbose) cat("provided ")
+    }
+    cat("xlim = "); dput(xlim)
     if (!any(dot_names == "ylim")) {
         ylim <- range(y, na.rm=T)
-        if (verbose) {
-            cat("automatic ylim =")
-            dput(ylim)
-        }
+        if (verbose) cat("automatic ")
     } else if (any(dot_names == "ylim")) {
         ylim <- dot_list[["ylim"]]
-        if (verbose) {
-            cat("provided ylim =")
-            dput(ylim)
-        }
+        if (verbose) cat("provided ")
     }
-    l <- max(c(sapply(x, length), 
-               sapply(y, length)))
+    cat("ylim = "); dput(ylim)
+    
+    # unique x and y axes of same length for base::plot()
+    # (not projected)
+    l <- max(c(sapply(x, length), sapply(y, length)))
     x_plot <- seq(xlim[1], xlim[2], l=l)
     y_plot <- seq(ylim[1], ylim[2], l=l)
+
+    # project coords
+    if (F) { # test
+        proj <- "+proj=ortho +lat_0=30 +lon_0=-45" # orthographic
+        message("test proj = \"", proj, "\" ...")
+    }
+    if (!is.null(proj)) {
+        # check if provided proj is valid
+        # oce::mapPlot() -> oce::lonlat2map() -> oce::oceProject() -> sf::sf_project() 
+        xy <- expand.grid(lon=x_plot, lat=y_plot, KEEP.OUT.ATTRS=F) 
+        capture.output({ # error-check from oce::oceProject()
+            xy_proj <- try(unname(oce::oceProject(xy=xy, proj=proj, debug=0)), silent=T)
+        })
+        if (inherits(xy_proj, "try-error")) {
+            warning("provided `proj` = \"", proj, 
+                    "\" not valid for sf::sf_project(). continue without projection ...")
+            proj <- ""
+        } else { # projection success
+            colnames(xy_proj) <- c("lon", "lat")
+            xy_proj <- as.data.frame(xy_proj)
+            # update xlim ylim to projected coords
+            xlim_proj <- range(xy_proj$lon, na.rm=T)
+            ylim_proj <- range(xy_proj$lat, na.rm=T)
+            if (verbose) {
+                cat("xlim_proj = "); dput(xlim_proj)
+                cat("ylim_proj = "); dput(ylim_proj)
+            }
+        }
+    } # if !is.null(proj)
     
+    # from here: `proj` is character "" or != ""
+
+    # apply zoom factor
+    if (!is.null(zoomfac)) {
+        if (verbose) message("apply `zoomfac` = ", zoomfac, " ...")
+        # from https://github.com/cbarbu/R-package-zoom
+        # find new xlim/ylim wrt zoomfac as in zoom:::multipancPoint()
+        xlim <- (1 - 1/zoomfac)*mean(xlim) + 1/zoomfac*xlim
+        ylim <- (1 - 1/zoomfac)*mean(ylim) + 1/zoomfac*ylim
+        if (verbose) {
+            message("--> new xlim = ", paste(xlim, collapse=", "), "\n",
+                    "--> new ylim = ", paste(ylim, collapse=", "))
+        }
+        if (proj != "") {
+            xlim_proj <- (1 - 1/zoomfac)*mean(xlim_proj) + 1/zoomfac*xlim_proj
+            ylim_proj <- (1 - 1/zoomfac)*mean(ylim_proj) + 1/zoomfac*ylim_proj
+            if (verbose) {
+                message("--> new xlim_proj = ", paste(xlim_proj, collapse=", "), "\n",
+                        "--> new ylim_proj = ", paste(ylim_proj, collapse=", "))
+            }
+        }
+    } # if zoomfac
+
+    # from here, xlim and ylim (and xlim_proj and ylim_proj if proj =! "") are finished
+
+    # update unique x and y axes for base::plot wrt zoomfac
+    # (not projected)
+    x_plot <- seq(xlim[1], xlim[2], l=l)
+    y_plot <- seq(ylim[1], ylim[2], l=l)
     if (verbose) {
         cat("x_plot = ")
         cat(capture.output(str(x_plot)), sep="\n")
         cat("y_plot = ")
         cat(capture.output(str(y_plot)), sep="\n")
     }
-	if (!any(dot_names == "x_at")) {
+
+    # find tick values of unique x and y axes
+	# (not projected)
+    if (!any(dot_names == "x_at")) {
         x_at <- pretty(x_plot, n=10)
-        if (verbose) {
-            cat("automatic x_at step 1 =")
-            dput(x_at)
-        }
+        if (verbose) cat("automatic x_at step 1 = "); dput(x_at)
 	    x_at <- x_at[x_at >= min(x_plot) & x_at <= max(x_plot)]
-        if (verbose) {
-            cat("automatic x_at step 2 =")
-            dput(x_at)
-        }
+        if (verbose) cat("automatic x_at step 2 = "); dput(x_at)
     } else if (any(dot_names == "x_at")) {
         x_at <- dot_list[["x_at"]]
     }
     if (!any(dot_names == "y_at") || 
         (any(dot_names == "y_at") && is.null(dot_list[["y_at"]]))) {
         y_at <- pretty(y_plot, n=10)
-        if (verbose) {
-            cat("automatic y_at step 1 =")
-            dput(y_at)
-        }
+        if (verbose) cat("automatic y_at step 1 = "); dput(y_at)
         y_at <- y_at[y_at >= min(y_plot) & y_at <= max(y_plot)]
-        if (verbose) {
-            cat("automatic y_at step 2 =")
-            dput(y_at)
-        }
+        if (verbose) cat("automatic y_at step 2 = "); dput(y_at)
     } else if (any(dot_names == "y_at")) {
         y_at <- dot_list[["y_at"]]
     }
 
     if (!any(dot_names == "x_labels")) {
         x_labels <- format(x_at, trim=T)
-        if (verbose) {
-            cat("automatic x_labels =")
-            dput(x_labels)
-        }
+        if (verbose) cat("automatic x_labels = "); dput(x_labels)
     } else if (any(dot_names == "x_labels")) {
         x_labels <- dot_list[["x_labels"]]
     }
 
     if (!any(dot_names == "y_labels")) {
         y_labels <- format(y_at, trim=T)
-        if (verbose) {
-            cat("automatic y_labels =")
-            dput(y_labels)
-        }
+        if (verbose) cat("automatic y_labels = "); dput(y_labels)
     } else if (any(dot_names == "y_labels")) {
         y_labels <- dot_list[["y_labels"]]
     }
@@ -551,7 +596,7 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
         znames <- names(z)
         if (is.null(znames)) {
             znames <- rep("", t=n*m)
-            for (i in 1:(n*m)) {
+            for (i in seq_len(n*m)) {
                 znames <- paste0(letters[i], ") ", 1:(n*m))
             }   
         }
@@ -613,27 +658,27 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     }
 
     ## Open new or use already open plot device
-    if (type == "active") {
-        # open new device if none is open
-        if (is.null(dev.list())) {
+    if (type == "active") { 
+        if (is.null(dev.list())) { # open new interactive device if none is open
             dev.new(family=family)
-        } # else use already open device (may be opened before in parent script ...)
-
+        } else { # use already open device
+            # nothing do to
+        }
     } else if (type == "png") {
+        stop("update")
         if (n < m) {
             width_png <- 2*width_png
         }
         png(plotname,
-            width=width_png, height=height_png, res=res,
-            family=family)
+            width=width_png, height=height_png, res=res, family=family)
 
     } else if (type == "pdf") {
+        stop("update")
         if (m > n) {
             stop("neeeed")
         }
         pdf(plotname,
-            width=width_pdf, height=height_pdf,
-            family=family)
+            width=width_pdf, height=height_pdf, family=family)
     }
     
     if (verbose) message("run layout() ...")
@@ -665,32 +710,49 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
     }
 
     # for every plot
-    if (T) {
-        projection <- T
-        message("this is the projection test")
-    }
 	for (i in seq_len(nplots)) {
 
         if (verbose) message("\n**************************************\n",
                              "subplot ", i, "/", nplots, " (nz = ", nz, ") ...")
         
         # Open i-th subplot device
-        if (!projection) { # default
-            plot(x_plot, y_plot, t="n",
-                 #xlim=xlim, ylim=ylim, 
+        if (proj == "") { # default
+            # usage of helper-`x_plot` more flexible than just using combination of `xlim` and `x=0`
+            plot(x_plot, y_plot, t="n", 
                  axes=F, xlab=NA, ylab=NA,
                  xaxs="i", yaxs="i")
       
-        } else if (projection) {
-            p <- "+proj=ortho +lat_0=30 +lon_0=-45" # orthographic
-            xy <- expand.grid(lon=x[[i]], lat=y[[i]], KEEP.OUT.ATTRS=F)
-            oce::mapPlot(xy$lon, xy$lat, projection=p,
+        } else if (proj != "") {
+            
+            if (F) { # test
+                proj <- "+proj=ortho +lat_0=30 +lon_0=-45 +R=3000000" # radius in m
+                proj <- "+proj=ortho +lat_0=30 +lon_0=-45 +a=6371000 +b=6371000 +units=m +no_defs"
+                proj <- "+proj=ortho +lat_0=30 +lon_0=-45 +a=3371000 +units=m +no_defs"
+                if (F) xy_proj <- expand.grid(lon=d$lon[[i]], lat=d$lat[[i]], KEEP.OUT.ATTRS=F)
+                if (F) {
+                    xy_proj <- oce::lonlat2map(xy_proj$lon, xy_proj$lat, projection=proj, debug=1)
+                    oceProj <- oce::oceProject(xy=xy_proj, proj=proj, debug=1)
+                } else { # check within oce::oceProject() in map.R:
+                    longlatProj <- sf::st_crs("+proj=longlat")$proj4string
+                    capture.output({
+                        XY <- try(unname(sf::sf_project(longlatProj, proj, 
+                            xy_proj, keep = TRUE)), silent = TRUE)
+                    }) 
+                }
+            } # test
+            
+            # how the provided projection is checked:
+            oce::mapPlot(longitude=xy_proj$lon, latitude=xy_proj$lat, 
+                         projection=proj,
                          grid=F, type="n", 
-                         longitudelim=c(-95, -5), 
-                         latitudelim=c(20, 90),
-                         axes=F, drawBox=F)
+                         #longitudelim=c(-95, -5), 
+                         #latitudelim=c(20, 90),
+                         xlim=xlim_proj, # when xlim and/or ylim are provided,
+                         ylim=ylim_proj, # longitudelim and latitudelim will be ignored
+                         axes=F, drawBox=F,
+                         debug=1) # 0 1
         
-        } # if projection or not
+        } # if proj == "" or not
     
         # its possible that there are less data to plot than nrow*ncols (e.g. length(x) = 5, ncol=2, nrow=3)
         # --> do not plot anything if (length(x) == nplots - 1 && i == nplots)
@@ -708,40 +770,35 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
 
             if (!contour_only) {
                 
-                if (verbose) message("`contour_only`=F --> add data to subplot using graphics::image() ...")
-
                 # add NA values
                 if (any(is.na(z[[i]]))) {
-                    if (verbose) message("`z[[", i, "]]` has missing values (NA) --> add missing values ",
-                                         "to subplot with color `NAcol`=", NAcol, " using graphics::image() ...")
-                    if (!projection) {
-                        graphics::image(x[[i]], y[[i]], array(1, c(nx, ny)),
-                                        add=T, col=NAcol,
-                                        axes=F, xlab="n", ylab="n",
-                                        useRaster=useRaster)
-                    } else if (projection) {
-                        if (F) { # use `missingColor` arg of mapImage below instead
-                            oce::mapImage(x[[i]], y[[i]], array(1, c(nx, ny)), 
-                                          col=NAcol, filledContour=F) # filledContour interpolates data
-                        }
-                    }
+                    if (proj == "") {
+                        if (verbose) message("`z[[", i, "]]` has missing values (NA) --> add missing values ",
+                                             "to subplot with color `NAcol`=", NAcol, " using graphics::image() ...")
+                            graphics::image(x[[i]], y[[i]], array(1, c(nx, ny)),
+                                            add=T, col=NAcol,
+                                            axes=F, xlab="n", ylab="n",
+                                            useRaster=useRaster)
+                    } # if proj == ""
                 } # if any NA
 
                 # add actual data
                 if (individual_zlim) {
                     stop("combination `contour_only`=F and `individual_zlim`=T not implemented yet")
                 }
-                if (!projection) {
+                if (proj == "") {
+                    if (verbose) message("`contour_only`=F --> add data to subplot using graphics::image() ...")
                     graphics::image(x[[i]], y[[i]], z[[i]], 
                                     add=T, col=cols, breaks=breaks,
                                     axes=F, xlab="n", ylab="n", 
                                     useRaster=useRaster)
-                } else if (projection) {
+                } else if (proj != "") {
+                    if (verbose) message("`contour_only`=F --> add data to subplot using oce::mapImage() ...")
                     oce::mapImage(x[[i]], y[[i]], z[[i]],
                                   breaks=breaks, col=cols,
                                   #filledContour=T, gridder="interp", # "binMean2D" "interp"
                                   missingColor=NAcol,
-                                  debug=0) # 0
+                                  debug=1) # 0 1
                 }
             } # if !contour_only
 
@@ -1247,6 +1304,20 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
                 }
             } # if !is.null(cmd_list)
 
+            # add grid to every plot
+            if (add_grid) {
+                if (proj == "") {
+                    if (verbose) message("`add_grid`=T --> add grid to plot using graphics::abline() ...")
+                    abline(v=x_at, col="black", lwd=lwd, lty=3)
+                    abline(h=y_at, col="black", lwd=lwd, lty=3)
+                } else if (proj != "") {
+                    if (verbose) message("`add_grid`=T --> add grid to plot using oce::mapGrid() ...")
+                    oce::mapGrid(longitude=x_at, latitude=y_at,
+                                 polarCircle=5, # exclude highest 5°lat from grid
+                                 col="black", lwd=lwd, lty=3, debug=1)
+                }
+            } # if add_grid
+            
             # add title
             if (add_title && any(dot_names == "title") && title_inds[i]) {
                 if (verbose) message("add provided `title` to subplot using base::title() ...")
@@ -1257,20 +1328,22 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             }
 
             # add axes and axes labels
-            if (verbose) message("add axes to subplot using graphics::axis() ...")
-            if (left_axis_inds[i]) {
-                graphics::axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
-                               lwd=0, lwd.ticks=lwd.ticks)
-                mtext(ylab, side=2, line=5, cex=1)
-            } else { # just ticks
-                graphics::axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
-            }
-            if (bottom_axis_inds[i]) {
-                graphics::axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
-                               lwd=0, lwd.ticks=lwd.ticks)
-                mtext(xlab, side=1, line=3, cex=1)
-            } else { # just ticks
-                graphics::axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
+            if (proj == "") {
+                if (verbose) message("add axes to subplot using graphics::axis() ...")
+                if (left_axis_inds[i]) {
+                    graphics::axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
+                                   lwd=0, lwd.ticks=lwd.ticks)
+                    mtext(ylab, side=2, line=5, cex=1)
+                } else { # just ticks
+                    graphics::axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
+                }
+                if (bottom_axis_inds[i]) {
+                    graphics::axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
+                                   lwd=0, lwd.ticks=lwd.ticks)
+                    mtext(xlab, side=1, line=3, cex=1)
+                } else { # just ticks
+                    graphics::axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
+                }
             }
 
             # add name to every plot
@@ -1338,7 +1411,8 @@ image.plot.nxm <- function(x, y, z, n, m, dry=F,
             } # if (add_names_inset || add_names_topleft)
            
             # draw box around plot
-            box(lwd=lwd)
+            #box(lwd=lwd)
+            if (proj == "") box(lwd=lwd)
 
             ## overlay a subplot
             if (!is.null(subplot_list)) {
