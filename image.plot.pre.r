@@ -1,9 +1,10 @@
 image.plot.pre <- function(zlim, 
                            nlevels=NULL, max_labels=NULL, zlevels=NULL,
                            method="pretty",
+                           power_lims=NULL, power_min=NULL,
                            axis.at=NULL, axis.at.ind=NULL, axis.at.small=NULL, 
                            axis.labels=NULL, axis.round=NULL,
-                           axis.zoom=F, axis.addzlims=T, power_min=NULL,
+                           axis.zoom=F, axis.addzlims=T, 
                            cols=NULL, pos_cols=NULL, neg_cols=NULL,
                            palname=NULL, colors_script,
                            anom_colorbar=NULL, 
@@ -17,8 +18,10 @@ image.plot.pre <- function(zlim,
     if (any(is.na(zlim))) stop("zlim must not be NA")
     if (is.null(nlevels)) nlevels <- 11
     if (is.null(max_labels)) max_labels <- 15
+    if (is.null(method)) method <- "pretty"
     if (is.null(axis.zoom)) axis.zoom <- F
     if (is.null(axis.addzlims)) axis.addzlims <- T
+    if (is.null(center_include)) center_include <- F
     if (missing(colors_script)) {
         if (verbose) message("find colors_script ... ", appendLF=F)
         #colors_script <- paste0(getSrcDirectory(sys.function(sys.nframe())), "/colors/color_function.r")
@@ -93,14 +96,18 @@ image.plot.pre <- function(zlim,
         
         } else if (method == "exp") {
 
-            power_lims <- c(0, 0) # -20.34705  29.78989 --> 1 (i.e. 10^1)
-            # as.integer(log10(abs(zlim)))
-            if (zlim[1] != 0) { 
-                power_lims[1] <- as.integer(log10(abs(zlim[1])))
+            if (is.null(power_lims)) {
+                power_lims <- c(0, 0) # e.g. -20.34705  29.78989 --> 10^0 = 1
+                # as.integer(log10(abs(zlim))) # e.g. -141985.0  126728.4 --> 5 5
+                if (zlim[1] != 0) { 
+                    power_lims[1] <- as.integer(log10(abs(zlim[1])))
+                }
+                if (zlim[2] != 0) {
+                    power_lims[2] <- as.integer(log10(abs(zlim[2])))
+                } 
+            } else {
+                if (length(power_lims) != 2) stop("provided `power_lims` must be of length 2")
             }
-            if (zlim[2] != 0) {
-                power_lims[2] <- as.integer(log10(abs(zlim[2])))
-            } 
 
             # provide power_min
             if (is.null(power_min)) { # default
@@ -115,8 +122,8 @@ image.plot.pre <- function(zlim,
                 }
             }
             if (verbose) { 
-                cat("power_lims =", power_lims, "\n")
-                cat("power_min =", power_min, "\n")
+                cat("power_lims <- c(", paste(power_lims, collapse=","), ")\n")
+                cat("power_min <- ", power_min, "\n")
             }
 
             if (anom_colorbar) {
@@ -131,8 +138,10 @@ image.plot.pre <- function(zlim,
                     signs <- c(rep(-1, t=length(power_lims[1]:power_min)), 0, rep(1, t=length(power_min:power_lims[2])))
                 
                 } else if (min(power_lims) < 0) { # e.g. zlim=c(-0.0002034705, 0.0002978989)
-                    powers <- c((power_lims[1] - 1):power_min, 0, power_min:(power_lims[2] - 1))
-                    signs <- c(rep(-1, t=length((power_lims[1] - 1):power_min)), 0, rep(1, t=length(power_min:(power_lims[2] - 1))))    
+                    #powers <- c((power_lims[1] - 1):power_min, 0, power_min:(power_lims[2] - 1))
+                    #signs <- c(rep(-1, t=length((power_lims[1] - 1):power_min)), 0, rep(1, t=length(power_min:(power_lims[2] - 1))))    
+                    powers <- c(power_lims[1]:power_min, 0, power_min:power_lims[2])
+                    signs <- c(rep(-1, t=length(power_lims[1]:power_min)), 0, rep(1, t=length(power_min:power_lims[2])))    
                 }
                 
             } else if (!anom_colorbar) {
@@ -146,10 +155,9 @@ image.plot.pre <- function(zlim,
                 }
             
             }
-
             if (verbose) {
-                cat("signs =", signs, "\n")
-                cat("powers =", powers, "\n")
+                message("signs <- c(", paste(signs, collapse=","), ") # n = ", length(signs))
+                message("powers <- c(", paste(powers, collapse=","), ") # n = ", length(powers))
             }
 
             zlevels <- as.numeric(paste0(signs, "e", powers))
@@ -162,6 +170,10 @@ image.plot.pre <- function(zlim,
             if (zlevels[length(zlevels)] < zlim[2]) {
                 zlevels <- c(zlevels, zlim[2])
                 if (verbose) cat("zlevels case2b =", zlevels, "\n")
+            }
+            
+            if (verbose) { 
+                message("zlevels <- ", paste(zlevels, collapse=","))
             }
 
         } # which method
@@ -212,8 +224,8 @@ image.plot.pre <- function(zlim,
         } # if axis.zoom
     
     } # is zlevels are given by user or not 
-    if (verbose) cat("final zlevels (n=", length(zlevels), ") = ", 
-                     paste(zlevels, collapse=", "), "\n", sep="")
+    if (verbose) cat("final zlevels <- c(", paste(zlevels, collapse=","), 
+                     ") # n = ", length(zlevels), "\n", sep="")
 
     ## Number of z levels
     nlevels <- length(zlevels)
@@ -239,7 +251,6 @@ image.plot.pre <- function(zlim,
             for (i in 1:length(axis.labels)) {
                 if (signs[i] == 0 && powers[i] == 0) {
                     axis.labels[[i]] <- substitute(paste(0))
-
                 } else if (signs[i] != 0 && powers[i] == 0) {
                     if (signs[i] < 0) {
                         axis.labels[i] <- -1 #substitute(-1)
@@ -248,11 +259,10 @@ image.plot.pre <- function(zlim,
                     }
                 } else if (signs[i] != 0 && powers[i] == 1) {
                     if (signs[i] < 0) {
-                        axis.labels[i] <- substitute(-10)
+                        axis.labels[i] <- -10 # strange: `substitute(-10)` only keeps the `-` 
                     } else if (signs[i] > 0) {
                         axis.labels[i] <- substitute(10)
                     }
-                
                 } else {
                     if (signs[i] < 0) {
                         axis.labels[[i]] <- substitute(paste(sign^power),
@@ -267,8 +277,12 @@ image.plot.pre <- function(zlim,
                     #                                    sign=signs[i]*10, power=powers[i]))
                 }
             } # for i labels
-            if (verbose) cat("case exp; axis.labels (n=", length(axis.labels), " =", 
-                             axis.labels, "\n")
+            
+            if (verbose) {
+                message("case exp; axis.labels (n=", length(axis.labels), "):")
+                print(data.frame(signs=signs, powers=powers, 
+                                 axis.labels=sapply(axis.labels, deparse)))
+            }
 
         } else { # if method != "exp"
 
@@ -378,11 +392,17 @@ image.plot.pre <- function(zlim,
     } else if (!is.null(axis.labels)) {
         if (verbose) cat("******\ncheck provided axis.labels (n=", 
                          length(axis.labels), " =", axis.labels, "\n")
-        # no checks here?
+        # todo: checks
 
     } # if is.null(axis.labels) or not 
-    if (verbose) cat("final axis.labels before format (n=", 
-                     length(axis.labels), ") =", axis.labels, "\n")
+    if (verbose) {
+        message("final ", length(axis.labels), " axis.labels before format:") 
+        if (is.list(axis.labels)) { # if method == "exp"
+            print(sapply(axis.labels, deparse))
+        } else {
+            cat(axis.labels, "\n")
+        }
+    }
 
     ## round axis.labels with precision axis.round
     if (is.null(axis.round)) {
@@ -426,7 +446,8 @@ image.plot.pre <- function(zlim,
     } # if is.null(axis.round) or not
     if (verbose) cat("final axis.round =", axis.round, "\n")
 
-    ## position of labels: axis.at
+
+    ## position of labels in variable coords: axis.at
     if (is.null(axis.at)) {
     
         if (verbose) message("******\nfind axis.at with method \"", method, "\" ...")
@@ -439,7 +460,7 @@ image.plot.pre <- function(zlim,
             if (verbose) cat("case exp; axis.at (n=", length(axis.at), ") =", axis.at, "\n")
         }
 
-        # position in colorbar
+        # position of labels in index values (i.e. from 1 to nlevels): axis.at.ind
         if (is.null(axis.at.ind)) {
             
             if (verbose) message("******\nfind axis.at.ind with method \"", method, "\" ...")
@@ -450,9 +471,9 @@ image.plot.pre <- function(zlim,
                 #axis.at.ind <- apply(matrix(as.numeric(sapply(axis.labels, eval)), nrow=length(axis.labels)),
                 #                     1, function(x) {
                 #                         which(abs(zlevels - x) == min(abs(zlevels - x)))[1] })
-                axis.at.ind <- 2:(nlevels-1)
-                if (verbose) cat("case exp; axis.at.ind (n=", length(axis.at.ind), 
-                                 ") =", axis.at.ind, "\n")
+                #axis.at.ind <- 2:(nlevels-1)
+                axis.at.ind <- seq_along(axis.at)
+                if (verbose) cat("case exp; axis.at.ind (n=", length(axis.at.ind), ") =", axis.at.ind, "\n")
             
             } else {
                 axis.at.ind <- apply(matrix(as.numeric(axis.labels), nrow=length(axis.labels)),
@@ -504,7 +525,10 @@ image.plot.pre <- function(zlim,
     if (verbose) message("******\napply axis.round to axis.labels ...")
     if (method == "exp") {
         axis.labels <- as.expression(axis.labels)
-        if (verbose) cat("case exp; axis.labels =", axis.labels, "\n")
+        if (verbose) {
+            message("axis.labels:")
+            print(axis.labels)
+        }
 
     } else {
 
@@ -514,7 +538,14 @@ image.plot.pre <- function(zlim,
         } # if is.numeric(axis.labels)
         
     } # which method
-    if (verbose) cat("final axis.labels after format =", axis.labels, "\n")
+    if (verbose) {
+        if (is.expression(axis.labels)) { # if method == "exp"
+            message("axis.labels:")
+            print(axis.labels)
+        } else {
+            cat("final axis.labels after format =", axis.labels, "\n")
+        }
+    }
 
     # add zlimits to legend
     if (axis.addzlims) {
@@ -541,8 +572,9 @@ image.plot.pre <- function(zlim,
                 cat("case non-exp; axis.at.ind (n=", length(axis.at.ind), ") =", axis.at.ind, "\n")
             }
         
-        } else {
-            stop("not yettttttt")
+        } else { # if method == "exp"
+            # todo
+            #stop("not yettttttt")
         }
 
     } # if axis.addzlims
@@ -554,7 +586,12 @@ image.plot.pre <- function(zlim,
         cat("zlevels (n=", length(zlevels), ") =", zlevels, "\n")
         cat("diff(zlevels) =", diff(zlevels), "\n")
         cat("length(unique(diff(zlevels))) =", length(unique(diff(zlevels))), "\n")
-        cat("axis.labels (n=", length(axis.labels), ") =", axis.labels, "\n")
+        if (is.expression(axis.labels)) { # if method == "exp"
+            message("axis.labels:")
+            cat(capture.output(str(axis.labels)), sep="\n")
+        } else {
+            cat("axis.labels (n=", length(axis.labels), ") =", axis.labels, "\n")
+        }
         cat("axis.at (n=", length(axis.at), ") =", axis.at, "\n")
         cat("diff(axis.at) =", diff(axis.at), "\n")
         cat("axis.at.ind (n=", length(axis.at.ind), ") =", axis.at.ind, "\n")
