@@ -21,7 +21,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                            width_png=2000, height_png=1666, res=300, 
                            width_pdf=7, height_pdf=7,
                            axis.args=NULL, 
-                           znames_method="text", znames_pos="topleft", znames_cex=1,
+                           znames_method="text", znames_pos="topleft", znames_cex=1.25,
                            legend.args=NULL, legend.line=5, legend.cex=0.85,
                            colorbar.cex=1.25,
                            family="sans", lwd=0.5, lwd.ticks=0.5, 
@@ -1246,6 +1246,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                             if (!is.null(quiver_list[[vi]][[i]]$quiver_legend)) {
                                 if (verbose) message("quiver_legend is not null --> add quiver legend ...")
                                 quiver_legend <- quiver_list[[vi]][[i]]$quiver_legend
+                                lex <- quiver_legend$x; ley <- quiver_legend$y
                                 if (is.character(quiver_legend$x)) lex <- eval(parse(text=quiver_legend$x))
                                 if (is.character(quiver_legend$y)) ley <- eval(parse(text=quiver_legend$y))
                                 # adjust lex, ley so that the arrow is in the middle of wanted coords
@@ -1500,19 +1501,24 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                     lepos <- znames_pos
                     letext <- znames_labels[i]
                     leinset <- 0.025 # distance legend box from horizontal and vertical plot margins
-                    lexintersp <- -1.8
                     lebg <- F
+                    leadj <- c(0, 0.5) # left: 1; right: 0; bottom: 1; top: 0
+                    if (length(lepos) == 1) { # e.g. "topleft"
+                        if (grepl("top", lepos)) leadj[2] <- 0
+                    }
 
                     # first get coordinates of legend
                     if (lebg) {
-                        if (length(lepos) == 1) { # e.g. topleft
-                            myleg <- legend(lepos, legend=letext, plot=F, inset=leinset,
-                                            bty="n", x.intersp=lexintersp, cex=znames_cex,
-                                            col="black", lty=NA, lwd=lwd, pch=NA)
+                        if (length(lepos) == 1) { # e.g. "topleft"
+                            myleg <- legend(lepos, legend=letext, 
+                                            col="black", lty=NA, lwd=lwd, pch=NA,
+                                            bty="n", cex=znames_cex,
+                                            adj=leadj, plot=F, inset=leinset)
                         } else if (length(lepos) == 2) { # numeric x and y
-                            myleg <- legend(lepos[1], lepos[2], legend=letext, plot=F, inset=leinset, 
-                                            bty="n", x.intersp=lexintersp, cex=znames_cex,
-                                            col="black", lty=NA, lwd=lwd, pch=NA)
+                            myleg <- legend(lepos[1], lepos[2], legend=letext,
+                                            col="black", lty=NA, lwd=lwd, pch=NA,
+                                            bty="n", cex=znames_cex,
+                                            adj=leadj, plot=F, inset=leinset)
                         }
                         # second draw background of legend label
                         rect(xleft=myleg$rect$left, ybottom=myleg$rect$top - myleg$rect$h,
@@ -1520,15 +1526,17 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                              col=bgcol, lwd=lwd)
                     } # if lebg
 
-                    # third add text (as first step but with `plot`=T)
-                    if (length(lepos) == 1) {
-                        myleg <- legend(lepos, legend=letext, plot=T, inset=leinset, 
-                                        bty="n", x.intersp=lexintersp, cex=znames_cex,
-                                        col="black", lty=NA, lwd=lwd, pch=NA)
-                    } else if (length(lepos) == 2) {
-                        myleg <- legend(lepos[1], lepos[2], legend=text_lab, plot=T, inset=leinset, 
-                                        bty="n", x.intersp=lexintersp, cex=znames_cex,
-                                        col="black", lty=NA, lwd=lwd, pch=NA)
+                    # third add text (like in first step but with `plot`=T)
+                    if (length(lepos) == 1) { # e.g. "topleft"
+                        myleg <- legend(lepos, legend=letext, 
+                                        col="black", lty=NA, lwd=lwd, pch=NA,
+                                        bty="n", cex=znames_cex,
+                                        adj=leadj, plot=T, inset=leinset) 
+                    } else if (length(lepos) == 2) { # i.e. x=1, y=1
+                        myleg <- legend(lepos[1], lepos[2], legend=letext, 
+                                        col="black", lty=NA, lwd=lwd, pch=NA,
+                                        bty="n", cex=znames_cex,
+                                        adj=leadj, plot=T, inset=leinset)
                     }
                 
                 } # which znames_method
