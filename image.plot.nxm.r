@@ -210,7 +210,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     }
     if (!is.null(proj)) {
         if (!is.character(proj)) stop("`proj` must be character")
-        if (!any(search() == "package:oce")) library(oce)
+        if (proj != "") if (!any(search() == "package:oce")) library(oce)
+    } else {
+        proj <- "" # default: rectangular plot without projection
     }
     if (is.null(legend.line)) legend.line <- 5
 
@@ -576,7 +578,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         proj <- "+proj=ortho +lat_0=30 +lon_0=-45" # orthographic
         message("test proj = \"", proj, "\" ...")
     }
-    if (!is.null(proj)) {
+    if (proj != "") {
         # check if provided proj is valid
         # oce::mapPlot() -> oce::lonlat2map() -> oce::oceProject() -> sf::sf_project() 
         xy <- expand.grid(lon=x_plot, lat=y_plot, KEEP.OUT.ATTRS=F) 
@@ -599,8 +601,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
         }
     } # if !is.null(proj)
-    
-    # from here: `proj` is character "" or != ""
+    # from here: `proj` is character "" (default rectangular plot) or != "" (some projection)
 
     # apply zoom factor
     if (!is.null(zoomfac)) {
