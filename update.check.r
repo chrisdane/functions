@@ -15,9 +15,11 @@ update.check <- function() {
             if (length(inds) > 0) {
                 message("These ", length(inds), " packages need an update:")
                 print(inst$inst[inds,c("Package", "Version", "Status")])
+                yn[libpathi] <- askYesNo(paste0("\nrun `utils::update.packages(lib=\"", libpaths[libpathi], 
+                                                "\", instlib=\"", libpaths[libpathi], "\", ask=F, checkBuilt=T)`?"))
+            } else {
+                message("--> all up-to-date")
             }
-            yn[libpathi] <- askYesNo(paste0("\nrun `utils::update.packages(lib=\"", libpaths[libpathi], 
-                                            "\", instlib=\"", libpaths[libpathi], "\", ask=F, checkBuilt=T)`?"))
         }
     } # for libpathi
     if (any(is.na(yn))) stop("this should not happen")
