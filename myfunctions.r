@@ -308,6 +308,28 @@ deg2dec <- function(deg=0.0, min=0.0, sec=0.0) {
     return(dec)
 } # deg2dec
 
+m2lon <- function(dm, alat) {
+    # dm = distance in meters
+    # alat = average latitude between the two fixes
+    # American Practical Navigator, Vol II, 1975 Edition, p 5
+    # http://www.movable-type.co.uk/scripts/latlong.html
+    rlat <- alat * pi/180 # alat in radian
+    p <- 111415.13 * cos(rlat) - 94.55 * cos(3 * rlat)
+    dlon <- dm / p
+    return(dlon)
+} # m2lon
+
+m2lat <- function(dm, alat) {
+    # dm = meters
+    # alat = average latitude between the two fixes
+    # American Practical Navigator, Vol II, 1975 Edition, p 5
+    # http://www.movable-type.co.uk/scripts/latlong.html
+    rlat <- alat * pi/180 # alat in radian
+    m <- 111132.09 - 566.05 * cos(2 * rlat) + 1.2 * cos(4 * rlat)
+    dlat <- dm / m 
+    return(dlat)
+} # m2lat
+
 # convert longitudes from 0,360 to -180,180
 convert_lon_360_to_180 <- function(lon360, data360=NULL, data360_lonind=NULL) {
     if (missing(lon360)) stop("provide `lon360`")
@@ -335,6 +357,17 @@ convert_lon_360_to_180 <- function(lon360, data360=NULL, data360_lonind=NULL) {
     } # if !is.null(data)
     return(ret)
 } # convert_lon_360_to_180
+
+# running mean
+myma <- function(x, order, verbose=F, ...) {
+    if (verbose) {
+        message("yields the same result as\n,
+                forecast::ma(x, order=order, centre=ifelse(order %% 2 == 0, F, T))\n
+                monthly ts --> order=36 --> 3a ma\n
+                daily   ts --> order=\n")
+    }
+    y <- stats::filter(x, filter=rep(1/order, t=order))
+}
 
 # Get the proportion variation explained. See this website for more details: http://goo.gl/jte8X
 # http://www.gettinggeneticsdone.com/2011/08/sync-your-rprofile-across-multiple-r.html
@@ -469,7 +502,7 @@ speeds <- function(x=1, unit="cm/s") {
 
 ## section 2: r-stuff
 
-# return R currently running executable
+# return currently running R executable
 Rexe <- function() return(paste0(R.home(), "/bin/exec/R"))
 
 tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
@@ -532,7 +565,7 @@ identical_list <- function(x) {
     }
 }
 
-# check of graphics::image()'s argument `useRaster` from graphics::image.default 
+# irregular check from graphics::image()'s argument `useRaster` from graphics::image.default 
 check_irregular <- function(x, y) {
     dx <- diff(x)
     dy <- diff(y)
@@ -567,16 +600,6 @@ reorder_legend <- function(le) {
     }
     return(le)
 } # reorder_legend
-
-myma <- function(x, order, verbose=F, ...) {
-    if (verbose) {
-        message("yields the same result as\n,
-                forecast::ma(x, order=order, centre=ifelse(order %% 2 == 0, F, T))\n
-                monthly ts --> order=36 --> 3a ma\n
-                daily   ts --> order=\n")
-    }
-    y <- stats::filter(x, filter=rep(1/order, t=order))
-}
 
 # headtail
 ht <- function(x, n=15, ...) {
@@ -636,22 +659,21 @@ mycols <- function(n) {
     return(cols)
 } # mycols
 
-# get coordinates of selected ('clicked') point on plot
-get_coords <- function(...) {
-
+# get coords of clicked points in active plot
+mylocator <- function(...) {
     # open plot with world map if no plot is already open 
     if (is.null(dev.list())) {
         library(maps)
-        message("run maps::map(\"world\", interior=F) ...")
+        message("run maps::map(\"world\", interiod=F) ...")
         map("world", interior=F)
         message("par(\"usr\") = ", appendLF=F)
         dput(par("usr"))
     } 
+
     options(locatorBell=F) # turn off system beep
-    message("run `graphics::locator()` ... (to exit the locator, hit any mouse ",
-            "button but the first while the mouse is over the plot device and looks like a cross) ...")
-    graphics::locator(type="o", ...)
-} # get_coords
+    message("To exit the locator, hit any mouse button but the first while the mouse is over the plot device ...")
+    locator(type="o", ...)
+} # mylocator
 
 # get file format
 cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
@@ -694,11 +716,11 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
             }
         }
     }
-    if (any(input_format$value == c(# from cdo showformat:
+    if (any(input_format$value == c(# from `cdo showformat`:
                                     "netCDF", "NetCDF", "NetCDF2", 
                                     "NetCDF4 classic", "NetCDF4 classic zip", 
                                     "netCDF-4 classic model",
-                                    # from ncdump -k:
+                                    # from `ncdump -k`:
                                     "64-bit offset"))) {
         if (verbose) message("--> input is of type netcdf")
         file_type <- "nc"
@@ -712,17 +734,22 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
 } # cdo_get_filetype
 
 # set my default plot options
-myDefaultPlotOptions <- function(plist=list(plot_type="pdf", bg_col="white", NA_col="gray65", 
-                                            contour_labcex=1,
-                                            a4_width_in=8.26, a4_height_in=11.68,
-                                            ts_width=2666, ts_height=1333, 
-                                            ts_width_m=2000, ts_height_m=1600,
-                                            depth_width=2666, depth_weight=1600,
-                                            map_width=2666, map_height=2000,
-                                            scatter_width=2666, scatter_height=2666,
-                                            useRaster=T, ppi=400, inch=7, pointsize=12, 
-                                            family_png="sans", family_pdf="sans",
-                                            pdf_embed_fun="grDevices::embedFonts"), verbose=F, ...) {
+myDefaultPlotOptions <- function(plist=list(plot_type="pdf", 
+                                            ts_width_in=7, ts_asp=2,
+                                            ts_mon_width_in=7, ts_mon_asp=1,
+                                            depth_width_in=7, depth_asp=1,
+                                            map_width_in=7, map_asp=1,
+                                            scatter_width_in=7, scatter_asp=1,
+                                            #ts_width=2666, ts_height=1333, 
+                                            #ts_width_m=2100, ts_height_m=1600,
+                                            #depth_width=2666, depth_weight=1600,
+                                            #map_width=2666, map_height=2000,
+                                            #scatter_width=2666, scatter_height=2666,
+                                            pdf_family="sans",
+                                            pdf_embed_fun="grDevices::embedFonts",
+                                            png_family="sans" 
+                                            ), 
+                                 verbose=F, ...) {
     dot_list <- list(...)
     dot_names <- names(dot_list)
     if (length(dot_list) > 0) {
@@ -740,11 +767,11 @@ myDefaultPlotOptions <- function(plist=list(plot_type="pdf", bg_col="white", NA_
             # check if provided pdf family is available
             # -> for png, system falls back to default automatically if wanted font is not available
             # -> for pdf, an error is raised
-            if (dot_names[i] == "family_pdf") {
+            if (dot_names[i] == "pdf_family") {
                 # check if wanted font is one of system defaults
                 fonts <- names(grDevices::pdfFonts())
                 if (!any(fonts == dot_list[[i]])) { # if wanted font is not any system default
-                    message("wanted family_pdf = \"", dot_list[[i]], "\" is not included in ", 
+                    message("wanted pdf_family = \"", dot_list[[i]], "\" is not included in ", 
                             length(fonts), " currently loaded grDevices::pdfFonts()")
                     if (!any(search() == "package:extrafont")) { # try to load extrafont package
                         message("run `require(extrafont)`")
@@ -752,24 +779,24 @@ myDefaultPlotOptions <- function(plist=list(plot_type="pdf", bg_col="white", NA_
                     }
                     if (any(search() == "package:extrafont")) { # try to load extrafont package
                         fonts <- extrafont::fonts()
-                        message("wanted family_pdf = \"", dot_list[[i]], "\" ", appendLF=F)
+                        message("wanted pdf_family = \"", dot_list[[i]], "\" ", appendLF=F)
                         if (!any(fonts == dot_list[[i]])) { # wanted font not avilable
                             message("is also not included in ", length(fonts), 
                                     " currently loaded extrafont::fonts(). use default \"",
-                                    plist$family_pdf, "\" ...")
-                            dot_list[[i]] <- plist$family_pdf
+                                    plist$pdf_family, "\" ...")
+                            dot_list[[i]] <- plist$pdf_family
                         } else { # wanted font available through extrafont package
                             message("is included in extrafont::fonts()")
                         }
                     } else { # extrafont package not available
-                        message("use default \"", plist$family_pdf, "\" ...")
-                        dot_list[[i]] <- plist$family_pdf
+                        message("use default \"", plist$pdf_family, "\" ...")
+                        dot_list[[i]] <- plist$pdf_family
                     }
                 }
                 # check if embed command needs to be adjusted
                 # -> font provided by `extrafont` package must be imbedded with `extrafont::embed_fonts()` 
                 #    instead with default grDevices::embedFonts()`
-                if (dot_list[[i]] != plist$family_pdf) { # if change is applied
+                if (dot_list[[i]] != plist$pdf_family) { # if change is applied
                     if (any(search() == "package:extrafont")) { # check if wanted front comes from grDevices or extrafont
                         extrafont_fonts <- fonts()
                         default_fonts <- names(pdfFonts()) # includes default and extrafont-fonts
@@ -782,7 +809,7 @@ myDefaultPlotOptions <- function(plist=list(plot_type="pdf", bg_col="white", NA_
                         }
                     }
                 }
-            } # if argument is `family_pdf`
+            } # if argument is `pdf_family`
             if (dot_list[[i]] != plist[[dot_names[i]]]) { # if change from default
                 message("argument \"", dot_names[i], "\" provided -> overwrite default \"", 
                         plist[[dot_names[i]]], "\" with \"", dot_list[[i]], "\"")
@@ -797,6 +824,80 @@ myDefaultPlotOptions <- function(plist=list(plot_type="pdf", bg_col="white", NA_
     } # if any dots arguments given
     return(plist)
 } # myDefaultPlotOptions
+
+# determine plot width, height and pointsize based on wanted ppi and asp.
+# main source of confusion: pixel is not a length unit since it 
+# depends on pixels per inch (ppi), which can be specified for 
+# png plots:
+# 1 inch = 96 pixel if ppi = 96
+# 1 inch = 300 pixel if ppi = 300
+# default ppi of `grDevices::png()` = 72
+plot_sizes <- function(width_in=NULL, height_in=NULL,
+                       width_cm=NULL, height_cm=NULL,
+                       png_ppi=300, asp=4/3, verbose=F) {
+    
+    if (!is.numeric(width_in) && !is.numeric(height_in) &&
+        !is.numeric(width_cm) && !is.numeric(height_cm)) {
+        stop("at least one of `width_in`, `height_in`, `width_cm`, `height_cm` must be numeric")
+    } else if (is.numeric(width_in) && is.numeric(width_cm)) {
+        stop("provide either `width_in` or `width_cm`")
+    } else if (is.numeric(height_in) && is.numeric(height_cm)) {
+        stop("provide either `height_in` or `height_cm`")
+    }
+    if (is.numeric(width_in) && !is.numeric(height_in)) height_in <- width_in/asp
+    if (!is.numeric(width_in) && is.numeric(height_in)) width_in <- height_in*asp
+    if (is.numeric(width_cm) && !is.numeric(height_cm)) height_cm <- width_cm/asp
+    if (!is.numeric(width_cm) && is.numeric(height_cm)) width_cm <- height_cm*asp
+    if (!is.numeric(width_in)) width_in <- width_cm/2.54
+    if (!is.numeric(height_in)) height_in <- height_cm/2.54
+    if (!is.numeric(width_cm)) width_cm <- width_in*2.54
+    if (!is.numeric(height_cm)) height_cm <- height_in*2.54
+    asp <- width_in/height_in # same for width_cm/height_cm
+
+    # for png
+    width_px <- width_in*png_ppi
+    height_px <- height_in*png_ppi
+    pointsize <- 12
+    # increase png pointsize (default = 12) if asp < 2
+    # png pointsize: the default pointsize of plotted text, interpreted as big
+    #      points (1/72 inch) at ‘res’ ppi.
+    # 1 pt = 1/72 inch = 0.01388889 inch = 0.35277780599999997 mm
+    if (asp < 2) {
+        asp_interp <- approx(x=c(1, 2), y=c(2, 1), n=100) # linearly interp asp 1 to 2 --> fac 2 to 1
+        asp_fac_ind <- which.min(abs(asp_interp$x - asp))
+        asp_fac <- asp_interp$y[asp_fac_ind]
+        message("asp = ", round(asp, 3), 
+                " --> multiply pointsize ", pointsize, " * asp_interp[", asp_fac_ind, "] = ", 
+                pointsize, " * ", round(asp_fac, 3), " = ", round(pointsize*asp_fac, 3))
+        pointsize <- pointsize*asp_fac
+    }
+    
+    # for pdf
+    # sizes in inch with respect to default pdf width 7 inch used as maximum pdf width
+    pdf_width_in <- 7
+    pdf_height_in <- pdf_width_in/asp
+    #pdf_pointsize <- 12
+    pdf_pointsize <- pointsize
+    # pdf pointsize: the default point size to be used.  Strictly speaking, in
+    #      bp, that is 1/72 of an inch, but approximately in points.
+    #      Defaults to ‘12’.
+    
+    if (verbose) {
+        message("png_ppi=", png_ppi, ",\n",
+                "png_width_in=", width_in, ", png_height_in=", height_in, ",\n",
+                "png_width_cm=", width_cm, ", png_height_cm=", height_cm, ",\n",
+                "png_width_px=", width_px, ", png_height_px=", height_px, ",\n",
+                "png_pointsize=", round(pointsize, 3), ", asp=", round(asp, 3), ",\n",
+                "pdf_width_in=", pdf_width_in, ", pdf_height_in=", pdf_height_in, ", ",
+                "pdf_pointsize=", round(pdf_pointsize, 3))
+    }
+    return(list(png_ppi=png_ppi,
+                png_width_in=width_in, png_height_in=height_in,
+                png_width_px=width_px, png_height_px=height_px,
+                png_pointsize=pointsize, asp=asp,
+                pdf_width_in=pdf_width_in, pdf_height_in=pdf_height_in,
+                pdf_pointsize=pdf_pointsize))
+} # plot_sizes
 
 # nicer default pars
 # attention: this overwrites the default par()
@@ -940,7 +1041,7 @@ mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
 
 } # mymonth.name function
 
-# convert human readable to bytes
+# convert human readable size to bytes
 # https://stackoverflow.com/questions/10910688/converting-kilobytes-megabytes-etc-to-bytes-in-r/49380514
 size2byte <- function(x, unit) {
     if (any(!is.finite(x)) || any(!is.character(unit))) stop("x must be finite and unit must be character")
@@ -1117,9 +1218,11 @@ myhelp <- function() {
              "               sf:",
              "                  install.packages(\"sf\", configure.args=\"--with-gdal-config=/sw/rhel6-x64/gdal-2.1.3-gcc48/bin/gdal-config --with-proj-include=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/include --with-proj-lib=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/lib --with-geos-config=/sw/rhel6-x64/geos-3.6.1-gcc48/bin/geos-config\")",
              "               rJava:",
-             "                  install default-jre; R CMD javareconf",
+             "                  install default-jre on system, then `R CMD javareconf`",
+             "                  better use a package without java-dependence: openxlsx or readxl",
              "               devtools::install_github(\"user/package\", args=\"--with-keep.source\")",
              "               withr::with_libpaths(new=\"libpath\", install_github(\"user/package\"))",
+             "               https://cran.r-project.org/web/checks/check_summary_by_package.html",
              "      compile: R CMD build \"package directory\"",
              "               R CMD INSTALL -l \"lib\" \"pkg.tar.gz\"",
              "               install.packages(\"pkg.tar.gz\", repos=NULL)",

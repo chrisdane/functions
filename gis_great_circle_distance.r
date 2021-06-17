@@ -1,5 +1,6 @@
-## R
-## great circle distance
+# r
+
+# great circle distance
 
 # test:
 # gcd(long1=-20, lat1=45, long2=-35, lat2=55)
@@ -13,7 +14,7 @@ gcd.slc <- function(long1, lat1, long2, lat2, R=6371) {
     # Earth mean radius [km]
     d <- acos(sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2) * cos(long2-long1)) * R
     return(list(dist=d, r=R)) # Distance in km
-}
+} # gcd.slc
 
 # Calculates the geodesic distance between two points specified by radian latitude/longitude using the
 # Haversine formula (hf)
@@ -25,7 +26,7 @@ gcd.hf <- function(long1, lat1, long2, lat2, R=6371) {
     c <- 2 * asin(min(1,sqrt(a)))
     d = R * c
     return(list(dist=d, r=R)) # Distance in km
-}
+} # gcd.hf
 
 # Calculates the geodesic distance between two points specified by radian latitude/longitude using
 # Vincenty inverse formula for ellipsoids (vif)
@@ -80,17 +81,14 @@ gcd.vif <- function(long1, lat1, long2, lat2) {
     s <- b*A*(sigma-deltaSigma) / 1000
 
     return(list(dist=s, r_eq=a, r_pole=b)) # Distance in km
-}
+} # gcd.vif
 
-## FESOMs dist_on_earth() function from gen_support.F90 
-gcd.fesom <- function(lon1, lat1, lon2, lat2, r_earth=6367.5) {
-    # oce_modules.F90
-    alpha <- acos(cos(lat1)*cos(lat2)*cos(lon1-lon2)+sin(lat1)*sin(lat2))
-    dist <- r_earth*abs(alpha)
-    return(list(dist=dist, r=r_earth))
-}
+gcd.raster <- function() {
+    library(raster)
+    dist <- raster::pointDistance(coords, lonlat=T)
+} # gcd.raster
 
-## http://www.teos-10.org/pubs/gsw/html/gsw_distance.html
+# http://www.teos-10.org/pubs/gsw/html/gsw_distance.html
 gcd.teos10 <- function(lon1, lat1, lon2, lat2, p1=0, p2=0, earth_radius=6371000) {
 	dlong <- lon2 - lon1
 	dlat <- lat2 - lat1
@@ -106,9 +104,18 @@ gcd.teos10 <- function(lon1, lat1, lon2, lat2, p1=0, p2=0, earth_radius=6371000)
 	return(list(dist=distance, r=earth_radius))
 }
 
-# Calculates the geodesic distance between two points specified by degrees (DD) latitude/longitude using
-# Haversine formula (hf), Spherical Law of Cosines (slc) and Vincenty inverse formula for ellipsoids (vif)
+# FESOMs dist_on_earth() function from gen_support.F90 
+gcd.fesom <- function(lon1, lat1, lon2, lat2, r_earth=6367.5) {
+    # oce_modules.F90
+    alpha <- acos(cos(lat1)*cos(lat2)*cos(lon1-lon2)+sin(lat1)*sin(lat2))
+    dist <- r_earth*abs(alpha)
+    return(list(dist=dist, r=r_earth))
+} # gcd.fesom
+
+# Calculates the geodesic distance between two points specified by degrees latitude/longitude 
+# using different methods
 gcd <- function(long1_deg, lat1_deg, long2_deg, lat2_deg, p1=0, p2=0) {
+    
     # https://www.r-bloggers.com/great-circle-distance-calculations-in-r/
 
     # Convert degrees to radians
@@ -126,15 +133,16 @@ gcd <- function(long1_deg, lat1_deg, long2_deg, lat2_deg, p1=0, p2=0) {
                fesom.dist_on_earth=fesom.dist_on_earth)
 
     if (exists("rdist.earth")) { # fields package is loaded
-		rdist.earth <- fields::rdist.earth(matrix(c(long1_deg, lat1_deg), ncol=2), 
+		r_earth <- 6371
+        rdist.earth <- fields::rdist.earth(matrix(c(long1_deg, lat1_deg), ncol=2), 
                                            matrix(c(long2_deg, lat2_deg), ncol=2), 
-                                           miles=F, R=6371)[1,]
-        li <- c(li, rdist.earth=rdist.earth)
+                                           miles=F, R=r_earth)[1,1]
+        li <- c(li, rdist.earth=list(list(dist=rdist.earth, r=r_earth)))
     }
 
 	if (exists("gsw_z_from_p")) { # gsw package is loaded
         teos10 <- gcd.teos10(long1_rad, lat1_rad, long2_rad, lat2_rad, p1=p1, p2=p2)
-        li <- c(li, teos10=teos10)
+        li <- c(li, teos10=list(teos10))
     }
 
     return(li)

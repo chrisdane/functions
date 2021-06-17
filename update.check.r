@@ -1,6 +1,7 @@
 # r
 
 update.check <- function() {
+    options(width=3000) # increase length per print line from default 80
     inst <- packageStatus()
     inds <- which(inst$inst$Status == "upgrade") # ok upgrade unavailable
     if (length(inds) > 0) {

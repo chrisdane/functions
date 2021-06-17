@@ -95,7 +95,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
     # R built-in colormaps
     rs <- c("heat", "rainbow", "topo", "cm", "terrain")
-
+    # todo: "Rocket" and "Mako" for hcl.colors()
+    
     # matlabs
     matlabs <- c("jet")#, "parula")
 

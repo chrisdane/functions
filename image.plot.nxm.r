@@ -495,6 +495,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         } else {
             if (!any(dot_names == "zlim")) zlim <- range(z, na.rm=T)
             message("`ip` argument not provided. try to run `image.plot.pre(zlim)` ...") 
+            source("~/scripts/r/functions/image.plot.pre.r")
             ip <- image.plot.pre(zlim)
         }
         zlim <- ip$zlim
@@ -557,7 +558,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         xlim <- dot_list[["xlim"]]
         if (verbose) cat("provided ")
     }
-    cat("xlim = "); dput(xlim)
+    if (verbose) { cat("xlim = "); dput(xlim) }
     if (!any(dot_names == "ylim")) {
         ylim <- range(y, na.rm=T)
         if (verbose) cat("automatic ")
@@ -565,7 +566,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         ylim <- dot_list[["ylim"]]
         if (verbose) cat("provided ")
     }
-    cat("ylim = "); dput(ylim)
+    if (verbose) { cat("ylim = "); dput(ylim) }
     
     # unique x and y axes of same length for base::plot()
     # (not projected)
@@ -641,32 +642,32 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 	# (not projected)
     if (!any(dot_names == "x_at")) {
         x_at <- pretty(x_plot, n=10)
-        if (verbose) cat("automatic x_at step 1 = "); dput(x_at)
+        if (verbose) { cat("automatic x_at step 1 = "); dput(x_at) }
 	    x_at <- x_at[x_at >= min(x_plot) & x_at <= max(x_plot)]
-        if (verbose) cat("automatic x_at step 2 = "); dput(x_at)
+        if (verbose) { cat("automatic x_at step 2 = "); dput(x_at) }
     } else if (any(dot_names == "x_at")) {
         x_at <- dot_list[["x_at"]]
     }
     if (!any(dot_names == "y_at") || 
         (any(dot_names == "y_at") && is.null(dot_list[["y_at"]]))) {
         y_at <- pretty(y_plot, n=10)
-        if (verbose) cat("automatic y_at step 1 = "); dput(y_at)
+        if (verbose) { cat("automatic y_at step 1 = "); dput(y_at) }
         y_at <- y_at[y_at >= min(y_plot) & y_at <= max(y_plot)]
-        if (verbose) cat("automatic y_at step 2 = "); dput(y_at)
+        if (verbose) { cat("automatic y_at step 2 = "); dput(y_at) }
     } else if (any(dot_names == "y_at")) {
         y_at <- dot_list[["y_at"]]
     }
 
     if (!any(dot_names == "x_labels")) {
         x_labels <- format(x_at, trim=T)
-        if (verbose) cat("automatic x_labels = "); dput(x_labels)
+        if (verbose) { cat("automatic x_labels = "); dput(x_labels) }
     } else if (any(dot_names == "x_labels")) {
         x_labels <- dot_list[["x_labels"]]
     }
 
     if (!any(dot_names == "y_labels")) {
         y_labels <- format(y_at, trim=T)
-        if (verbose) cat("automatic y_labels = "); dput(y_labels)
+        if (verbose) { cat("automatic y_labels = "); dput(y_labels) }
     } else if (any(dot_names == "y_labels")) {
         y_labels <- dot_list[["y_labels"]]
     }
