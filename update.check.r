@@ -3,10 +3,15 @@
 update.check <- function() {
 
     # update packages package-wise
-    # --> `utils::update.packages()` can only check a whole directory and update all packages
-    # --> a specific package can be updated by simply `utils::install.packages(pkgname)`
+    # -> `utils::update.packages()` can only check a whole directory and update all packages
+    # -> a specific package can be updated by simply `utils::install.packages(pkgname)`
 
     libpaths <- .libPaths()
+    
+    # update only 
+    # -> it works better to update packages with the r version according to the package location
+    #libpaths <- libpaths[1] # this only applies to my file structure
+    
     li <- vector("list", l=length(libpaths))
     # first loop just show packages to upgrade
     for (libpathi in seq_along(libpaths)) {
