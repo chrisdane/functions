@@ -533,6 +533,30 @@ checkfun <- function() {
     #} else { # run `fun()`
     #    me <- normalizePath(getSrcFilename(fun, full.names=T))
     #}
+    if (F) {
+        message()
+        message("sys.call() = ")
+        print(sys.call())
+        message("sys.calls() = ")
+        print(sys.calls())
+        message("sys.frame() = ")
+        print(sys.frame())
+        message("sys.nframe() = ")
+        print(sys.nframe())
+        message("sys.frames() = ")
+        print(sys.frames())
+        message("sys.function() = ")
+        print(sys.function())
+        message("sys.parent() = ")
+        print(sys.parent())
+        message("sys.parents() = ")
+        print(sys.parents())
+        message("parent.frame() = ")
+        print(parent.frame())
+        message("sys.status() = ")
+        print(sys.status())
+        message()
+    } # F
 } # checkfun
 
 # return name of sourced file
