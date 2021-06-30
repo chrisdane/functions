@@ -1,6 +1,58 @@
 # r
 
-update.check <- function() {
+load_package <- function(packagename, indent="   ") {
+        
+    if (!exists("verbose")) verbose <- 1
+
+    # need to load package
+    if (!any(search() == paste0("package:", packagename))) {
+        if (verbose > 0) {
+            message(paste0(indent, "Load '", packagename, "' package ..."))
+        }
+        suppressMessages(suppressWarnings(require(packagename, character.only=T)))
+        #tc <- tryCatch(suppressMessages(suppressWarnings(library(i, character.only=T))),
+        #               error=function(e) e, warning=function(w) w)
+ 
+        # no success
+        if (!any(search() == paste0("package:", packagename))) { 
+            message(indent, "****** load_package() ******")
+            message(indent, "Could not load '", packagename, "' package from")
+            message(indent, "   .libPaths=", ifelse(length(.libPaths()) > 1, "c('", "'"),
+                         paste0(.libPaths(), 
+                                collapse=paste0("',\n", paste0(rep(" ", t=nchar(indent)), collapse=""), paste0(rep(" ", t=15), collapse=""), "'")),
+                    ifelse(length(.libPaths()) > 1, "')", "'"), ".")
+            message(indent, "If ", packagename, " is installed somewhere else, you can add library paths by providing")
+            message(indent, "   rpackagepaths='/path/to/installed/packages'")
+            message(indent, "or")
+            message(indent, "   rpackagepaths=c('/path1/to/packages', 'path2/to/packages')")
+            message(indent, "to to the runscript and rerun the script.")
+            message(indent, "You can install the package now with")
+            message(indent, "   install.packages('", packagename, "')")
+            message(indent, "or")
+            message(indent, "   install.packages('", packagename, "', lib=/where/the/package/should/be/installed')")
+            message(indent, "****************************")
+            success <- F
+
+        # success
+        } else {
+            if (verbose > 0) {
+                #message(paste0(indent, "Done."))
+            }
+            success <- T
+        }
+    
+    # package is already loaded
+    } else {
+        if (verbose > 0) {
+            #message(paste0(indent, "Package '", packagename, "' is already loaded ..."))
+        }
+        success <- T
+    }
+
+} # load_package function
+
+
+update_check <- function() {
 
     # update packages package-wise
     # -> `utils::update.packages()` can only check a whole directory and update all packages
@@ -77,5 +129,29 @@ update.check <- function() {
         }
     }
 
-} # update.check()
+} # update_check()
+
+remove_depends <- function(pkg, lib=.libPaths()[1], recursive=F) {
+    library("tools")
+    d <- tools::package_dependencies(db=utils::installed.packages(lib=lib), recursive=recursive)
+    depends <- if(!is.null(d[[pkg]])) d[[pkg]] else character()
+    needed <- unique(unlist(d[!names(d) %in% c(pkg,depends)]))
+    toRemove <- depends[!depends %in% needed]
+    if (length(toRemove)) {
+        toRemove <- c(pkg, sort(toRemove))
+        if (!interactive()) {
+            warning("this is a non-interactive session, will not remove packages\n",
+                    paste(toRemove, collapse=", "))
+        } else {
+            toRemove <- utils::select.list(choices=toRemove,
+                                           preselect=toRemove, # default: all
+                                           multiple=T,
+                                           title="Select packages to remove")
+            utils::remove.packages(toRemove, lib=lib)
+        }
+        #return(toRemove) # if list is wanted
+    } else {
+        invisible(character())
+    }
+} # remove_depends
 
