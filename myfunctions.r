@@ -761,8 +761,8 @@ cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
 myDefaultPlotOptions <- function(plist=list(plot_type="pdf", 
                                             ts_width_in=7, ts_asp=2,
                                             ts_mon_width_in=7, ts_mon_asp=1,
-                                            depth_width_in=7, depth_asp=1,
-                                            map_width_in=7, map_asp=1,
+                                            depth_width_in=7, depth_asp=0.5,
+                                            map_width_in=7, map_asp=4/3,
                                             scatter_width_in=7, scatter_asp=1,
                                             #ts_width=2666, ts_height=1333, 
                                             #ts_width_m=2100, ts_height_m=1600,
@@ -886,7 +886,7 @@ plot_sizes <- function(width_in=NULL, height_in=NULL,
     # png pointsize: the default pointsize of plotted text, interpreted as big
     #      points (1/72 inch) at ‘res’ ppi.
     # 1 pt = 1/72 inch = 0.01388889 inch = 0.35277780599999997 mm
-    if (asp < 2) {
+    if (asp > 1 && asp < 2) {
         asp_interp <- approx(x=c(1, 2), y=c(2, 1), n=100) # linearly interp asp 1 to 2 --> fac 2 to 1
         asp_fac_ind <- which.min(abs(asp_interp$x - asp))
         asp_fac <- asp_interp$y[asp_fac_ind]
