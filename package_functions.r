@@ -132,6 +132,7 @@ update_check <- function() {
 } # update_check()
 
 remove_depends <- function(pkg, lib=.libPaths()[1], recursive=F) {
+    if (missing(pkg)) stop("must provide at least one package")
     library("tools")
     d <- tools::package_dependencies(db=utils::installed.packages(lib=lib), recursive=recursive)
     depends <- if(!is.null(d[[pkg]])) d[[pkg]] else character()
@@ -154,4 +155,20 @@ remove_depends <- function(pkg, lib=.libPaths()[1], recursive=F) {
         invisible(character())
     }
 } # remove_depends
+
+# check for broken packages
+broken_pkgs <- function(lib=.libPaths()[1]) {
+    pkgs <- installed.packages(lib=lib)[,1]
+    checks <- list(); cnt <- 0
+    for (i in seq_along(pkgs)) {
+        check <- tryCatch(ncol(asNamespace(pkgs[i])$.__NAMESPACE__.$S3methods),
+                          error = function(e) print(c(pkgs[i], e)))
+        if (class(check) == "list") {
+            cnt <- cnt + 1
+            checks[[cnt]] <- check[2:3]
+            names(checks)[cnt] <- pkgs[i]
+        }
+    }
+    return(checks)
+} # broken_pkgs
 
