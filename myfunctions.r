@@ -627,7 +627,7 @@ reorder_legend <- function(le) {
 
 # headtail
 ht <- function(x, n=15, ...) {
-    # from FSA::headtail
+    # small changes based on FSA::headtail
     if (!(is.matrix(x) | is.data.frame(x))) 
         x <- as.data.frame(x)
     if ("tbl_df" %in% class(x)) 
@@ -636,14 +636,14 @@ ht <- function(x, n=15, ...) {
     if (n >= N)
         tmp <- x
     else {
-        h <- utils::head(x, n, ...)
+        h <- utils::head(x, n=min(N/2, n), ...)
         if (is.null(rownames(x))) 
             rownames(h) <- paste0("[", seq_len(n), ",]")
-        t <- utils::tail(x, n, keepnums=T, ...)
+        t <- utils::tail(x, n=min(N/2, n), keepnums=T, ...)
         tmp <- rbind(h, t)
     }
     print(tmp)
-} # ht()
+} # ht function
 
 grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
     # in GRL, 1 paper consists of 12 "publication units" (PU) max.

@@ -9,6 +9,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                            poly_border_col=NA, 
                            contour_only=F, add_contour=T, contour_include_zero=T,
                            contour_posneg_soliddashed=T, contour_posneg_redblue=F,
+                           contour_unique=F,
                            contour_smooth=F, contour_smooth_n_segment_thr=5, contour_smooth_spar=0.5,
                            contour_labcex=1, contour_drawlabels=T, contour_vfont=NULL, #c("sans serif", "bold"), 
                            quiver_thr=NULL, quiver_const=F, quiver_nxfac=1, quiver_nyfac=1, 
@@ -270,6 +271,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                         if (is.null(contour_list[[vi]][[i]]$lwd)) contour_list[[vi]][[i]]$lwd <- 1
                         if (is.null(contour_list[[vi]][[i]]$contour_posneg_soliddashed)) contour_list[[vi]][[i]]$contour_posneg_soliddashed <- contour_posneg_soliddashed
                         if (is.null(contour_list[[vi]][[i]]$contour_posneg_redblue)) contour_list[[vi]][[i]]$contour_posneg_redblue <- contour_posneg_redblue
+                        if (is.null(contour_list[[vi]][[i]]$contour_unique)) contour_list[[vi]][[i]]$contour_unique <- contour_unique
                         if (is.null(contour_list[[vi]][[i]]$contour_drawlabels)) contour_list[[vi]][[i]]$contour_drawlabels <- contour_drawlabels
                         if (is.null(contour_list[[vi]][[i]]$contour_smooth)) contour_list[[vi]][[i]]$contour_smooth <- contour_smooth
                         if (is.null(contour_list[[vi]][[i]]$contour_smooth_n_segment_thr)) contour_list[[vi]][[i]]$contour_smooth_n_segment_thr <- contour_smooth_n_segment_thr
@@ -477,8 +479,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     }
     if (add_contour || contour_only || !is.null(contour_list)) {
         if (contour_posneg_soliddashed && contour_posneg_redblue) {
-            message("both `contour_posneg_soliddashed` and `contour_posneg_redblue` cannot be true.",
-                    " set the latter to false (default) and continue ...")
+            msg <- paste0("both `contour_posneg_soliddashed` and `contour_posneg_redblue` cannot be true.",
+                          " set the latter to false (default) and continue ...")
+            warning(msg, .immediate=T); warning(msg, .immediate=F)
             contour_posneg_redblue <- F
         }
     }
@@ -1462,7 +1465,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 if (left_axis_inds[i]) {
                     graphics::axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
                                    lwd=0, lwd.ticks=lwd.ticks)
-                    mtext(ylab, side=2, line=3, cex=1)
+                    #mtext(ylab, side=2, line=3, cex=1)
+                    mtext(ylab, side=2, line=4, cex=1)
                     #mtext(ylab, side=2, line=5, cex=1)
                 } else { # just ticks
                     graphics::axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
