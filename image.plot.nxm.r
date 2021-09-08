@@ -123,12 +123,12 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
         } # if n or m or both are missing
     } # if n or m are missing
-    if (verbose) message("--> n x m = ", n, " x ", m, " ...")
     
     # nplots based on derived number of rows (n) and columns (m)
     nplots <- n*m
+    if (verbose) message("--> n x m = ", n, " rows x ", m, " cols = ", nplots, " plots (nz = ", nz, ")")
     if (nplots < nz) {
-        stop("the obtained n*m = ", n*m, " < nz = ", nz, ". re-run with proper n (nrow) or/and m (ncol)")
+        stop("n*m = ", nplots, " < nz = ", nz, ". re-run with proper n (nrow) or/and m (ncol)")
     }
 
     # decide which axes are drawn to which subplot
@@ -139,21 +139,19 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         # order plots from top to bottom and then from left to right (default: False)
         if (top_bottom) { 
             
-            if (verbose) message("axes top_bottom")
-            
             # titles in top row
             if (i == n*(m-1)+1) title_inds[i] <- T
             
             # left axes
             if (i <= n) { 
-                if (verbose) message("axis top_bottom i=", i, " <= n (=", n, ")")
+                if (verbose) message("left axis top_bottom i=", i, " <= n (=", n, ")")
                 left_axis_inds[i] <- T
             }
             
             # bottom axes
             if (i %% n == 0 # bottom row
                 ) { # todo: or last column of (nrow-1)th row if n*m > nplots
-                if (verbose) message("axis top_bottom i=", i, " %% n (=", n, ") = ", i %% n, " == 0")
+                if (verbose) message("bottom axis top_bottom i=", i, " %% n (=", n, ") = ", i %% n, " == 0")
                 bottom_axis_inds[i] <- T
             }
 
@@ -172,10 +170,11 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
 
             # bottom axes
-            if (i >= (n*m - m + 1) || # last row
-                (nplots > nz && (i >= n*m - m))) { # or last column of (nrow-1)th row if nplots > nz
+            if (i >= (nplots - m + 1) || # last row
+                #(nplots > nz && (i >= nplots - m))) { # or last column of (nrow-1)th row if nplots > nz
+                (nplots > nz && (i >= nplots - (nplots - nz + m - 1)))) { # or (nrow-1)th row if nplots > nz
                 if (verbose) message("bottom axis !top_bottom i=", i, " >= (n*m - m + 1) = (", 
-                                     n, "*", m, " - ", m, " + 1) = ", (n*m - m + 1))
+                                     n, "*", m, " - ", m, " + 1) = ", (nplots - m + 1))
                 bottom_axis_inds[i] <- T
             }
         } # if top_bottom
@@ -457,11 +456,14 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
     # checks
     if (any(names(provided_args) == "contour_only")) { # if contour_only was provided by user
+        if (!is.logical(contour_only)) stop("provided `contour_only` must be T or F")
         if (contour_only) { # user wants contour_only
             if (any(names(provided_args) == "add_contour")) {
+                if (!is.logical(add_contour)) stop("privided `add_contour` must be T or F")
                 if (add_contour) { # user wants add_contour
                     message("user provided both `contour_only` and `add_contour` as true.",
-                            " set `contour_only` to false (default) and continue ...")
+                            " set `add_contour` to false and continue ...")
+                    add_contour <- F
                 }
             } else { # user did not provide add_contour
                 if (add_contour) { # default of function
@@ -479,9 +481,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     }
     if (add_contour || contour_only || !is.null(contour_list)) {
         if (contour_posneg_soliddashed && contour_posneg_redblue) {
-            msg <- paste0("both `contour_posneg_soliddashed` and `contour_posneg_redblue` cannot be true.",
-                          " set the latter to false (default) and continue ...")
-            warning(msg, .immediate=T); warning(msg, .immediate=F)
+            warning("both `contour_posneg_soliddashed` and `contour_posneg_redblue` cannot be true.",
+                    " set the latter to false (default) and continue ...")
             contour_posneg_redblue <- F
         }
     }
@@ -800,7 +801,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         if (verbose) message("\n**************************************\n",
                              "subplot ", i, "/", nplots, " (nz = ", nz, ") ...")
         
-        # Open i-th subplot device
+        # Open i-th subplot device, even if there is nothing to draw
         if (proj == "") { # default
             # usage of helper-`x_plot` more flexible than just using combination of `xlim` and `x=0`
             plot(x_plot, y_plot, t="n", 
@@ -841,11 +842,13 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     
         # its possible that there are less data to plot than nrow*ncols (e.g. length(x) = 5, ncol=2, nrow=3)
         # --> do not plot anything if (length(x) == nplots - 1 && i == nplots)
-        if (length(x) == nplots - 1 && i == nplots) { 
+        #if (length(x) == nplots - 1 && i == nplots) { 
+        if (i > nz) {
             # nothing to do
             if (verbose) {
-                message("length(x) = ", length(x), " == nplots - 1 = ", nplots - 1, 
-                        " && i == nplots = ", nplots, " --> do not plot anything")
+                #message("length(x) = ", length(x), " == nplots - 1 = ", nplots - 1, 
+                #        " && i == nplots = ", nplots, " --> nothing to draw")
+                message("i = ", i, " > nz = ", nz, " --> nothing to draw")
             }
 
         } else { # if length(x) != nplots - 1 && i != nplots
@@ -857,16 +860,15 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 
                 # add NA values
                 if (T && any(is.na(z[[i]]))) {
-                    if (proj == "") {
-                        if (F) {
+                    if (proj == "") { # NA values are handled by `oce::mapImage(missingColor=NAcol, ...)` if projection
+                        if (F) { # old
                             if (verbose) message("`z[[", i, "]]` has missing values (NA) --> add missing values ",
                                                  "to subplot with color `NAcol`=", NAcol, " using graphics::image() ...")
                                 graphics::image(x[[i]], y[[i]], array(1, c(nx, ny)),
                                                 add=T, col=NAcol,
                                                 axes=F, xlab="n", ylab="n",
                                                 useRaster=useRaster)
-                        } else {
-                            message("test")
+                        } else { # new
                             usr <- par("usr")
                             rect(usr[1], usr[3], usr[2], usr[4], col=NAcol, border=NA)
                         }
@@ -1952,7 +1954,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                     message("axis.labels:")
                     cat(capture.output(str(axis.labels)), sep="\n")
                 }
-                temp <- imageplot.setup(add=T)
+                temp <- fields::imageplot.setup(add=T)
                 plt <- temp$bigplot
                 if (verbose) {
                     message("temp:")
@@ -2099,8 +2101,8 @@ if (F) {
   # get coordinates of colorbar in user coordinates (from image.plot)
   old.par <- par(no.readonly=T)
   bigplot <- old.par$plt
-  ndc_coords <- imageplot.setup(add=T, legend.mar=distance_of_colorbar_from_mapplot, 
-                                legend.width=legend.width, horizontal=T, bigplot=bigplot) 
+  ndc_coords <- fields::imageplot.setup(add=T, legend.mar=distance_of_colorbar_from_mapplot, 
+                                        legend.width=legend.width, horizontal=T, bigplot=bigplot) 
   # -> ndc = normalized device coordinates
   # -> other parameters of the image.plot(legend.only=T) call may need to handed to imageplot.setup()
   usr_coords <- grconvertX(ndc_coords$bigplot[1:2], from="ndc", to="user")

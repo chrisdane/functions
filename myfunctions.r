@@ -2,7 +2,7 @@
 
 ## my collection of  R functions that I need again and again
 
-## section 1: geo-physical stuff
+## section 1/2: geo-physical stuff
 
 # leap years
 is.leap <- function(years) {
@@ -331,31 +331,183 @@ m2lat <- function(dm, alat) {
 } # m2lat
 
 # convert longitudes from 0,360 to -180,180
-convert_lon_360_to_180 <- function(lon360, data360=NULL, data360_lonind=NULL) {
-    if (missing(lon360)) stop("provide `lon360`")
-    west_of_180_inds <- which(lon360 < 180)
-    east_of_180_inds <- which(lon360 >= 180)
+convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360, londimind) {
+    # input:
+    #   if `nc_file` and `nc_out` (and optionally `nc_varname`):
+    #       load lon360 from nc dims (and optionally data360 form `nc_varname`) from nc file
+    #   else if `lon360`:
+    #       work on provided numeric lon360 (and optionally data360) data directly
+    if (missing(nc_file) && missing(lon360)) {
+        stop("provide either `nc_file` (and optionally `nc_varname`) or ",
+             "`lon360` (and optionally `data360` and `londimind`).")
+    }
+    if (!missing(nc_file)) {
+        if (file.exists(nc_file) && file.access(nc_file, mode=4) != -1) { # file exists and is readable
+            message("load ncdf4 package and run ncdf4::nc_open() on `nc_file` = \"", nc_file, "\" ...")
+            library(ncdf4)
+            nc <- ncdf4::nc_open(nc_file)
+            known_lon_dimnames <- c("lon", "lons", "longitude")
+            message("check nc dims for \"lon\", \"lons\", \"longitude\" ...")
+            # find and load lons
+            if (any(!is.na(match(known_lon_dimnames, names(nc$dim))))) {
+                lonind <- which(!is.na(match(known_lon_dimnames, names(nc$dim))))
+                if (length(lonind) != 1) {
+                    stop("found ", length(lonind), " matching dims: ",
+                         "\"", paste(known_lon_dimnames[lonind], collapse="\", \""), "\"",
+                         " --> only one allowed")
+                }
+                lonind <- which(names(nc$dim) == c(known_lon_dimnames[lonind]))
+                message("--> use \"", names(nc$dim)[lonind], "\" dim with ", nc$dim[[lonind]]$len, " values from ",
+                        paste(head(nc$dim[[lonind]]$vals), collapse=", "), " to ",
+                        paste(tail(nc$dim[[lonind]]$vals), collapse=", "), " as lon360 dim ...")
+                lon360 <- nc$dim[[lonind]]$vals
+            } else {
+                stop("found not any dimension having one of those names")
+            }
+            # load nv_varname from nc_file
+            data360 <- NULL
+            if (!missing(nc_varname)) {
+                if (is.character(nc_varname)) {
+                    if (length(nc_varname) != 1) stop("provided `nc_varname` must be of length 1")
+                    message("load `nc_varname` = \"", nc_varname, "\" from nc file via ncdf4::ncvar_get() ...")
+                    varind <- which(nc_varname == names(nc$var))
+                    if (length(varind) != 1) {
+                        stop("this varname was not identified once from available nc varnames \"", 
+                             paste(names(nc$var), collapse="\", \""), "\"")
+                    }
+                    data360 <- ncdf4::ncvar_get(nc, nc_varname)
+                    message("find longitude dimension index of variable \"", nc_varname, "\" ...")
+                    lonid <-nc$dim[[lonind]]$id
+                    dims_of_var <- nc$var[[varind]]$dimids
+                    londimind <- which(dims_of_var == lonid)
+                    if (length(londimind) == 0) {
+                        stop("did not find lon id ", lonid, " in ", nc_varname, 
+                             " dimids ", paste(dims_of_var, collapse=", "), ". this should not happen")
+                    } else {
+                        message("--> dims(", nc_varname, ") = ", paste(dim(data360), collapse=", "), 
+                                " --> londimind = ", londimind)
+                    }
+                } else {
+                    stop("class \"", paste(class(nc_varname), collapse="\", \""), 
+                         "\" of provided `nc_varname` not implemented. must be character")
+                }
+            } # if nc_varname is provided
+        } else {
+            stop("provided `nc_file` = \"", nc_file, "\" does not exist as file or is not readable")
+        }
+        if (missing(nc_out)) stop("`nc_out` not provided")
+        dir.create(dirname(nc_out), recursive=T, showWarnings=F)
+        if (file.access(dirname(nc_out), mode=2) == -1) { # not writeable
+            stop("directory of `nc_out` = \"", nc_out, "\" not writable")
+        }
+    } else { # if nc_file was not provided --> use lon360
+        # check input data
+        if (!is.numeric(lon360)) stop("`lon360` must be numeric")
+        if (!missing(data360)) { # if data360 was provided
+            if (!is.numeric(data360)) stop("`data360` must be numeric")
+            if (missing(londimind)) { # londimind not provided
+                message("`londimind` not provided --> try to determine from\n",
+                        "length(lon360) = ", length(lon360), "; dims(data360) = ", 
+                        paste(dim(data360), collapse=", "), " ...")
+                londimind <- which(dim(data360) == length(lon360))
+                if (length(londimind) != 1) {
+                    stop("number of longitudes was found ", length(ind), " times in data dims")
+                } else {
+                    message("--> londimind = ", londimind)
+                }
+            } else { # if londimind was provided
+                if (!is.numeric(londimind)) stop("`londimind` must be numeric")
+            }
+        } else { # if data360 was not provided
+            data360 <- NULL
+        }
+    } # if nc_file or data360 was provided
+                   
+    # start converting from 0,360 --> -180,180
     lon180 <- lon360 - 180
     ret <- list(lon180=lon180)
     if (!is.null(data360)) {
-        if (is.null(data360_lonind)) stop("provided `data360` but not `data360_lonind`")
+        east_of_180_inds <- which(lon360 >= 180)
+        if (length(east_of_180_inds) == 0) {
+            stop("found zero lons >= 180")
+        }
+        west_of_180_inds <- which(lon360 < 180)
         data360 <- as.array(data360)
         cmdeast <- rep(",", t=length(dim(data360))) 
-        cmdeast[data360_lonind] <- paste0("east_of_180_inds")
+        cmdeast[londimind] <- paste0("east_of_180_inds")
         cmdeast <- paste(cmdeast, collapse="")
         cmdwest <- rep(",", t=length(dim(data360))) 
-        cmdwest[data360_lonind] <- paste0("west_of_180_inds")
+        cmdwest[londimind] <- paste0("west_of_180_inds")
         cmdwest <- paste(cmdwest, collapse="")
-        cmd <- paste0("data180 <- abind(data360[", cmdeast, "], ",
-                                       "data360[", cmdwest, "], ",
-                                       "along=", data360_lonind, ")")
-        message("convert_lon_360_to_180(): run `", cmd, "` ...")
+        cmd <- paste0("data180 <- abind::abind(data360[", cmdeast, "], ",
+                                              "data360[", cmdwest, "], ",
+                                              "along=", londimind, ")")
+        message("run `", cmd, "` with\n",
+                "east_of_180_inds = ", paste(head(east_of_180_inds), collapse=","), " to ",
+                paste(tail(east_of_180_inds), collapse=","), "\n",
+                "west_of_180_inds = ", paste(head(west_of_180_inds), collapse=","), " to ",
+                paste(tail(west_of_180_inds), collapse=","), "\n",
+                "--> ", paste(head(lon360[east_of_180_inds]), collapse=","), " to ",
+                paste(tail(lon360[east_of_180_inds]), collapse=","), " and\n",
+                "    ", paste(head(lon360[west_of_180_inds]), collapse=","), " to ",
+                paste(tail(lon360[west_of_180_inds]), collapse=","))
         library(abind)
         eval(parse(text=cmd))
         dimnames(data180) <- NULL
         ret$data180 <- data180
     } # if !is.null(data)
-    return(ret)
+    
+    if (!missing(nc_file)) { # nc output of converted data
+        ncdims <- nc$dim
+        ncdims[[lonind]]$vals <- lon180
+        if (!is.null(data360)) {
+            ncvars <- nc$var
+            ncvars[[varind]]$dim[[londimind]]$vals <- lon180
+            if (T) { # save wanted variable only as e.g. time_bnds yields erroneous grid:
+                # gridID 1
+                # gridtype  = generic
+                # gridsize  = 2
+                # xsize     = 2
+                message("special: save only ", nc_varname)
+                ncvars <- ncvars[varind]
+            }
+        }
+        message("save `nc_out` = \"", nc_out, "\" ...")
+        outnc <- ncdf4::nc_create(filename=nc_out, force_v4=T, vars=ncvars)
+        for (i in seq_along(ncvars)) {
+            if (!is.null(data360) && names(ncvars) == nc_varname) { # save converted data 
+                message("variable ", nc_varname, ": save converted values")
+                ncdf4::ncvar_put(nc=outnc, varid=ncvars[[i]], vals=data180)
+            } else { # keep all other untouched
+                #message("variable ", names(ncvars)[i], ": save original values")
+                #ncdf4::ncvar_put(nc=outnc, varid=ncvars[[i]], vals=ncdf4::ncvar_get(nc, names(ncvars)[i]))
+            }
+        }
+        # copy all variable/global attributes from input
+        for (vi in seq_along(ncvars)) {
+            atts <- ncdf4::ncatt_get(nc, names(ncvars)[vi])
+            if (length(atts) > 0) {
+                for (i in seq_along(atts)) {
+                    #message(names(atts)[i])
+                    if (names(atts)[i] == "_FillValue") {
+                        # Error in ncatt_put, while writing attribute _FillValue with value 1.00000002004088e+20
+                        # was already set earlier
+                    } else {
+                        ncdf4::ncatt_put(outnc, names(ncvars)[vi], names(atts)[i], atts[[i]])
+                    }
+                }
+            }
+        }
+        global_atts <- ncdf4::ncatt_get(nc, 0)
+        if (length(global_atts) > 0) {
+            for (i in seq_along(global_atts)) {
+                ncdf4::ncatt_put(outnc, 0, names(global_atts)[i], global_atts[[i]])
+            }
+        }
+        ncdf4::nc_close(outnc)
+    } else { # just return data180 
+        return(ret)
+    }
 } # convert_lon_360_to_180
 
 # running mean
@@ -497,15 +649,15 @@ speeds <- function(x=1, unit="cm/s") {
     print(mat)
     options("scipen"=oo); message("scipen=", getOption("scipen"))
     invisible(mat)
-
 } # speeds function
 
-## section 2: r-stuff
+## section 2/2: r-stuff
 
 # return currently running R executable
 Rexe <- function() return(paste0(R.home(), "/bin/exec/R"))
 
 tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
+    # use e.g. like this: `input_format <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))`
     W <- NULL
     w.handler <- function(w) { # warning handler
         W <<- w
@@ -515,6 +667,40 @@ tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
                                    warning=w.handler), 
          warning=W)
 } # tryCatch.W.E
+
+# find unbalanced (), [], {}-code blocks with a missing open or closed part
+# from https://stat.ethz.ch/pipermail/r-help/2014-May/374864.html
+get_unbalanced_braces <- function(file) {
+    if (!file.exists(file)) {
+        stop("`file` = \"", file, "\" does not exist")
+    }
+    message("check `file` = \"", file, "\" ... ", appendLF=F)
+    text <- readLines(file)
+    src <- srcfile(file)
+    status <- tryCatch(parse(text=text, srcfile=src),
+                       error=function(e) e,
+                       warning=function(w) w)
+    if (typeof(status) != "expression") { # some warning/error 
+        d <- getParseData(src)
+        tokens_to_check <- c("'{'", "'}'", "'['", "']'", "'('", "')'")
+        message("found some warning/error --> check ", length(tokens_to_check), 
+                " tokens for missing parents ...")
+        for (i in seq_along(tokens_to_check)) {
+            message("*****************************************************\n",
+                    "token ", i, "/", length(tokens_to_check), ": \"", 
+                    tokens_to_check[i], "\" ... ", appendLF=F)
+            inds <- which(d$token == tokens_to_check[i] & d$parent == 0)
+            if (length(inds) > 0) {
+                message("--> found ", length(inds), " missing parents:")
+                print(d[inds,])
+            } else {
+                message("--> found zero missing parents")
+            }
+        }
+    } else {
+        message("no warning/error found")
+    }
+} # get_unbalanced_braces()
 
 # will never understand this
 checkfun <- function() {
