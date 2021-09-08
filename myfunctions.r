@@ -298,11 +298,13 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
 } # make_posixlt_origin
 
 # minute/second degree to decimal degree longitude/latitude
-deg2dec <- function(deg=0.0, min=0.0, sec=0.0) {
-    if (length(deg) == 1 && length(min) == 1 && length(sec) == 1) {
-        message("deg2dec(): dec = deg + min/60 + sec/3600 = ", deg, " + ", min, "/60 + ", sec, "/3600")
-    } else {
-        message("deg2dec(): dec = deg + min/60 + sec/3600")
+deg2dec <- function(deg=0.0, min=0.0, sec=0.0, verbose=F) {
+    if (verbose) { 
+        if (length(deg) == 1 && length(min) == 1 && length(sec) == 1) {
+            message("deg2dec(): dec = deg + min/60 + sec/3600 = ", deg, " + ", min, "/60 + ", sec, "/3600")
+        } else {
+            message("deg2dec(): dec = deg + min/60 + sec/3600")
+        }
     }
     dec <- deg + min/60 + sec/3600
     return(dec)
@@ -641,7 +643,7 @@ speeds <- function(x=1, unit="cm/s") {
     lengths <- c("0.1mm", "mm", "cm", "10cm", "m", "10m", "100m", "km", "3km", "10km", "100km", "1000km")
     times <- c("s", "min", "h", "day", "month", "year", "kyear", "Myear")
     vec <- as.vector(outer(lengths, times, paste, sep="/"))
-    for (i in 1:length(vec)) vec[i] <- set_units(x, value=vec[i], mode="standard")
+    for (i in seq_along(vec)) vec[i] <- set_units(x, value=vec[i], mode="standard")
     mat <- matrix(as.numeric(vec), nrow=length(lengths))
     rownames(mat) <- lengths; colnames(mat) <- times
     oo <- getOption("scipen") # oldoption
@@ -650,6 +652,20 @@ speeds <- function(x=1, unit="cm/s") {
     options("scipen"=oo); message("scipen=", getOption("scipen"))
     invisible(mat)
 } # speeds function
+
+# convert masses with units package
+masses <- function(x=1, unit="kg") {
+    library(units) # valid_udunits()
+    x <- set_units(x=x, value=unit, mode="standard")
+    units <- data.frame(unit=c("g", "kg", "t", "Mt",               "Gt",                                    "Tg",                                     "Pg",      "Tt"),
+                        note=c("",  "",   "",  "mega 6 (million)", "giga 9 (billion short, milliard long)", "tera 12 (trillion short, billion long)", "peta 15", "tera 12"))  
+    vals <- units$unit
+    for (i in seq_along(vals)) vals[i] <- set_units(x, value=units$unit[i], mode="standard")
+    df <- data.frame(value=vals, unit=units$unit, note=units$note, stringsAsFactors=F)
+    print(df)
+    invisible(df)
+} # masses function
+
 
 ## section 2/2: r-stuff
 
@@ -1053,6 +1069,13 @@ plot_sizes <- function(width_in=NULL, height_in=NULL,
         stop("provide either `width_in` or `width_cm`")
     } else if (is.numeric(height_in) && is.numeric(height_cm)) {
         stop("provide either `height_in` or `height_cm`")
+    }
+    if (is.logical(asp)) {
+        if (asp) {
+            asp <- 4/3 # default
+        } else if (!asp) {
+            asp <- 1 # no asp; height=width if one is missing
+        }
     }
     if (is.numeric(width_in) && !is.numeric(height_in)) height_in <- width_in/asp
     if (!is.numeric(width_in) && is.numeric(height_in)) width_in <- height_in*asp
