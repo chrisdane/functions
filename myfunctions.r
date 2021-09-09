@@ -764,17 +764,43 @@ checkfun <- function() {
 # return name of sourced file
 # from https://stackoverflow.com/questions/1815606/determine-path-of-the-executing-script
 thisFile <- function() {
-        cmdArgs <- commandArgs(trailingOnly = FALSE)
-        needle <- "--file="
-        match <- grep(needle, cmdArgs)
-        if (length(match) > 0) {
-                # Rscript
-                return(normalizePath(sub(needle, "", cmdArgs[match])))
-        } else {
-                # 'source'd via R console
-                return(normalizePath(sys.frames()[[1]]$ofile))
-        }
-}
+    cmdArgs <- commandArgs(trailingOnly = FALSE)
+    needle <- "--file="
+    match <- grep(needle, cmdArgs)
+    if (length(match) > 0) {
+            # Rscript
+            return(normalizePath(sub(needle, "", cmdArgs[match])))
+    } else {
+            # 'source'd via R console
+            return(normalizePath(sys.frames()[[1]]$ofile))
+    }
+} # thisFile()
+
+# get memory of current r session
+get_memory <- function(method="ps", verbose=F) {
+    known_methods <- c("ps")
+    if (is.na(match(method, known_methods))) {
+        stop("`method` must be one of \"", paste(known_methods, collapse="\", \""), "\"")
+    }
+    pid <- Sys.getpid()
+    if (method == "ps") {
+        if (Sys.which("ps") == "") stop("program `ps` not found")
+        cmd <- paste0("ps -o rss,vsz ", pid)
+        if (verbose) message("run `", cmd, "` ...")
+        mem <- system(cmd, intern = T)
+        mem <- read.table(text=mem, header=T)
+        mem <- unlist(mem) * 1024
+        prettyMem <- sapply(mem, function(x) {
+            class(x) <- "object_size"
+            format(x, units = "auto")
+        })
+        mem <- data.frame(c("RSS physical", "VSZ virtual"), mem, 
+            prettyMem)
+        names(mem) <- c(paste0("`", cmd, "`"), "Mem [B]", "PrettyMem")
+        message("pid ", pid, " ", paste(paste0(mem[,1], ": ", mem[,3]), collapse=", "))
+    }
+    #return(mem)
+} # get_memory()
 
 # check if all elements of a list are identical
 # https://stackoverflow.com/questions/4752275/test-for-equality-among-all-elements-of-a-single-vector
