@@ -556,7 +556,7 @@ image.plot.pre <- function(zlim,
             ## it is possible that round(zlim, axis.round) equals axis.labels[1] 
             ## and/or axis.labels[n]. then the labels would be e.g. c(-50, -50, -40, ...)
             if (as.numeric(sprintf(paste0("%.", axis.round, "f"), zlim[1])) < as.numeric(axis.labels[1])) {
-                message("zlim[1] = ", zlim[1], " < axis.labels[1] = ", axis.labels[1])
+                if (verbose) message("zlim[1] = ", zlim[1], " < axis.labels[1] = ", axis.labels[1])
                 axis.labels <- c(sprintf(paste0("%.", axis.round, "f"), zlim[1]), axis.labels)
                 axis.at <- c(as.numeric(sprintf(paste0("%.", axis.round, "f"), zlim[1])), axis.at)
                 axis.at.ind <- c(1, axis.at.ind)
