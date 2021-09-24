@@ -289,7 +289,7 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
     if (allow_sticky) {
         if (verbose > 0) message("load sticky package and make `origin` attribute permanent. ",
                                  "set `allow_sticky=F` if you do not want that.")
-        if (any(search() == "package:sticky")) library(sticky)
+        if (!any(search() == "package:sticky")) library(sticky)
         posixlt <- sticky::sticky(posixlt)
     } # if allow_sticky
 
@@ -1045,73 +1045,75 @@ myDefaultPlotOptions <- function(plist=list(plot_type="pdf",
     dot_list <- list(...)
     dot_names <- names(dot_list)
     if (length(dot_list) > 0) {
+        if (verbose) message("*** myDefaultPlotOptions() start ***")
         for (i in seq_along(dot_list)) {
-            if (verbose && i == 1) message("*** myDefaultPlotOptions() start ***")
-            if (dot_names[i] == "plot_type") {
-                if (!any(dot_list[[i]] == c("png", "pdf", "active"))) {
-                    stop("myDefaultPlotOptions(): given plot_type ", 
-                         dot_list[[i]], " must be one of \"png\", \"pdf\" or \"active\"")
-                }
-                if (dot_list[[i]] == plist$plot_type) { # if wanted is already default
-                    next # argument
-                }
-            }
-            # check if provided pdf family is available
-            # -> for png, system falls back to default automatically if wanted font is not available
-            # -> for pdf, an error is raised
-            if (dot_names[i] == "pdf_family") {
-                # check if wanted font is one of system defaults
-                fonts <- names(grDevices::pdfFonts())
-                if (!any(fonts == dot_list[[i]])) { # if wanted font is not any system default
-                    message("wanted pdf_family = \"", dot_list[[i]], "\" is not included in ", 
-                            length(fonts), " currently loaded grDevices::pdfFonts()")
-                    if (!any(search() == "package:extrafont")) { # try to load extrafont package
-                        message("run `require(extrafont)`")
-                        suppressMessages(require("extrafont"))
+            if (!is.null(dot_list[[i]])) {
+                if (dot_names[i] == "plot_type") {
+                    if (!any(dot_list[[i]] == c("png", "pdf", "active"))) {
+                        stop("myDefaultPlotOptions(): given plot_type ", 
+                             dot_list[[i]], " must be one of \"png\", \"pdf\" or \"active\"")
                     }
-                    if (any(search() == "package:extrafont")) { # try to load extrafont package
-                        fonts <- extrafont::fonts()
-                        message("wanted pdf_family = \"", dot_list[[i]], "\" ", appendLF=F)
-                        if (!any(fonts == dot_list[[i]])) { # wanted font not avilable
-                            message("is also not included in ", length(fonts), 
-                                    " currently loaded extrafont::fonts(). use default \"",
-                                    plist$pdf_family, "\" ...")
+                    if (dot_list[[i]] == plist$plot_type) { # if wanted is already default
+                        next # argument
+                    }
+                }
+                # check if provided pdf family is available
+                # -> for png, system falls back to default automatically if wanted font is not available
+                # -> for pdf, an error is raised
+                if (dot_names[i] == "pdf_family") {
+                    # check if wanted font is one of system defaults
+                    fonts <- names(grDevices::pdfFonts())
+                    if (!any(fonts == dot_list[[i]])) { # if wanted font is not any system default
+                        message("wanted pdf_family = \"", dot_list[[i]], "\" is not included in ", 
+                                length(fonts), " currently loaded grDevices::pdfFonts()")
+                        if (!any(search() == "package:extrafont")) { # try to load extrafont package
+                            message("run `require(extrafont)`")
+                            suppressMessages(require("extrafont"))
+                        }
+                        if (any(search() == "package:extrafont")) { # try to load extrafont package
+                            fonts <- extrafont::fonts()
+                            message("wanted pdf_family = \"", dot_list[[i]], "\" ", appendLF=F)
+                            if (!any(fonts == dot_list[[i]])) { # wanted font not avilable
+                                message("is also not included in ", length(fonts), 
+                                        " currently loaded extrafont::fonts(). use default \"",
+                                        plist$pdf_family, "\" ...")
+                                dot_list[[i]] <- plist$pdf_family
+                            } else { # wanted font available through extrafont package
+                                message("is included in extrafont::fonts()")
+                            }
+                        } else { # extrafont package not available
+                            message("use default \"", plist$pdf_family, "\" ...")
                             dot_list[[i]] <- plist$pdf_family
-                        } else { # wanted font available through extrafont package
-                            message("is included in extrafont::fonts()")
-                        }
-                    } else { # extrafont package not available
-                        message("use default \"", plist$pdf_family, "\" ...")
-                        dot_list[[i]] <- plist$pdf_family
-                    }
-                }
-                # check if embed command needs to be adjusted
-                # -> font provided by `extrafont` package must be imbedded with `extrafont::embed_fonts()` 
-                #    instead with default grDevices::embedFonts()`
-                if (dot_list[[i]] != plist$pdf_family) { # if change is applied
-                    if (any(search() == "package:extrafont")) { # check if wanted front comes from grDevices or extrafont
-                        extrafont_fonts <- fonts()
-                        default_fonts <- names(pdfFonts()) # includes default and extrafont-fonts
-                        # strange workaround: once extrafont is loaded, one cannot infer the default fonts anymore 
-                        default_fonts <- setdiff(default_fonts, extrafont_fonts) 
-                        if (!(dot_list[[i]] %in% default_fonts)) {
-                            message("change `pdf_embed_fun` from default \"", plist$pdf_embed_fun, 
-                                    "\" to \"extrafont::embed_fonts\" ...")
-                            plist$pdf_embed_fun <- "extrafont::embed_fonts"
                         }
                     }
+                    # check if embed command needs to be adjusted
+                    # -> font provided by `extrafont` package must be imbedded with `extrafont::embed_fonts()` 
+                    #    instead with default grDevices::embedFonts()`
+                    if (dot_list[[i]] != plist$pdf_family) { # if change is applied
+                        if (any(search() == "package:extrafont")) { # check if wanted front comes from grDevices or extrafont
+                            extrafont_fonts <- fonts()
+                            default_fonts <- names(pdfFonts()) # includes default and extrafont-fonts
+                            # strange workaround: once extrafont is loaded, one cannot infer the default fonts anymore 
+                            default_fonts <- setdiff(default_fonts, extrafont_fonts) 
+                            if (!(dot_list[[i]] %in% default_fonts)) {
+                                message("change `pdf_embed_fun` from default \"", plist$pdf_embed_fun, 
+                                        "\" to \"extrafont::embed_fonts\" ...")
+                                plist$pdf_embed_fun <- "extrafont::embed_fonts"
+                            }
+                        }
+                    }
+                } # if argument is `pdf_family`
+                if (dot_list[[i]] != plist[[dot_names[i]]]) { # if change from default
+                    message("argument \"", dot_names[i], "\" provided -> overwrite default \"", 
+                            plist[[dot_names[i]]], "\" with \"", dot_list[[i]], "\"")
+                    plist[[dot_names[i]]] <- dot_list[[i]]
                 }
-            } # if argument is `pdf_family`
-            if (dot_list[[i]] != plist[[dot_names[i]]]) { # if change from default
-                message("argument \"", dot_names[i], "\" provided -> overwrite default \"", 
-                        plist[[dot_names[i]]], "\" with \"", dot_list[[i]], "\"")
-                plist[[dot_names[i]]] <- dot_list[[i]]
-            }
-            if (verbose && i == length(dot_list)) message("*** myDefaultPlotOptions() finished ***")
-            ## Note: 
-            # print(str(dot_list[[i]]))
-            # returns the value AND NULL
-            #str(dot_list[[i]]) 
+                if (verbose && i == length(dot_list)) message("*** myDefaultPlotOptions() finished ***")
+                ## Note: 
+                # print(str(dot_list[[i]]))
+                # returns the value AND NULL
+                #str(dot_list[[i]]) 
+            } # if !is.null(dot_list[[i]])
         } # for all arguments in dots `...`
     } # if any dots arguments given
     return(plist)
@@ -1156,18 +1158,32 @@ plot_sizes <- function(width_in=NULL, height_in=NULL,
     # for png
     width_px <- width_in*png_ppi
     height_px <- height_in*png_ppi
-    pointsize <- 12
-    # increase png pointsize (default = 12) if asp < 2
+    pointsize <- 12 # default
     # png pointsize: the default pointsize of plotted text, interpreted as big
-    #      points (1/72 inch) at ‘res’ ppi.
-    # 1 pt = 1/72 inch = 0.01388889 inch = 0.35277780599999997 mm
+    #                points (1/72 inch) at ‘res’ ppi.
+    # pdf pointsize: the default point size to be used.  Strictly speaking, in
+    #                bp, that is 1/72 of an inch, but approximately in points.
+    #                Defaults to ‘12’.
+    # 1 pb = 1/72 inch = 0.01388889 inch = 0.35277780599999997 mm (1 inch = 2.54 cm)
+    # 12/72 inch = 0.1666667 inch = 4.233333 mm (1 inch = 2.54 cm)
+    #                  300 pixel   1  inch   
+    # --> 1 point uses --------- x ------- = 4.166667 pixel at 300 ppi resolution
+    #                  1 inch      72
+    
+    # increase png pointsize (default = 12) if 1 < asp < 2
+    # ragg package: res_mod(scaling * res / 72.0),
+    #               lwd_mod(scaling * res / 96.0),
     if (asp > 1 && asp < 2) {
-        asp_interp <- approx(x=c(1, 2), y=c(2, 1), n=100) # linearly interp asp 1 to 2 --> fac 2 to 1
-        asp_fac_ind <- which.min(abs(asp_interp$x - asp))
-        asp_fac <- asp_interp$y[asp_fac_ind]
-        message("asp = ", round(asp, 3), 
-                " --> multiply pointsize ", pointsize, " * asp_interp[", asp_fac_ind, "] = ", 
-                pointsize, " * ", round(asp_fac, 3), " = ", round(pointsize*asp_fac, 3))
+        if (T) {
+            asp_interp <- approx(x=c(1, 2), y=c(1, 1.7), n=100) # linearly interp asp 1 to 2 --> fac 1 to 1.5
+            asp_fac_ind <- which.min(abs(asp_interp$x - asp))
+            asp_fac <- asp_interp$y[asp_fac_ind]
+        } else if (F) {
+            asp_fac <- asp
+        }
+        message("asp = ", round(asp, 3), " --> multiply pointsize ", 
+                pointsize, " * asp_fac ", round(asp_fac, 3), " = ", 
+                round(pointsize*asp_fac, 3))
         pointsize <- pointsize*asp_fac
     }
     

@@ -5,7 +5,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                            xlab="xaxis", ylab="yaxis", zlab="Variable [unit]",
                            cex.axis=1.25,
                            bgcol="white", NAcol="gray", 
-                           useRaster=T,
+                           useRaster=NULL,
                            poly_border_col=NA, 
                            contour_only=F, add_contour=T, contour_include_zero=T,
                            contour_posneg_soliddashed=T, contour_posneg_redblue=F,
@@ -16,7 +16,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                            quiver_scale=0.05, quiver_angle=20, quiver_length=0.05,
                            quiver_col="black", quiver_lty=1, quiver_lwd=0.5,
                            quiver_legend=NULL,
-                           type="active", plotname="testplot",
+                           plot_type="active", plotname="testplot",
                            cm_bottom=2, cm_left=2.5, cm_top=1,
                            cm_right=4, colorbar_width_cm=0.45, colorbar_dist_cm=0.2,
                            width_png=2000, height_png=1666, res=300, 
@@ -479,13 +479,6 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     } else { # user did not provide contour_only
         # here, contour_only=F (default)
     }
-    if (add_contour || contour_only || !is.null(contour_list)) {
-        if (contour_posneg_soliddashed && contour_posneg_redblue) {
-            warning("both `contour_posneg_soliddashed` and `contour_posneg_redblue` cannot be true.",
-                    " set the latter to false (default) and continue ...")
-            contour_posneg_redblue <- F
-        }
-    }
 
     # levels and colors
     if (individual_zlim) {
@@ -518,33 +511,63 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         return_list$axis.labels <- axis.labels
     }
 
-    # make sure that x and y are regular that image(..., useRaster=T) can be used
-    # --> if useRaster is true in a vector plot (i.e. `pdf()` and not `png()`), 
-    #     the data drawn with `image(..., useRaster=T)` will not be a vector object! 
+    ## if image data shall be plotted, `useRaster` argument must be False if pdf plot or True otherwise and possible
+    # --> if `useRaster`=T, x and y must be regular, decided via function `check_irregular()` below
+    check_irregular <- function(x, y) { # from graphics::image()'s argument `useRaster` from graphics::image.default
+        # problem: does not work for POSIX x,y objects
+        dx <- diff(x)
+        dy <- diff(y)
+        # all.equal(target, current, ...) returns
+        #   TRUE            if d <= tolereance with
+        #                       tolerance <- sqrt(.Machine$double.eps)
+        #                       d <- (sum(abs(target - current))/length(target))
+        #   a character     otherwise, giving the mean relative difference, 
+        #                   e.g. "Mean relative difference: 0.2"; or other 
+        #                   information like "Numeric: lengths (18, 1) differ"
+        #                   if the lengths of target and current differ
+        # isTRUE(x) returns
+        #   TRUE if is.logical(x) && length(x) == 1L && !is.na(x) && x
+        (length(dx) && !isTRUE(all.equal(dx, rep(dx[1], length(dx))))) ||
+        (length(dy) && !isTRUE(all.equal(dy, rep(dy[1], length(dy)))))
+    }
+    
+    if (is.null(useRaster)) {
+        useRaster <- T # default
+        if ((plot_type == "active" && (!is.null(dev.list()) && names(dev.cur()) == "pdf")) || # if pdf plot is already open
+            plot_type == "pdf") { # if pdf is wanted
+            useRaster <- F
+        }
+    }
+
+    if (plot_type == "pdf" && useRaster) {
+        warning("pdf plot is wanted and provided `useRaster`=T. should be F.")
+    }
+
     if (useRaster) {
-        # todo: what is the thr for useRaster? dev.capabilities("rasterImage")$rasterImage must be "yes" or "non-missing"
         if (!contour_only) {
             if (verbose) message("`useRaster`=T --> check if x,y are regular for graphics::image(..., useRaster=T) usage ...")
             for (i in seq_along(z)) {
-                #if (any(grepl("POSIX", class(x[[i]])))) { # does not help; unique(dt) are more than 1; 
-                #    dt <- mean(difftime(x[[i]][2:length(x[[i]])], x[[1]][1:(length(x[[i]])-1)]))
-                #    x[[i]] <- seq.POSIXt(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), b=dt))
-                #} else {
+                if (check_irregular(x[[i]], y[[i]])) {
                     x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), l=length(x[[i]]))
                     y[[i]] <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), l=length(y[[i]]))
-                #}
+                }
             }
-        } # only check if image() will be used
+        } # if !contour_only
 
         if (!is.null(image_list)) {
             if (verbose) message("`useRaster`=T --> check provided `image_list` if x,y are regular for graphics::image(..., useRaster=T) usage ...")
             for (i in seq_along(image_list$x)) {
-                image_list$x[[i]] <- seq(min(image_list$x[[i]], na.rm=T), max(image_list$x[[i]], na.rm=T), 
-                                         l=length(image_list$x[[i]]))
-                image_list$y[[i]] <- seq(min(image_list$y[[i]], na.rm=T), max(image_list$y[[i]], na.rm=T), 
-                                         l=length(image_list$y[[i]]))
+                if (check_irregular(image_list$x[[i]], image_list$y[[i]])) {    
+                    image_list$x[[i]] <- seq(min(image_list$x[[i]], na.rm=T), max(image_list$x[[i]], na.rm=T), 
+                                             l=length(image_list$x[[i]]))
+                    image_list$y[[i]] <- seq(min(image_list$y[[i]], na.rm=T), max(image_list$y[[i]], na.rm=T), 
+                                             l=length(image_list$y[[i]]))
+                }
             }
-        }
+        } # if !is.null(image_list)
+
+        # todo: other matrix objects to check?
+
     } # if useRaster
 
     if (verbose) {
@@ -744,13 +767,13 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     }
 
     ## Open new or use already open plot device
-    if (type == "active") { 
+    if (plot_type == "active") { 
         if (is.null(dev.list())) { # open new interactive device if none is open
             dev.new(family=family)
         } else { # use already open device
-            # nothing do to
+            # nothing to do
         }
-    } else if (type == "png") {
+    } else if (plot_type == "png") {
         stop("update")
         if (n < m) {
             width_png <- 2*width_png
@@ -758,7 +781,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         png(plotname,
             width=width_png, height=height_png, res=res, family=family)
 
-    } else if (type == "pdf") {
+    } else if (plot_type == "pdf") {
         stop("update")
         if (m > n) {
             stop("neeeed")
@@ -766,7 +789,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         pdf(plotname,
             width=width_pdf, height=height_pdf, family=family)
     }
-    
+    cur_dev_type <- names(dev.cur())
+    if (verbose) message("type of active device: ", cur_dev_type)
+
     if (verbose) message("run layout() ...")
     layout(layout_mat2, widths=layout_widths, heights=layout_heights)
     #layout.show(n=max(layout_mat2))
@@ -863,7 +888,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                     if (proj == "") { # NA values are handled by `oce::mapImage(missingColor=NAcol, ...)` if projection
                         if (F) { # old
                             if (verbose) message("`z[[", i, "]]` has missing values (NA) --> add missing values ",
-                                                 "to subplot with color `NAcol`=", NAcol, " using graphics::image() ...")
+                                                 "to subplot with color `NAcol`=", NAcol, " using graphics::image() with `useRaster`=", 
+                                                 useRaster, " ...")
                                 graphics::image(x[[i]], y[[i]], array(1, c(nx, ny)),
                                                 add=T, col=NAcol,
                                                 axes=F, xlab="n", ylab="n",
@@ -880,7 +906,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                     stop("combination `contour_only`=F and `individual_zlim`=T not implemented yet")
                 }
                 if (proj == "") {
-                    if (verbose) message("`contour_only`=F --> add data to subplot using graphics::image() ...")
+                    if (verbose) message("`contour_only`=F --> add data to subplot using graphics::image() with `useRaster`=", 
+                                         useRaster, " ...")
                     graphics::image(x[[i]], y[[i]], z[[i]], 
                                     add=T, col=cols, breaks=breaks,
                                     axes=F, xlab="n", ylab="n", 
@@ -1010,7 +1037,6 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                             } else {
                                 # case 2: color polygon --> z needed
                                 poly_col_vec <- base::findInterval(polygon_list$z[[i]], polygon_list$levels, all.inside=F)
-                                cur_dev_type <- names(dev.cur())
                                 if (cur_dev_type == "pdf" && !is.na(poly_border_col)) {
                                     graphics::polygon(polyx, polyy, 
                                                       col=cols[poly_col_vec], border=cols[poly_col_vec])
@@ -2047,7 +2073,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     } # if !contour_only
     
     ## Save plot
-    if (type != "active") {
+    if (plot_type != "active") {
         if (verbose) message("save ", plotname, " ...")
         dev.off()
     }
