@@ -629,7 +629,7 @@ get_pval <- function(model) {
     n_df <- lm$df.residual
     c <- (a-b)/n_predictors/(b/n_df)
     1-pf(c, n_predictors, n_df)
-}
+} # get_pval
 
 # effective sample size after thiebaux and zwiers 1984
 # --> formulated as in hannachi et al. 2007: `n_eff = n * (1 + 2 * sum_{k=1}^{n-1} (1-k/n) * \rho(k))^{-1}
@@ -676,6 +676,13 @@ north_etal_1982_rule <- function(eigenval, eigenvec=NULL) {
     result
 } # north_etal_1982_rule function
 
+# model resolutions
+res_km_from_nx_ny <- function(nx, ny) {
+    # boucher et al. 2020 https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2019MS002010
+    Rearth <- 6371 # km 
+    sqrt(4*pi*Rearth^2/(nx*ny))
+}
+
 # convert velocities with units package
 speeds <- function(x=1, unit="cm/s") {
     library(units) # valid_udunits()
@@ -706,6 +713,39 @@ masses <- function(x=1, unit="kg") {
     invisible(df)
 } # masses function
 
+# convert carbon units
+molCO2_s1_to_kgC_s1 <- function(molCO2_s1) {
+    molCO2_s1 * 44.0095 * 0.272912 / 1e3 # molCO2 -> gCO2; gCO2 -> gC; gC -> kgC
+}
+molCO2_s1_to_PgC_yr <- function(molCO2_s1) {
+    molCO2_s1 * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg 
+}
+molCO2_m2_s1_to_PgC_yr <- function(molCO2_m2_s1) {
+    Aearth <- 5.100656e14 # m2
+    molCO2_m2_s1 * Aearth * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # m2 -> fldint; molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg 
+}
+kgCO2_m2_to_PgC <- function(kgCO2_m2) {
+    Aearth <- 5.100656e14 # m2
+    kgCO2_m2 * Aearth * 0.272912 / 1e12 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg 
+}
+kgCO2_m2_to_ppm <- function(kgCO2_m2) {
+    Aearth <- 5.100656e14 # m2
+    kgCO2_m2 * Aearth * 0.272912 / 1e12 / 2.124 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
+}
+kgCO2_s1_to_PgC_yr <- function(kgCO2_s1) {
+    kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+}
+kgCO2_m2_s1_to_PgC_yr <- function(kgCO2_m2_s1) {
+    Aearth <- 5.100656e14 # m2
+    kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+}
+kgC_s1_to_PgC_yr <- function(kgC_s1) {
+    kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg 
+}
+kgC_m2_s1_to_PgC_yr <- function(kgC_m2_s1) {
+    Aearth <- 5.100656e14 # m2
+    kgC_m2_s1 * Aearth * 365.25*86400 / 1e12 # m2 -> fldint; s-1 -> yr-1; kg -> Pg 
+}
 
 ## section 2/2: r-stuff
 
@@ -1493,6 +1533,51 @@ mynews <- function() {
     message("R ", current_version, " news:")
     for (i in seq_along(db)) message(i, "/", length(db), ": ", db[i])
 }
+
+# draw secret christmas present lists
+xmas_secret_present_list <- function(persons, verbose=F) {
+    
+    if (interactive()) {
+        persons <- list("wakenvillagers"=c("LeV", "Meck", "Malle", "Mörl", "Mattis"))
+    } else {
+        if (missing(persons)) stop("must provide persons")
+        if (!is.list(persons)) stop("persons must be a named list")
+        if (is.null(names(persons))) stop("persons must be named list")
+    }
+
+    # do for all provided person lists
+    for (li in seq_along(persons)) {
+        if (!is.character(persons[[li]])) stop("persons[[", li, "]] not of type character")
+        
+        # draw the samples
+        senders <- sample(persons[[li]])
+        recipients <- sample(persons[[li]])
+        while (any(senders == recipients)) {
+            recipients <- sample(persons[[li]])
+        }
+
+        # sort as in beginning
+        inds <- rep(NA, t=length(persons[[li]]))
+        for (i in seq_along(persons[[li]])) {
+            inds[i] <- which(recipients == persons[[li]][i])
+        }
+        recipients <- recipients[inds]
+        senders <- senders[inds]
+
+        # show result
+        res <- paste0(recipients, ": ", senders) 
+        if (verbose) message(paste(res, collapse="\n"))
+
+        # save result
+        fout <- paste0(names(persons)[li], ".txt")
+        message("save ", fout)
+        write(res, fout, sep="\n")
+        cmd <- paste0("chmod 600 ", fout)
+        message("run `", cmd, "` ...")
+        system(cmd)
+    } # for li
+
+} # xmas_secret_present_list
 
 # paste stuff that I always forget
 myhelp <- function() {
