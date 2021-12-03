@@ -753,7 +753,7 @@ kgC_m2_s1_to_PgC_yr <- function(kgC_m2_s1) {
 Rexe <- function() return(paste0(R.home(), "/bin/exec/R"))
 
 tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
-    # use e.g. like this: `input_format <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))`
+    # use e.g. like this: `type <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))`
     W <- NULL
     w.handler <- function(w) { # warning handler
         W <<- w
@@ -1008,62 +1008,37 @@ mylocator <- function(...) {
 } # mylocator
 
 # get file format
-cdo_get_filetype <- function(fin, cdo="cdo", ncdump="ncdump", verbose=T) {
-    if (verbose) message("cdo_get_filetype() start with `verbose`=T ...")
-    cmd <- paste0(cdo, " showformat ", fin)
-    if (verbose) message("run `", cmd, "`")
-    input_format <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))
-    if (!is.null(input_format$warning)) { # `cdo showformat` yields warn/error
-        # `cdo showformat` on fesom data yields error:
-        # Warning (cdf_read_xcoord): Unsupported array structure, skipped variable tosga!
-        # Warning (cdfInqContents): No data arrays found!
-        # Unsupported file structure
-        message(input_format$warning$message)
-        message("-> try to run `", ncdump, " -k` instead ...")
-        cmd <- paste0(ncdump, " -k ", fin)
-        if (verbose) message("run `", cmd, "`")
-        input_format <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))
-        if (!is.null(input_format$warning)) { # `ncdump -k` yields also warn/error
-            stop(input_format$warning$message)
-        } else { # no warning on `ncdump -k` 
-            if (verbose) {
-                for (i in seq_along(input_format$value)) {
-                    message("--> \"", input_format$value[i], "\"")
-                }
-                if (length(input_format$value) > 1) {
-                    message("take last entry")
-                    input_format$value <- input_format$value[length(input_format$value)]
-                }
-                message("--> ", appendLF=F)
-            }
-        }
-    } else { # no warning on `cdo showformat`
-        if (verbose) {
-            for (i in seq_along(input_format$value)) {
-                message("--> \"", input_format$value[i], "\"")
-            }
-            if (length(input_format$value) > 1) {
-                message("take last entry")
-                input_format$value <- input_format$value[length(input_format$value)]
-            }
-        }
-    }
-    if (any(input_format$value == c(# from `cdo showformat`:
-                                    "netCDF", "NetCDF", "NetCDF2", 
-                                    "NetCDF4", "NetCDF4 zip", "NetCDF4 classic", "NetCDF4 classic zip", 
-                                    "netCDF-4 classic model",
-                                    # from `ncdump -k`:
-                                    "64-bit offset"))) {
-        if (verbose) message("--> input is of type netcdf")
-        file_type <- "nc"
-    } else { # e.g. "GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"
-        if (verbose) message("--> input is not of type netcdf or not known")
+ncdump_get_filetype <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
+    if (verbose) message("ncdump_get_filetype() start with `verbose`=T ...")
+    #fin <- "/work/ba1103/a270073/out/awicm-1.0-recom/awi-esm-1-1-lr_kh800/historical2/outdata/echam/historical2_201412.01_co2"
+    #fin <- "/pool/data/JSBACH/input/r0010/T63/spitfire/population_density_ssp2_T63.nc"
+    if (file.access(fin, mode=0) == -1) stop("fin = ", fin, " does not exist")
+    if (file.access(fin, mode=4) == -1) stop("fin = ", fin, " not readable")
+    if (!is.character(ncdump)) stop("ncdump = ", ncdump, " not of type character")
+    if (Sys.which(ncdump) == "") stop("ncdump = ", ncdump, " not found")
+    cmd <- paste0(ncdump, " -k ", fin)
+    if (verbose) message("ncdump_get_filetype() run `", cmd, "` ...")
+    type <- suppressWarnings(system(cmd, intern=T, ignore.stderr=T))
+    if (!is.null(attributes(type))) { # no success
+        # known so far:
+        # "GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"
         file_type <- "non-nc"
+    } else { # success
+        # known so far:
+        # from `cdo showformat`:
+        # "netCDF", "NetCDF", "NetCDF2", 
+        # "NetCDF4", "NetCDF4 zip", "NetCDF4 classic", "NetCDF4 classic zip", 
+        # "netCDF-4 classic model",
+        # from `ncdump -k`:
+        # "64-bit offset"
+        file_type <- "nc"
     }
-    
-    if (verbose) message("cdo_get_filetype() finished")
-    return(list(file_type=file_type, exact_format=input_format$value))
-} # cdo_get_filetype
+    if (verbose) {
+        message("ncdump_get_filetype() type = ", file_type)
+        message("ncdump_get_filetype() finished")
+    }
+    return(file_type)
+} # ncdump_get_filetype
 
 # set my default plot options
 myDefaultPlotOptions <- function(plist=list(plot_type="pdf", 
