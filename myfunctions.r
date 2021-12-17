@@ -1328,7 +1328,8 @@ install_package <- function(pkg="asdasd", configure.args=getOption("configure.ar
     rbin <- paste0(R.home(), "/bin/exec/R")
     cmd <- paste0("ldd ", rbin, " | awk 'NF == 4 {print $3}; NF == 2 {print $1}'")
     rbin_paths <- system(cmd, intern=T) # e.g. "/sw/spack-rhel6/r-3.6.1-lnvx6h/rlib/R/lib/libR.so"
-    rbin_paths <- unique(dirname(rbin_paths))
+    rbin_paths <- sort(unique(dirname(rbin_paths)))
+    if (any(rbin_paths == ".")) rbin_paths <- rbin_paths[-which(rbin_paths == ".")] # remove .
     
     # add user LD_LIBRARY_PATH
     if (!is.null(LD_LIBRARY_PATH)) {
@@ -1341,7 +1342,7 @@ install_package <- function(pkg="asdasd", configure.args=getOption("configure.ar
 
     # remove LD_LIBRARY_PATH duplicates
     LD_LIBRARY_PATH <- Sys.getenv("LD_LIBRARY_PATH")
-    LD_LIBRARY_PATH <- unique(strsplit(LD_LIBRARY_PATH, ":")[[1]])
+    LD_LIBRARY_PATH <- sort(unique(strsplit(LD_LIBRARY_PATH, ":")[[1]]))
     LD_LIBRARY_PATH <- paste(LD_LIBRARY_PATH, collapse=":")
     Sys.setenv(LD_LIBRARY_PATH=LD_LIBRARY_PATH)
     LD_LIBRARY_PATH <- Sys.getenv("LD_LIBRARY_PATH")
