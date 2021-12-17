@@ -11,7 +11,7 @@ image.plot.pre <- function(zlim,
                            center_around=0, center_col="white", center_include=F,
                            verbose=F) {
 
-    if (verbose) message("********* start image.plot.pre() with verbose = `T` *********")
+    if (verbose) message("********* start image.plot.pre() with `verbose=T` *********")
 
     ## Check input
     if (missing(zlim)) stop("error: 'zlim' is missing")
@@ -733,7 +733,7 @@ image.plot.pre <- function(zlim,
     } # if is.null(cols) or not
     if (verbose) message("final length(cols) = ", length(cols))
     
-    if (verbose) message("********* finished image.plot.pre() with verbose = `T` *********")
+    if (verbose) message("********* finished image.plot.pre() with `verbose=T` *********")
 
     return(list(zlim=zlim, levels=zlevels, nlevels=nlevels, cols=cols, 
                 axis.at=axis.at, axis.at.ind=axis.at.ind, axis.at.small=axis.at.small,

@@ -1322,6 +1322,74 @@ load_packages <- function(pkgs) {
     }
 } # load_packages
 
+install_package <- function(pkg="asdasd", configure.args=getOption("configure.args"), LD_LIBRARY_PATH=NULL, dry=T, ...) {
+    
+    # get infos of running r
+    rbin <- paste0(R.home(), "/bin/exec/R")
+    cmd <- paste0("ldd ", rbin, " | awk 'NF == 4 {print $3}; NF == 2 {print $1}'")
+    rbin_paths <- system(cmd, intern=T) # e.g. "/sw/spack-rhel6/r-3.6.1-lnvx6h/rlib/R/lib/libR.so"
+    rbin_paths <- unique(dirname(rbin_paths))
+    
+    # add user LD_LIBRARY_PATH
+    if (!is.null(LD_LIBRARY_PATH)) {
+        message("add provided LD_LIBRARY_PATH = \"", LD_LIBRARY_PATH, "\" to old LD_LIBRARY_PATH ...")
+        LD_LIBRARY_PATH_new <- strsplit(LD_LIBRARY_PATH, ":")[[1]]
+        LD_LIBRARY_PATH_new <- normalizePath(LD_LIBRARY_PATH_new) # yields warning if not existing
+        LD_LIBRARY_PATH_new <- paste(LD_LIBRARY_PATH_new, collapse=":")
+        Sys.setenv(LD_LIBRARY_PATH=paste0(LD_LIBRARY_PATH_new, ":", Sys.getenv("LD_LIBRARY_PATH")))
+    }
+
+    # remove LD_LIBRARY_PATH duplicates
+    LD_LIBRARY_PATH <- Sys.getenv("LD_LIBRARY_PATH")
+    LD_LIBRARY_PATH <- unique(strsplit(LD_LIBRARY_PATH, ":")[[1]])
+    LD_LIBRARY_PATH <- paste(LD_LIBRARY_PATH, collapse=":")
+    Sys.setenv(LD_LIBRARY_PATH=LD_LIBRARY_PATH)
+    LD_LIBRARY_PATH <- Sys.getenv("LD_LIBRARY_PATH")
+    
+    # check user configure.args
+    if (!is.null(configure.args)) {
+        if (!is.character(configure.args)) stop("`configure.args` must be of type character")
+    }
+
+    # get user install.package() args
+    dot_list <- list(...)
+
+    # verbose 
+    msg <- paste0("install package \"", pkg, "\" with ", R.version.string, "\n",
+                  "binary = ", rbin, "\n",
+                  "unique shared lib paths of this binary =\n",
+                  paste(paste0("   ", rbin_paths), collapse="\n"), "\n",
+                  "configure.args =")
+    if (!is.null(configure.args)) {
+        msg <- paste0(msg, "\n", paste(paste0("   ", strsplit(configure.args, " ")[[1]]), collapse="\n"))
+    } else {
+        msg <- paste0(msg, " NULL")
+    }
+    msg <- paste0(msg, "\n",
+                  "LD_LIBRARY_PATH=\n", paste(paste0("   ", strsplit(LD_LIBRARY_PATH, ":")[[1]]), collapse="\n"))
+    message(msg)
+    message("... =", appendLF=F)
+    if (length(dot_list) > 0) {
+        message()
+        cat(capture.output(str(dot_list)), sep="\n")
+    } else {
+        message(" NULL")
+    }
+
+    # install
+    cmd <- paste0("install.packages(pkgs=\"", pkg, "\", configure.args=", capture.output(dput(configure.args)), ", ...)")
+    message("run `", cmd, "` ...")
+    if (dry) {
+        message("`dry=T` --> dont do it")
+    } else {
+        install.packages(pkg, configure.args=configure.args, ...)
+    }
+    return(list(pkg=pkg, configure.args=configure.args, 
+                LD_LIBRARY_PATH=LD_LIBRARY_PATH, 
+                dots=dot_list, cmd=parse(text=cmd)))
+
+} # install_package function
+
 # Get month names in specific locale
 mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
  
@@ -1596,7 +1664,8 @@ myhelp <- function() {
              "                  module load R(intel) intel.compiler gcc",
              "                  withr::with_makevars(list(CXX11STD=\"-std=c++11\"), install.packages(\"s2\"))",
              "               units:",
-             "                  install.packages(\"units\", configure.args=\"--with-udunits2-include=/usr/include/udunits2\")",
+             "                  Sys.setenv(LD_LIBRARY_PATH=paste0(\"/sw/rhel6-x64/util/udunits-2.2.26-gcc64/lib:\", Sys.getenv(\"LD_LIBRARY_PATH\")))",
+             "                  install.packages(\"units\", configure.args=\"--with-udunits2-include=/sw/rhel6-x64/util/udunits-2.2.26-gcc64/include --with-udunits2-lib=/sw/rhel6-x64/util/udunits-2.2.26-gcc64/lib\")",
              "                  maybe reinstall Rcpp",
              "               sf:",
              "                  install.packages(\"sf\", configure.args=\"--with-gdal-config=/sw/rhel6-x64/gdal-2.1.3-gcc48/bin/gdal-config --with-proj-include=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/include --with-proj-lib=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/lib --with-geos-config=/sw/rhel6-x64/geos-3.6.1-gcc48/bin/geos-config\")",

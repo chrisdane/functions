@@ -6,7 +6,8 @@ myRPrompt <- function(...) {
     verbose <- F
     p <- getwd() # absolute path as pwd
     if (verbose) message("getwd(): ", getwd())
-    home <- regexpr(path.expand("~"), p)
+    #home <- regexpr(path.expand("~"), p)
+    home <- regexpr(system("readlink -f ~", intern=T), p)
     if (home != -1) { # remove home part
         p <- substr(p, start=home + attr(home, "match.length"), stop=nchar(p))
         if (p == "") p <- "/" # if in home itself (~/)
