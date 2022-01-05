@@ -1322,22 +1322,76 @@ load_packages <- function(pkgs) {
     }
 } # load_packages
 
-install_package <- function(pkg="asdasd", configure.args=getOption("configure.args"), LD_LIBRARY_PATH=NULL, dry=T, ...) {
+my_install.packages <- function(pkg="asdasd", dry=T) {
     
-    # get infos of running r
+    # defaults
+    lib <- .libPaths()[1]
+    configure.args <- getOption("configure.args")
+    configure.vars <- getOption("configure.vars")
+    LD_LIBRARY_PATH <- NULL # recommended to keep NULL
+
+    # get hostname
+    hostname <- Sys.info()["nodename"]
+    
+    # get version of this r binary
+    rversion <- paste0(version["major"], ".", version["minor"]) # e.g. "3.6.1"
+
+    # get shared lib paths of this r binary
     rbin <- paste0(R.home(), "/bin/exec/R")
     cmd <- paste0("ldd ", rbin, " | awk 'NF == 4 {print $3}; NF == 2 {print $1}'")
-    rbin_paths <- system(cmd, intern=T) # e.g. "/sw/spack-rhel6/r-3.6.1-lnvx6h/rlib/R/lib/libR.so"
-    rbin_paths <- sort(unique(dirname(rbin_paths)))
-    if (any(rbin_paths == ".")) rbin_paths <- rbin_paths[-which(rbin_paths == ".")] # remove .
+    r_shared_lib_paths <- system(cmd, intern=T) # e.g. "/sw/spack-rhel6/r-3.6.1-lnvx6h/rlib/R/lib/libR.so"
+    r_shared_lib_paths <- sort(unique(dirname(r_shared_lib_paths)))
+    if (any(r_shared_lib_paths == ".")) r_shared_lib_paths <- r_shared_lib_paths[-which(r_shared_lib_paths == ".")] # remove .
+
+    # which package
+    if (pkg == "units") {
+        
+        # R36 mistral
+        if (any(sapply(c("mlogin", "mistralpp", "m[0-9][0-9][0-9][0-9][0-9]"), grepl, hostname)) &&
+            substr(rversion, 1, 3) == "3.6") {
+            message("units package defined on mistral for r 3.6")
+            udunits2_path <- "/sw/spack-rhel6/udunits2-2.2.24-74lq3k"
+            #LD_LIBRARY_PATH <- paste0(udunits2_path, "/lib") # not recommended
+            configure.args <- paste0("--with-udunits2-include=", udunits2_path, "/include ",
+                                     "--with-udunits2-lib=", udunits2_path, "/lib")
+            configure.vars <- paste0("LIBS=-Wl,-rpath,", udunits2_path, "/lib")
+        }
+
+    } else if (pkg == "sf") {
+        
+        # R36 mistral
+        if (any(sapply(c("mlogin", "mistralpp", "m[0-9][0-9][0-9][0-9][0-9]"), grepl, hostname)) &&
+            substr(rversion, 1, 3) == "3.6") {
+            gdal_path <- "/sw/spack-rhel6/gdal-3.1.3-f7koyc"
+            proj_path <- "/sw/spack-rhel6/proj-7.1.0-w57onb"
+            geos_path <- "/sw/spack-rhel6/geos-3.8.1-ru2zkr"
+            #LD_LIBRARY_PATH <- paste0(gdal_path, "/lib") # not recommended
+            configure.args <- paste0("--with-gdal-config=", gdal_path, "/bin/gdal-config ",
+                                     "--with-proj-include=", proj_path, "/include ",
+                                     "--with-proj-lib=", proj_path, "/lib ",
+                                     "--with-geos-config=", geos_path, "/bin/geos-config")
+            stop("todo")
+            #configure.vars <- paste0("LIBS=-Wl,-rpath,", udunits2_path, "/lib")
+        }
     
-    # add user LD_LIBRARY_PATH
+    } # which package
+    
+    # checks
+    if (!is.character(lib)) stop("`lib` must be of type character")
+    if (!is.null(configure.args)) if (!is.character(configure.args)) stop("`configure.args` must be of type character")
+    if (!is.null(configure.vars)) if (!is.character(configure.vars)) stop("`configure.vars` must be of type character")
+
+    # add user LD_LIBRARY_PATH; not recommended
+    LD_LIBRARY_PATH_old <- Sys.getenv("LD_LIBRARY_PATH")
     if (!is.null(LD_LIBRARY_PATH)) {
-        message("add provided LD_LIBRARY_PATH = \"", LD_LIBRARY_PATH, "\" to old LD_LIBRARY_PATH ...")
+        if (!is.character(LD_LIBRARY_PATH)) stop("provided `LD_LIBRARY_PATH` is not of type character")
+        warning("add provided LD_LIBRARY_PATH =\n   \"", LD_LIBRARY_PATH, "\"\n",
+                "to current LD_LIBRARY_PATH =\n   \"", 
+                LD_LIBRARY_PATH_old, "\"\nThis is not recommended!")
         LD_LIBRARY_PATH_new <- strsplit(LD_LIBRARY_PATH, ":")[[1]]
         LD_LIBRARY_PATH_new <- normalizePath(LD_LIBRARY_PATH_new) # yields warning if not existing
         LD_LIBRARY_PATH_new <- paste(LD_LIBRARY_PATH_new, collapse=":")
-        Sys.setenv(LD_LIBRARY_PATH=paste0(LD_LIBRARY_PATH_new, ":", Sys.getenv("LD_LIBRARY_PATH")))
+        Sys.setenv(LD_LIBRARY_PATH=paste0(LD_LIBRARY_PATH_new, ":", LD_LIBRARY_PATH_old))
     }
 
     # remove LD_LIBRARY_PATH duplicates
@@ -1345,21 +1399,17 @@ install_package <- function(pkg="asdasd", configure.args=getOption("configure.ar
     LD_LIBRARY_PATH <- sort(unique(strsplit(LD_LIBRARY_PATH, ":")[[1]]))
     LD_LIBRARY_PATH <- paste(LD_LIBRARY_PATH, collapse=":")
     Sys.setenv(LD_LIBRARY_PATH=LD_LIBRARY_PATH)
-    LD_LIBRARY_PATH <- Sys.getenv("LD_LIBRARY_PATH")
     
-    # check user configure.args
-    if (!is.null(configure.args)) {
-        if (!is.character(configure.args)) stop("`configure.args` must be of type character")
-    }
-
-    # get user install.package() args
-    dot_list <- list(...)
-
+    # get LD_LIBRARY_PATH with user paths if provided in alphabetical order and without duplicates
+    LD_LIBRARY_PATH <- Sys.getenv("LD_LIBRARY_PATH") # usage not recommended
+    
     # verbose 
-    msg <- paste0("install package \"", pkg, "\" with ", R.version.string, "\n",
-                  "binary = ", rbin, "\n",
-                  "unique shared lib paths of this binary =\n",
-                  paste(paste0("   ", rbin_paths), collapse="\n"), "\n",
+    msg <- paste0("install package \"", pkg, "\" on ", hostname, "\n",
+                  "to path \"", lib, "\"\n",
+                  "with ", R.version.string, "\n",
+                  "R binary = ", rbin, "\n",
+                  "shared lib paths of this binary =\n",
+                  paste(paste0("   ", r_shared_lib_paths), collapse="\n"), "\n",
                   "configure.args =")
     if (!is.null(configure.args)) {
         msg <- paste0(msg, "\n", paste(paste0("   ", strsplit(configure.args, " ")[[1]]), collapse="\n"))
@@ -1367,29 +1417,56 @@ install_package <- function(pkg="asdasd", configure.args=getOption("configure.ar
         msg <- paste0(msg, " NULL")
     }
     msg <- paste0(msg, "\n",
-                  "LD_LIBRARY_PATH=\n", paste(paste0("   ", strsplit(LD_LIBRARY_PATH, ":")[[1]]), collapse="\n"))
-    message(msg)
-    message("... =", appendLF=F)
-    if (length(dot_list) > 0) {
-        message()
-        cat(capture.output(str(dot_list)), sep="\n")
+                  "configure.vars =")
+    if (!is.null(configure.vars)) {
+        msg <- paste0(msg, "\n", paste(paste0("   ", strsplit(configure.vars, " ")[[1]]), collapse="\n"))
     } else {
-        message(" NULL")
+        msg <- paste0(msg, " NULL")
     }
+    msg <- paste0(msg, "\n",
+                  "LD_LIBRARY_PATH =\n", paste(paste0("   ", strsplit(LD_LIBRARY_PATH, ":")[[1]]), collapse="\n"))
+    message(msg)
 
-    # install
-    cmd <- paste0("install.packages(pkgs=\"", pkg, "\", configure.args=", capture.output(dput(configure.args)), ", ...)")
-    message("run `", cmd, "` ...")
+    # construct install cmd
+    cmd <- paste0("utils::install.packages(pkgs=\"", pkg, "\", ",
+                  "lib=\"", lib, "\", ",
+                  "configure.args=", capture.output(dput(configure.args)), ", ",
+                  "configure.vars=", capture.output(dput(configure.vars)), ")")
+    message("\nrun `", cmd, "` ...\n")
+    
+    # return list
+    ret <- list(pkg=pkg, lib=lib,
+                configure.args=configure.args, configure.vars=configure.vars,
+                LD_LIBRARY_PATH_old=LD_LIBRARY_PATH_old, LD_LIBRARY_PATH=LD_LIBRARY_PATH, 
+                cmd=parse(text=cmd))
+    
+    # install package and check shared lib paths of installed package if not dry run
     if (dry) {
         message("`dry=T` --> dont do it")
-    } else {
-        install.packages(pkg, configure.args=configure.args, ...)
-    }
-    return(list(pkg=pkg, configure.args=configure.args, 
-                LD_LIBRARY_PATH=LD_LIBRARY_PATH, 
-                dots=dot_list, cmd=parse(text=cmd)))
+    
+    } else if (!dry) {
+        utils::install.packages(pkg, lib=lib, configure.args=configure.args, configure.vars=configure.vars)
+        
+        # check shared lib paths of installed package
+        # --> need to restore old LD_LIBRARY_PATH before if necessary
+        Sys.setenv(LD_LIBRARY_PATH=LD_LIBRARY_PATH_old)
+        cmd <- paste0("ldd ", lib, "/", pkg, "/libs/", pkg, ".so")
+        message("\nrun `", cmd, "` ...")
+        pkg_shared_lib_paths <- system(cmd, intern=T) # e.g. "/sw/spack-rhel6/r-3.6.1-lnvx6h/rlib/R/lib/libR.so"
+        if (any(grepl(" => not found", pkg_shared_lib_paths))) {
+            stop("--> some shared lib paths were not found:\n",
+                 paste(pkg_shared_lib_paths[which(grepl(" => not found", pkg_shared_lib_paths))], collapse="\n"))
+        } else {
+            message("--> ok, all shared libs exist")
+        }
 
-} # install_package function
+    } # if dry or not
+    
+    # return summary list
+    message("\nfinished")
+    return(ret)
+    
+} # my_install.packages function
 
 # Get month names in specific locale
 mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {

@@ -200,6 +200,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     if (is.null(colorbar.cex)) colorbar.cex <- 1.25
     if (is.null(znames_method)) znames_method <- "text"
     if (is.null(znames_pos)) znames_pos <- "topleft"
+    if (is.null(znames_cex)) znames_cex <- 1.25
     if (!is.null(znames_method)) {
         if (!any(znames_method == c("text", "legend"))) {
             stop("`znames_method` must be either \"text\" or \"legend\"")
@@ -531,15 +532,20 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         (length(dy) && !isTRUE(all.equal(dy, rep(dy[1], length(dy)))))
     }
     
+    is_pdf <- plot_type == "pdf" || # if pdf is wanted
+              (plot_type == "active" && (!is.null(dev.list()) && all(names(dev.cur()) == "pdf"))) # if pdf plot is already open
     if (is.null(useRaster)) {
-        useRaster <- T # default
-        if ((plot_type == "active" && (!is.null(dev.list()) && names(dev.cur()) == "pdf")) || # if pdf plot is already open
-            plot_type == "pdf") { # if pdf is wanted
-            useRaster <- F
-        }
+        useRaster <- T # default; better quality of image()-calls if raster graphic
+        if (is_pdf) useRaster <- F # image()-call yields vector graphic
+    }
+    
+    # special: vector plots of image()-calls of large matrices are too large to modify with inkscape
+    if (T && is_pdf && !useRaster) {
+        warning("special: set useRaster=T although pdf plot") 
+        useRaster <- T
     }
 
-    if (plot_type == "pdf" && useRaster) {
+    if (is_pdf && useRaster) {
         warning("pdf plot is wanted and provided `useRaster`=T. should be F.")
     }
 
@@ -1276,6 +1282,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                                              col=quiver_list[[vi]][[i]]$quiver_col, 
                                              lty=quiver_list[[vi]][[i]]$quiver_lty, 
                                              lwd=quiver_list[[vi]][[i]]$quiver_lwd)
+                            # add quiver legend
                             if (!is.null(quiver_list[[vi]][[i]]$quiver_legend)) {
                                 if (verbose) message("quiver_legend is not null --> add quiver legend ...")
                                 quiver_legend <- quiver_list[[vi]][[i]]$quiver_legend
@@ -1294,12 +1301,17 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                                                  y1=ley_arrow + quiver_list[[vi]][[i]]$quiver_scale*quiver_legend$yvalue,
                                                  length=quiver_list[[vi]][[i]]$quiver_length,
                                                  angle=quiver_list[[vi]][[i]]$quiver_angle,
-                                                 col=quiver_list[[vi]][[i]]$quiver_col, 
+                                                 #col=quiver_list[[vi]][[i]]$quiver_col, 
+                                                 # remove transparent value if any:
+                                                 col=apply(col2rgb(quiver_list[[vi]][[i]]$quiver_col)/255, 2, function(x) rgb(matrix(x, ncol=3))),
                                                  lty=quiver_list[[vi]][[i]]$quiver_lty, 
                                                  lwd=quiver_list[[vi]][[i]]$quiver_lwd)
                                 graphics::text(lex, ley, labels=quiver_legend$label,
                                                pos=3, # above
-                                               col=quiver_list[[vi]][[i]]$quiver_col)
+                                               #col=quiver_list[[vi]][[i]]$quiver_col
+                                               # remove transparent value if any:
+                                               col=apply(col2rgb(quiver_list[[vi]][[i]]$quiver_col)/255, 2, function(x) rgb(matrix(x, ncol=3)))
+                                               )
                             } # if quiver_legend
                         }
                     }
