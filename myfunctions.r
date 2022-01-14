@@ -27,7 +27,7 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
     #options("digits"=22, scipen=999999999)
     nonNAinds <- which(!is.na(yearsdec))
     # rounding issue: https://github.com/tidyverse/lubridate/issues/833
-    round <- 13 # round necessary; this needs to be imroved 
+    round <- 13 # round necessary; todo: somehow possible without round?
     #yearsf <- round(as.numeric(yearsdec), 13)
     yearsf <- round(yearsdec[nonNAinds], round)
     #                                   yearsdec             lubri            my
@@ -100,7 +100,8 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
                               daysf, days, daysrel, hoursf, hours, hoursrel,
                               minsf, mins, minsrel, secsf, secs), n=37))
     }
-    text <- paste0(years, "-", months, "-", days, " ", hours, ":", mins, ":", secs)
+    text <- paste0(years, "-", sprintf("%02i", months), "-", sprintf("%02i", days), " ", 
+                   sprintf("%02i", hours), ":", sprintf("%02i", mins), ":", sprintf("%02i", secs))
     if (length(nonNAinds) != length(yearsdec)) {
         years2 <- months2 <- days2 <- hours2 <- mins2 <- secs2 <- text2 <- rep(NA, t=length(yearsdec))
         years2[nonNAinds] <- years
@@ -433,7 +434,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
                 if (missing(londimind)) { # londimind not provided
                     message("`londimind` not provided --> try to determine from\n",
                             "length(lon360) = ", length(lon360), "; dims(data360) = ", 
-                            paste(dim(data360), collapse=", "), " ...")
+                            paste(dim(data360[[vi]]), collapse=", "), " ...")
                     londimind <- which(dim(data360[[vi]]) == length(lon360))
                     if (length(londimind) != 1) {
                         stop("number of longitudes was found ", length(ind), " times in data dims")
@@ -450,44 +451,69 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
     } # if nc_file or data360 was provided
                    
     # start converting from 0,360 --> -180,180
-    lon180 <- lon360 - 180
+    ge0_and_lt180_inds <- which(lon360 >= 0 & lon360 < 180)
+    ge180_and_lt360_inds <- which(lon360 >= 180 & lon360 < 360)
+    ge360_inds <- which(lon360 >= 360)
+    lon180 <- c()
+    if (length(ge180_and_lt360_inds) > 0) lon180 <- c(lon180, lon360[ge180_and_lt360_inds] - 360)
+    if (length(ge360_inds) > 0) lon180 <- c(lon180, lon360[ge360_inds] - 360)
+    if (length(ge0_and_lt180_inds) > 0) lon180 <- c(lon180, lon360[ge0_and_lt180_inds])
+    if (length(lon180) != length(lon360)) stop("length(lon180) != length(lon360). sth wrong")
+    if (all(lon180 == lon360)) message("--> lon180 = lon360. no conversion necessary")
     ret <- list(lon180=lon180)
     if (!is.null(data360)) {
-        east_of_180_inds <- which(lon360 >= 180)
-        if (length(east_of_180_inds) == 0) {
-            stop("found zero lons >= 180")
-        }
-        west_of_180_inds <- which(lon360 < 180)
-        data180 <- vector("list", l=length(data360))
-        names(data180) <- names(data360)
-        for (vi in seq_along(data180)) {
-            data360i <- as.array(data360[[vi]])
-            cmdeast <- rep(",", t=length(dim(data360i))) 
-            cmdeast[londimind] <- paste0("east_of_180_inds")
-            cmdeast <- paste(cmdeast, collapse="")
-            cmdwest <- rep(",", t=length(dim(data360i))) 
-            cmdwest[londimind] <- paste0("west_of_180_inds")
-            cmdwest <- paste(cmdwest, collapse="")
-            cmd <- paste0("data180[[", vi, "]] <- abind::abind(data360i[", cmdeast, "], ",
-                                                              "data360i[", cmdwest, "], ",
-                                                              "along=", londimind, ")")
-            message("run `", cmd, "`")
-            if (vi == 1) {
-                message("with\n",
-                        "east_of_180_inds = ", paste(head(east_of_180_inds), collapse=","), " to ",
-                        paste(tail(east_of_180_inds), collapse=","), "\n",
-                        "west_of_180_inds = ", paste(head(west_of_180_inds), collapse=","), " to ",
-                        paste(tail(west_of_180_inds), collapse=","), "\n",
-                        "--> ", paste(head(lon360[east_of_180_inds]), collapse=","), " to ",
-                        paste(tail(lon360[east_of_180_inds]), collapse=","), " and\n",
-                        "    ", paste(head(lon360[west_of_180_inds]), collapse=","), " to ",
-                        paste(tail(lon360[west_of_180_inds]), collapse=","))
-                library(abind)
-            }
-            eval(parse(text=cmd))
-            dimnames(data180) <- NULL
-        } # for vi nc_varname
-        ret$data180 <- data180
+        if (all(lon180 == lon360)) { # no conversion necessary
+            ret$data180 <- data360 
+        } else { # conversion necessary
+            data180 <- vector("list", l=length(data360))
+            names(data180) <- names(data360)
+            for (vi in seq_along(data180)) {
+                arr360 <- as.array(data360[[vi]]) # any dims
+                cmd <- paste0("data180[[", vi, "]] <- abind::abind(")
+                cmd1 <- cmd2 <- cmd3 <- NA
+                verbose <- list()
+                if (length(ge180_and_lt360_inds) > 0) {
+                    tmp <- rep(",", t=length(dim(arr360))) 
+                    tmp[londimind] <- "ge180_and_lt360_inds"
+                    tmp <- paste(tmp, collapse="")
+                    cmd1 <- paste0("arr360[", tmp, "]")
+                    verbose[[length(verbose)+1]] <- ge180_and_lt360_inds
+                }
+                if (length(ge360_inds) > 0) {
+                    tmp <- rep(",", t=length(dim(arr360))) 
+                    tmp[londimind] <- "ge360_inds"
+                    tmp <- paste(tmp, collapse="")
+                    cmd2 <- paste0("arr360[", tmp, "]")
+                    verbose[[length(verbose)+1]] <- ge360_inds
+                }
+                if (length(ge0_and_lt180_inds) > 0) {
+                    tmp <- rep(",", t=length(dim(arr360))) 
+                    tmp[londimind] <- "ge0_and_lt180_inds"
+                    tmp <- paste(tmp, collapse="")
+                    cmd3 <- paste0("arr360[", tmp, "]")
+                    verbose[[length(verbose)+1]] <- ge0_and_lt180_inds
+                }
+                if (!is.na(cmd1)) cmd <- paste0(cmd, cmd1, ", ")
+                if (!is.na(cmd2)) cmd <- paste0(cmd, cmd2, ", ")
+                if (!is.na(cmd3)) cmd <- paste0(cmd, cmd3, ", ")
+                cmd <- paste0(cmd, "along=", londimind, ")")
+                message("run `", cmd, "`")
+                if (vi == 1) {
+                    library(abind)
+                    for (i in seq_along(verbose)) {
+                        if (!is.null(verbose[[i]])) {
+                            message("inds ", paste(head(verbose[[i]]), collapse=","), " to ",
+                                    paste(tail(verbose[[i]]), collapse=","),
+                                    " --> lons ", paste(head(lon360[verbose[[i]]]), collapse=","), " to ",
+                                    paste(tail(lon360[verbose[[i]]]), collapse=","))
+                        }
+                    } # for i lon chunks
+                } # if vi == 1
+                eval(parse(text=cmd))
+                dimnames(data180) <- NULL
+            } # for vi nc_varname
+            ret$data180 <- data180
+        } # if lon180 == lon360 or not
     } # if !is.null(data)
     
     # save converted data180 as nc file
