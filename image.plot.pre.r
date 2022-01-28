@@ -1,4 +1,4 @@
-image.plot.pre <- function(zlim, 
+image.plot.pre <- function(zlim=NULL, 
                            nlevels=NULL, max_labels=NULL, zlevels=NULL,
                            method="pretty",
                            power_lims=NULL, power_min=NULL,
@@ -15,7 +15,25 @@ image.plot.pre <- function(zlim,
 
     ## Check input
     if (missing(zlim)) stop("error: 'zlim' is missing")
-    if (any(is.na(zlim))) stop("zlim must not be NA")
+    if (is.null(zlim)) {
+        if (!is.null(zlevels)) zlim <- range(zlevels, na.rm=T)
+    } else {
+        if (any(is.na(zlim))) {
+            if (!is.null(zlevels)) {
+                if (!all(is.na(zlevels))) {
+                    message("there are NA in provided zlim. use range of provided zlevels")
+                    zlim <- range(zlevels, na.rm=T)
+                } else {
+                    warning("there are NA in provided zlim and provided zlevels is NA. set zlim to (0,1) and zlevels to NULL")
+                    zlim <- c(0, 1)
+                    zlevels <- NULL
+                }
+            } else {
+                warning("there are NA in provided zlim and zlevels is not provided. set zlim to (0,1)")
+                zlim <- c(0, 1)
+            }
+        }
+    }
     if (is.null(nlevels)) nlevels <- 11
     if (is.null(max_labels)) max_labels <- 15
     if (is.null(method)) method <- "pretty"
@@ -28,7 +46,7 @@ image.plot.pre <- function(zlim,
         colors_script <- "~/scripts/r/functions/colors/color_function.r"
         if (verbose) message(colors_script)
     }
-    if (verbose) cat("given zlim =", zlim, "\n")
+    if (verbose) cat("zlim =", zlim, "\n")
    
     ## check if both positive and negative numbers
     if (is.null(anom_colorbar)) {
@@ -626,18 +644,23 @@ image.plot.pre <- function(zlim,
             centerind <- which(abs(zlevels - center_around) == min(abs(zlevels - center_around)))
             if (length(centerind) > 1) {
                 if (verbose) {
-                    print(paste0("warning: found ", length(centerind), " positions to center around ",
-                                 center_around, ". take the first one: zlevels[", centerind[1], "] = ",
-                                 zlevels[centerind[1]], " ..."))
+                    message("found ", length(centerind), " positions to center around ",
+                            center_around, ". take the first one: zlevels[", centerind[1], "] = ",
+                            zlevels[centerind[1]], " ...")
                 }
                 centerind <- centerind[1]
             }
 
+            # special case:
+            # if `center_around`=0 and zlevels=-2.91575 4 6 8 10, `centerind`=1 since its closest to zero
+            # -> set `centerind` to 2 
+            if (centerind == 1) centerind <- 2
+            
             ncolors_neg <- centerind - 1
             ncolors_pos <- nlevels - centerind
             # both zoom and equal spacing in both neg and pos colors
             ncolors_oneside <- max(ncolors_neg, ncolors_pos) 
-            if (verbose) message("ncolors_neg = ", ncolors_neg, ", ncolors_pos = ", 
+            if (verbose) message("centerind = ", centerind, ", ncolors_neg = ", ncolors_neg, ", ncolors_pos = ", 
                                  ncolors_pos, ", ncolors_oneside = ", ncolors_oneside)
 
             if (is.null(pos_cols) || is.null(neg_cols)) {

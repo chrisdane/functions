@@ -343,7 +343,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
     if (missing(nc_file) && missing(lon360)) {
         stop("provide either `nc_file` or `lon360`")
     }
-    if (!missing(nc_file)) { # case 1: user provided nc file and not data in r session
+    if (!missing(nc_file)) { # case 1: user provided nc file and not data
         if (missing(nc_out) || is.null(nc_out)) stop("`nc_file` was provided but not `nc_out`")
         dir.create(dirname(nc_out), recursive=T, showWarnings=F)
         if (file.access(dirname(nc_out), mode=2) == -1) { # not writeable
@@ -424,17 +424,17 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
             stop("provided `nc_file` = \"", nc_file, "\" does not exist as file or is not readable")
         }
     
-    } else { # case 2: user provided lon360 in r ression and not nc file
+    } else { # case 2: user provided lon360 (and data360) data and not nc file
         # check input data
         if (!is.numeric(lon360)) stop("`lon360` must be numeric")
         if (!missing(data360)) { # if data360 was provided
-            if (!is.list(data360)) stop("`data360` must be a list of length n for n variables")
+            if (!is.list(data360)) data360 <- list(data360)
             for (vi in seq_along(data360)) {
                 if (!is.numeric(data360[[vi]])) stop("`data360[[", vi, "]]` is not numeric")
                 if (missing(londimind)) { # londimind not provided
-                    message("`londimind` not provided --> try to determine from\n",
-                            "length(lon360) = ", length(lon360), "; dims(data360) = ", 
-                            paste(dim(data360[[vi]]), collapse=", "), " ...")
+                    message("`londimind` not provided --> try to determine from ",
+                            "length(lon360) = ", length(lon360), "; dims(data360) = (", 
+                            paste(dim(data360[[vi]]), collapse=","), ") ... ", appendLF=F)
                     londimind <- which(dim(data360[[vi]]) == length(lon360))
                     if (length(londimind) != 1) {
                         stop("number of longitudes was found ", length(ind), " times in data dims")
@@ -502,15 +502,16 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
                     library(abind)
                     for (i in seq_along(verbose)) {
                         if (!is.null(verbose[[i]])) {
-                            message("inds ", paste(head(verbose[[i]]), collapse=","), " to ",
-                                    paste(tail(verbose[[i]]), collapse=","),
-                                    " --> lons ", paste(head(lon360[verbose[[i]]]), collapse=","), " to ",
-                                    paste(tail(lon360[verbose[[i]]]), collapse=","))
+                            message(length(lon360[verbose[[i]]]), " lons ", 
+                                    paste(head(lon360[verbose[[i]]]), collapse=","), ",...,",
+                                    paste(tail(lon360[verbose[[i]]]), collapse=","),
+                                    " (inds ", paste(head(verbose[[i]]), collapse=","), ",...,",
+                                    paste(tail(verbose[[i]]), collapse=","), ")")
                         }
                     } # for i lon chunks
                 } # if vi == 1
                 eval(parse(text=cmd))
-                dimnames(data180) <- NULL
+                dimnames(data180[[vi]]) <- NULL
             } # for vi nc_varname
             ret$data180 <- data180
         } # if lon180 == lon360 or not
@@ -1046,17 +1047,17 @@ ncdump_get_filetype <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
     if (verbose) message("ncdump_get_filetype() run `", cmd, "` ...")
     type <- suppressWarnings(system(cmd, intern=T, ignore.stderr=T))
     if (!is.null(attributes(type))) { # no success
-        # known so far:
-        # "GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"
+        # from `cdo showformat`:
+        #    "GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"
         file_type <- "non-nc"
     } else { # success
-        # known so far:
-        # from `cdo showformat`:
-        # "netCDF", "NetCDF", "NetCDF2", 
-        # "NetCDF4", "NetCDF4 zip", "NetCDF4 classic", "NetCDF4 classic zip", 
-        # "netCDF-4 classic model",
         # from `ncdump -k`:
-        # "64-bit offset"
+        #    "netCDF-4", "64-bit offset"
+        # from `cdo showformat`:
+        #    "netCDF", "NetCDF", "NetCDF2", 
+        #    "NetCDF4", "NetCDF4 zip", "NetCDF4 classic", "NetCDF4 classic zip", 
+        #    "netCDF-4 classic model",
+        if (verbose) message("ncdump_get_filetype() --> \"", type, "\"")
         file_type <- "nc"
     }
     if (verbose) {
@@ -1067,7 +1068,7 @@ ncdump_get_filetype <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
 } # ncdump_get_filetype
 
 # set my default plot options
-myDefaultPlotOptions <- function(plist=list(plot_type="pdf", 
+myDefaultPlotOptions <- function(plist=list(plot_type="png", 
                                             ts_width_in=7, ts_asp=2,
                                             ts_mon_width_in=7, ts_mon_asp=1,
                                             depth_width_in=7, depth_asp=0.5,
@@ -1399,7 +1400,16 @@ my_install.packages <- function(pkg="asdasd", dry=T) {
             stop("todo")
             #configure.vars <- paste0("LIBS=-Wl,-rpath,", udunits2_path, "/lib")
         }
-    
+   
+    } else if (pkg == "XML") {
+
+        # R41 mistral
+        if (any(sapply(c("mlogin", "mistralpp", "m[0-9][0-9][0-9][0-9][0-9]"), grepl, hostname)) &&
+            substr(rversion, 1, 3) == "4.1") {
+            libxml2_path <- "/sw/spack-rhel6/miniforge3-4.9.2-3-Linux-x86_64-pwdbqi"
+            configure.vars <- paste0("LIBS=-Wl,-rpath,", libxml2_path, "/lib")
+        }
+
     } # which package
     
     # checks
@@ -1476,14 +1486,19 @@ my_install.packages <- function(pkg="asdasd", dry=T) {
         # check shared lib paths of installed package
         # --> need to restore old LD_LIBRARY_PATH before if necessary
         Sys.setenv(LD_LIBRARY_PATH=LD_LIBRARY_PATH_old)
-        cmd <- paste0("ldd ", lib, "/", pkg, "/libs/", pkg, ".so")
-        message("\nrun `", cmd, "` ...")
-        pkg_shared_lib_paths <- system(cmd, intern=T) # e.g. "/sw/spack-rhel6/r-3.6.1-lnvx6h/rlib/R/lib/libR.so"
-        if (any(grepl(" => not found", pkg_shared_lib_paths))) {
-            stop("--> some shared lib paths were not found:\n",
-                 paste(pkg_shared_lib_paths[which(grepl(" => not found", pkg_shared_lib_paths))], collapse="\n"))
+        shared_lib <- paste0(lib, "/", pkg, "/libs/", pkg, ".so")
+        if (!file.exists(shared_lib)) {
+            warning(pkg, " lib ", shared_lib, " does not exist. installation went wrong")
         } else {
-            message("--> ok, all shared libs exist")
+            cmd <- paste0("ldd ", shared_lib)
+            message("\nrun `", cmd, "` ...")
+            pkg_shared_lib_paths <- system(cmd, intern=T) # e.g. "/sw/spack-rhel6/r-3.6.1-lnvx6h/rlib/R/lib/libR.so"
+            if (any(grepl(" => not found", pkg_shared_lib_paths))) {
+                warning("--> some shared lib paths were not found:\n",
+                        paste(pkg_shared_lib_paths[which(grepl(" => not found", pkg_shared_lib_paths))], collapse="\n"))
+            } else {
+                message("--> ok, all shared libs exist")
+            }
         }
 
     } # if dry or not
