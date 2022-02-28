@@ -9,7 +9,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                            poly_border_col=NA, 
                            contour_only=F, add_contour=T, contour_include_zero=T,
                            contour_posneg_soliddashed=T, contour_posneg_redblue=F,
-                           contour_unique=F,
+                           contour_cols=NULL, contour_unique=F,
                            contour_smooth=F, contour_smooth_n_segment_thr=5, contour_smooth_spar=0.5,
                            contour_labcex=0.75, contour_drawlabels=T, contour_vfont=NULL, #c("sans serif", "bold"), 
                            quiver_thr=NULL, quiver_const=F, quiver_nxfac=1, quiver_nyfac=1, 
@@ -30,7 +30,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
     if (verbose) message("\n*********** start image.plot.nxm() with `verbose`=T and `dry`=", 
                          substr(dry, 1, 1), " **************")
-    
+   
+    if (F) options(warn=2) # for debug
+
     ## demo values
     if (missing(x) && missing(y) && missing(z)) {
         message("x,y,z not provided --> run demo ...")
@@ -511,6 +513,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         return_list$axis.at <- axis.at
         return_list$axis.labels <- axis.labels
     }
+    if (add_contour || contour_only) {
+        if (is.null(contour_cols)) contour_cols <- "black" # default
+    }
 
     ## if image data shall be plotted, `useRaster` argument must be False if pdf plot or True otherwise and possible
     # --> if `useRaster`=T, x and y must be regular, decided via function `check_irregular()` below
@@ -748,13 +753,24 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     } else if (contour_only) {
         
         # left region for axes in cm; columns for plots in relative units; right region for colorbar in cm  
-        layout_mat2 <- cbind(rep(0, t=n), # left axis row
+        if (F) { # old
+            layout_mat2 <- cbind(rep(0, t=n), # left axis row
                              layout_mat)
-        layout_widths <- c(lcm(cm_left), rep(1/m, t=m))
-        # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
-        layout_mat2 <- rbind(rep(0, t=m + 1), # title row
-                             layout_mat2,
-                             rep(0, t=m + 1)) # bottom axis row
+            layout_widths <- c(lcm(cm_left), rep(1/m, t=m))
+            # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
+            layout_mat2 <- rbind(rep(0, t=m + 1), # title row
+                                 layout_mat2,
+                                 rep(0, t=m + 1)) # bottom axis row
+        } else if (T) { # new: same as for !contour_only case but with thinner cm_right
+            layout_mat2 <- cbind(rep(0, t=n), # left axis row
+                                 layout_mat,
+                                 rep(n*m + 1, t=n)) # right legend column
+            layout_widths <- c(lcm(cm_left), rep(1/m, t=m), lcm(1)) # 1 cm instead of cm_right
+            # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
+            layout_mat2 <- rbind(rep(0, t=m + 2), # title row
+                                 layout_mat2,
+                                 rep(0, t=m + 2)) # bottom axis row
+        }
         layout_heights <- c(lcm(cm_top), rep(1/n, t=n), lcm(cm_bottom))
     
     } # if contour_only or not
@@ -891,20 +907,20 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 
                 # add NA values
                 if (T && any(is.na(z[[i]]))) {
-                    if (proj == "") { # NA values are handled by `oce::mapImage(missingColor=NAcol, ...)` if projection
+                    if (proj == "") {
                         if (F) { # old
                             if (verbose) message("`z[[", i, "]]` has missing values (NA) --> add missing values ",
                                                  "to subplot with color `NAcol`=", NAcol, " using graphics::image() with `useRaster`=", 
                                                  useRaster, " ...")
-                                graphics::image(x[[i]], y[[i]], array(1, c(nx, ny)),
-                                                add=T, col=NAcol,
-                                                axes=F, xlab="n", ylab="n",
-                                                useRaster=useRaster)
+                            graphics::image(x[[i]], y[[i]], array(1, c(nx, ny)),
+                                            add=T, col=NAcol,
+                                            axes=F, xlab="n", ylab="n",
+                                            useRaster=useRaster)
                         } else { # new
                             usr <- par("usr")
                             rect(usr[1], usr[3], usr[2], usr[4], col=NAcol, border=NA)
                         }
-                    } # if proj == ""
+                    } # else if proj != "", NA values are handled by `oce::mapImage(missingColor=NAcol, ...)`
                 } # if any NA
 
                 # add actual data
@@ -938,27 +954,39 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 }
 
                 if (contour_only) {
+
+                    if (T && any(is.na(z[[i]]))) {
+                        if (verbose) message("`z[[", i, "]]` has missing values (NA) --> add missing values ",
+                                             "to subplot with color `NAcol`=", NAcol, " using graphics::image() with `useRaster`=", 
+                                             useRaster, " ...")
+                        graphics::image(x[[i]], y[[i]], is.na(z[[i]]),
+                                        add=T, col=NAcol,
+                                        breaks=c(1, 2), # the 2 is just some placeholder value > 1
+                                        axes=F, xlab="n", ylab="n",
+                                        useRaster=useRaster)
+                    } # if any NA
+
                     if (individual_zlim) {
                         axis.at <- pretty(range(z[[i]], na.rm=T), n=10) # overwrites global axis.at
-                        if (verbose) {
-                            message("`contour_only`=T and `individual_zlim`=T --> use individual contour levels. axis.at =")
-                            dput(axis.at)
-                        }
+                        message("`contour_only`=T and `individual_zlim`=T --> use individual contour levels. axis.at =")
+                        dput(axis.at)
                     }
-                }
+
+                } # if contour_only
 
                 # distinguish between positive and negative contours
                 if (contour_posneg_soliddashed || contour_posneg_redblue) {
                     if (contour_posneg_soliddashed) {
-                        if (verbose) message("`contour_posneg_soliddashed`=T --> use solid lines for pos and dashed lines for neg values ...")
+                        message("`contour_posneg_soliddashed`=T --> use solid lines for pos and dashed lines for neg values ...")
                     } else if (contour_posneg_redblue) {
-                        if (verbose) message("`contour_posneg_redblue`=T --> use red lines for pos and blue lines for neg values ...")
+                        message("`contour_posneg_redblue`=T --> use red lines for pos and blue lines for neg values ...")
                     }
                     if (any(axis.at < 0)) { # add negative values
                         contour_levels <- axis.at[axis.at < 0]
                         if (contour_posneg_soliddashed) {
                             graphics::contour(x[[i]], y[[i]], z[[i]],
-                                              add=T, levels=contour_levels, 
+                                              add=T, 
+                                              levels=contour_levels, col=contour_cols,
                                               labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               lty=2, axes=F, xlab="n", lwd=lwd)
                         } else if (contour_posneg_redblue) {
@@ -978,7 +1006,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                         }
                         if (contour_posneg_soliddashed) {
                             graphics::contour(x[[i]], y[[i]], z[[i]],
-                                              add=T, levels=contour_levels, 
+                                              add=T, 
+                                              levels=contour_levels, col=contour_cols, 
                                               labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               lty=1, axes=F, xlab="n", lwd=lwd)
                         } else if (contour_posneg_redblue) {
@@ -991,8 +1020,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 
                 # default: do not distinguish between positive and negative contours
                 } else if (!contour_posneg_soliddashed && !contour_posneg_redblue) {
-                    if (verbose) message("both `contour_distinguish_posneg` and `contour_distinguish_redblue` are false",
-                                         " --> use solid black lines for both pos and neg values ...")
+                    message("both `contour_distinguish_posneg` and `contour_distinguish_redblue` are false",
+                            " --> use solid lines for both pos and neg values ...")
                     tmp <- axis.at
                     if (!contour_include_zero) {
                         if (any(tmp == 0)) {
@@ -1001,7 +1030,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                         }
                     }
                     graphics::contour(x[[i]], y[[i]], z[[i]],
-                                      add=T, levels=tmp, 
+                                      add=T, 
+                                      levels=tmp, col=contour_cols, 
                                       labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                       axes=F, xlab="n", lwd=lwd)
                 } # if distinguish between positive and negative contours or not

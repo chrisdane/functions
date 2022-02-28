@@ -156,13 +156,16 @@ remove_depends <- function(pkg, lib=.libPaths()[1], recursive=F) {
     }
 } # remove_depends
 
-# check for broken packages
-broken_pkgs <- function(lib=.libPaths()[1]) {
-    pkgs <- installed.packages(lib=lib)[,1]
+# check if an installed package cannot be loaded
+broken_pkgs <- function(pkgs=NULL, lib=.libPaths()[1]) {
+    if (is.null(pkgs)) {
+        pkgs <- installed.packages(lib=lib)[,1]
+    }
     checks <- list(); cnt <- 0
+    message("check ", length(pkgs), " packages from ", lib, " ...")
     for (i in seq_along(pkgs)) {
         check <- tryCatch(ncol(asNamespace(pkgs[i])$.__NAMESPACE__.$S3methods),
-                          error = function(e) print(c(pkgs[i], e)))
+                          error = function(e) c(pkgs[i], e))
         if (class(check) == "list") {
             cnt <- cnt + 1
             checks[[cnt]] <- check[2:3]
@@ -171,4 +174,18 @@ broken_pkgs <- function(lib=.libPaths()[1]) {
     }
     return(checks)
 } # broken_pkgs
+
+# check a package if any other package depends on that package or not
+nodep_pkgs <- function(pkgs=NULL, lib=.libPaths()[1]) {
+    if (is.null(pkgs)) {
+        pkgs <- installed.packages(lib=lib)[,1]
+    }
+    nodeps <- c()
+    message("check ", length(pkgs), " packages from ", lib, " ...")
+    for (i in seq_along(pkgs)) {
+        dep <- tools::dependsOnPkgs(pkgs[i], dependencies=c("Depends", "Imports", "LinkingTo"), lib=lib)
+        if (length(dep) == 0) nodeps <- c(nodeps, pkgs[i])
+    }
+    return(unname(nodeps))
+} # nodep_pkgs
 

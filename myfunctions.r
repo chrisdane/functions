@@ -298,6 +298,27 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
 
 } # make_posixlt_origin
 
+if (F) { # todo: seq(from, to, b=non-integer-month)
+    origin <- as.POSIXlt("2015-1-1 00:00:00") # from nc1$dim$time$units = "months since 2015-1-1 00:00:00"
+    dts <- nc1$dim$time$vals # 0.5 12 24 ... 984 996 1007 months since 2015-1-1
+    # integer months can be understood by `seq`, non-integer months not:
+    time <- rep(origin, t=length(dts)) # placeholder
+    month_of_origin <- origin$mon+1 # e.g. 1 for January
+    for (ti in seq_along(time)) {
+        if (dts[ti] %% 1 == 0) { # dt in months is integer, e.g. 12 --> `seq` can be used
+            time[ti] <- seq(origin, by=paste0(dts[ti], " months"), l=2)[2]
+        } else if (F) { # dt in months is not integer, e.g. 0.5 --> `seq` can not be used
+            full_month <- floor(dts[i]) # e.g. 0 or 12
+            rest <- dts[ti] %% 1 # e.g. 0.5
+            if (full_month == 0) { # use only origin + rest 
+                time[ti] <- a
+            } else { # full_month is not 0
+               a <- seq(origin, by=paste0(dts[ti], " months"), l=2)[2]
+            }
+        }
+    }
+}
+
 # minute/second degree to decimal degree longitude/latitude
 deg2dec <- function(deg=0.0, min=0.0, sec=0.0, verbose=F) {
     if (verbose) { 
