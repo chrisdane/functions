@@ -30,9 +30,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
     if (verbose) message("\n*********** start image.plot.nxm() with `verbose`=T and `dry`=", 
                          substr(dry, 1, 1), " **************")
-   
+    
     if (F) options(warn=2) # for debug
-
+    
     ## demo values
     if (missing(x) && missing(y) && missing(z)) {
         message("x,y,z not provided --> run demo ...")
@@ -51,14 +51,17 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     if (!missing(x)) {
         if (missing(y)) stop("y is missing")
         if (missing(z)) stop("z is missing")
+        if (length(x) == 0) stop("x is of length 0")
     }
     if (!missing(y)) {
         if (missing(x)) stop("x is missing")
         if (missing(z)) stop("z is missing")
+        if (length(y) == 0) stop("y is of length 0")
     }
     if (!missing(z)) {
         if (missing(x)) stop("x is missing")
         if (missing(y)) stop("y is missing")
+        if (length(z) == 0) stop("z is of length 0")
     }
     if (!is.list(z)) z <- list(z)
     if (!is.list(x)) {
@@ -542,16 +545,11 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     if (is.null(useRaster)) {
         useRaster <- T # default; better quality of image()-calls if raster graphic
         if (is_pdf) useRaster <- F # image()-call yields vector graphic
-    }
-    
-    # special: vector plots of image()-calls of large matrices are too large to modify with inkscape
-    if (T && is_pdf && !useRaster) {
-        warning("special: set useRaster=T although pdf plot") 
-        useRaster <- T
-    }
-
-    if (is_pdf && useRaster) {
-        warning("pdf plot is wanted and provided `useRaster`=T. should be F.")
+    } else {
+        if (!is.logical(useRaster)) stop("provided `useRaster` muse be logical")
+        if (is_pdf && useRaster) {
+            message("info: current plot is pdf but `useRaster` is true --> image()-calls will not yield vector graphic!")
+        }
     }
 
     if (useRaster) {

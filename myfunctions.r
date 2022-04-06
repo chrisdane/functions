@@ -765,12 +765,15 @@ masses <- function(x=1, unit="kg") {
 molCO2_s1_to_kgC_s1 <- function(molCO2_s1) {
     molCO2_s1 * 44.0095 * 0.272912 / 1e3 # molCO2 -> gCO2; gCO2 -> gC; gC -> kgC
 }
-molCO2_s1_to_PgC_yr <- function(molCO2_s1) {
+molCO2_s1_to_PgC_yr1 <- function(molCO2_s1) {
     molCO2_s1 * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg 
 }
-molCO2_m2_s1_to_PgC_yr <- function(molCO2_m2_s1) {
+molCO2_m2_s1_to_PgC_yr1 <- function(molCO2_m2_s1) {
     Aearth <- 5.100656e14 # m2
     molCO2_m2_s1 * Aearth * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # m2 -> fldint; molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg 
+}
+molC_m2_yr1_to_gC_m2_yr1 <- function(molC_m2_yr1) {
+    molC_m2_yr1 * 12.0107 # molC --> gC
 }
 kgCO2_m2_to_PgC <- function(kgCO2_m2) {
     Aearth <- 5.100656e14 # m2
@@ -780,19 +783,22 @@ kgCO2_m2_to_ppm <- function(kgCO2_m2) {
     Aearth <- 5.100656e14 # m2
     kgCO2_m2 * Aearth * 0.272912 / 1e12 / 2.124 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
 }
-kgCO2_s1_to_PgC_yr <- function(kgCO2_s1) {
+kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
     kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
 }
-kgCO2_m2_s1_to_PgC_yr <- function(kgCO2_m2_s1) {
+kgCO2_m2_s1_to_PgC_yr1 <- function(kgCO2_m2_s1) {
     Aearth <- 5.100656e14 # m2
     kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
 }
-kgC_s1_to_PgC_yr <- function(kgC_s1) {
+kgC_s1_to_PgC_yr1 <- function(kgC_s1) {
     kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg 
 }
-kgC_m2_s1_to_PgC_yr <- function(kgC_m2_s1) {
+kgC_m2_s1_to_PgC_yr1 <- function(kgC_m2_s1) {
     Aearth <- 5.100656e14 # m2
     kgC_m2_s1 * Aearth * 365.25*86400 / 1e12 # m2 -> fldint; s-1 -> yr-1; kg -> Pg 
+}
+kgC_m2_s1_to_gC_m2_yr1 <- function(kgC_m2_s1) {
+    kgC_m2_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g 
 }
 
 ## section 2/2: r-stuff
