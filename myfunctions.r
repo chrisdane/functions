@@ -1004,7 +1004,7 @@ ht <- function(x, n=15, ...) {
         t <- utils::tail(x, n=min(N/2, n), keepnums=T, ...)
         tmp <- rbind(h, t)
     }
-    print(tmp)
+    print(t(tmp))
 } # ht function
 
 grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
