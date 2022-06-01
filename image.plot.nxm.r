@@ -33,7 +33,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     
     if (F) options(warn=2) # for debug
     
-    ## demo values
+    # demo values
     if (missing(x) && missing(y) && missing(z)) {
         message("x,y,z not provided --> run demo ...")
         n <- 3; m <- 2
@@ -520,9 +520,22 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         if (is.null(contour_cols)) contour_cols <- "black" # default
     }
 
-    ## if image data shall be plotted, `useRaster` argument must be False if pdf plot or True otherwise and possible
-    # --> if `useRaster`=T, x and y must be regular, decided via function `check_irregular()` below
-    check_irregular <- function(x, y) { # from graphics::image()'s argument `useRaster` from graphics::image.default
+    # set `useRaster`
+    # if a data matrix shall be plotted using graphics::image, the `useRaster` argument 
+    # decides how the pixels are drawn and what kind of graphic file is returned: 
+    # 1) useRaster=T --> raster graphic
+    # 2) useRaster=F --> vector graphic
+    # - if a raster graphic is wanted, it should be saved as png (or other raster formats) and
+    #   useRaster should be true. the latter only works of the x and y coords of the data matrix 
+    #   are regular, decided via function `check_irregular()` below
+    # - if a vector graphic is wanted, it should be saved as pdf (or other vector formats) and 
+    #   useRaster should be false. however, objects drawn to a vector graphic with graphics::image
+    #   can be very large, since every pixel is rendered as a single vector-object in the pdf viewer.
+    #   this can yield a very large and unusable pdf file
+    #   --> it can be useful to set useRaster explicitly to false, although a vector graphic is wanted.
+    #   the resulting file is a vector graphic (e.g. axes, font, etc.) but all objects drawn with
+    #   graphics::image are not.
+    check_irregular <- function(x, y) { # defined inside graphics::image.default
         # problem: does not work for POSIX x,y objects
         dx <- diff(x)
         dy <- diff(y)
@@ -538,26 +551,28 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         #   TRUE if is.logical(x) && length(x) == 1L && !is.na(x) && x
         (length(dx) && !isTRUE(all.equal(dx, rep(dx[1], length(dx))))) ||
         (length(dy) && !isTRUE(all.equal(dy, rep(dy[1], length(dy)))))
-    }
-    
+    } # check_irregular
     is_pdf <- plot_type == "pdf" || # if pdf is wanted
-              (plot_type == "active" && (!is.null(dev.list()) && all(names(dev.cur()) == "pdf"))) # if pdf plot is already open
+              (plot_type == "active" && (!is.null(dev.list()) && all(names(dev.cur()) == "pdf"))) # or current open device is pdf
     if (is.null(useRaster)) {
-        useRaster <- T # default; better quality of image()-calls if raster graphic
-        if (is_pdf) useRaster <- F # image()-call yields vector graphic
+        useRaster <- T # default: faster plotting and better quality of graphics::image()-calls if raster graphic
+        if (is_pdf) useRaster <- F # graphics::image()-call yields vector graphic
     } else {
         if (!is.logical(useRaster)) stop("provided `useRaster` muse be logical")
         if (is_pdf && useRaster) {
-            message("info: current plot is pdf but `useRaster` is true --> image()-calls will not yield vector graphic!")
+            warning("a vector graphic is wanted (pdf) but `useRaster`=T --> graphics::image()-calls will not yield vector graphic.\n",
+                    "do not provide the `useRaster` argument or set it to false if the graphics::image()-call shall return a vector object.")
         }
     }
-
+   
+    # is useRaster=T, the x and y coords of the data matrix must be regular
+    # --> if provided x and y are not regular, make new regular x and y for the plot
     if (useRaster) {
         if (!contour_only) {
             if (verbose) message("`useRaster`=T --> check if x,y are regular for graphics::image(..., useRaster=T) usage ...")
             for (i in seq_along(z)) {
                 if (check_irregular(x[[i]], y[[i]])) {
-                    x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), l=length(x[[i]]))
+                    x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), l=length(x[[i]])) # overwrite original coord
                     y[[i]] <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), l=length(y[[i]]))
                 }
             }
@@ -576,7 +591,6 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         } # if !is.null(image_list)
 
         # todo: other matrix objects to check?
-
     } # if useRaster
 
     if (verbose) {
