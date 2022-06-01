@@ -670,6 +670,12 @@ get_pval <- function(model) {
     } # run lm example
     # todo: precision is not as high as `summary(model)$coefficients[2,4]`
     if (class(lm) != "lm") stop("input must be of class \"lm\"")
+    lm_summary <- summary(lm)
+    # from ?lm.summary:
+    # fstatistic: (for models including non-intercept terms) a 3-vector with
+    #             the value of the F-statistic with its numerator and
+    #             denominator degrees of freedom.
+    r_lm.summary <- stats::pf(lm_summary$fstatistic[1], lm_summary$fstatistic[2], lm_summary$fstatistic[3], lower.tail=F)
     # model[[1]] is actual data that was modeled by predictors model[[2..]]
     a <- sum((lm$model[[1]]-mean(lm$model[[1]]))^2) 
     b <- sum(lm$res^2)
@@ -1117,16 +1123,14 @@ ncdump_get_filetype <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
     if (verbose) message("ncdump_get_filetype() run `", cmd, "` ...")
     type <- suppressWarnings(system(cmd, intern=T, ignore.stderr=T))
     if (!is.null(attributes(type))) { # no success
-        # from `cdo showformat`:
-        #    "GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"
+        # e.g.: "GRIB", "EXTRA  BIGENDIAN", "EXTRA  LITTLEENDIAN"
         file_type <- "non-nc"
     } else { # success
-        # from `ncdump -k`:
-        #    "netCDF-4", "64-bit offset"
-        # from `cdo showformat`:
-        #    "netCDF", "NetCDF", "NetCDF2", 
-        #    "NetCDF4", "NetCDF4 zip", "NetCDF4 classic", "NetCDF4 classic zip", 
-        #    "netCDF-4 classic model",
+        # e.g: "classic"
+        #      "netCDF", "NetCDF"
+        #      "NetCDF2"
+        #      "netCDF-4", "NetCDF4", "NetCDF4 zip"
+        #      "NetCDF4 classic", "NetCDF4 classic zip", "netCDF-4 classic model"
         if (verbose) message("ncdump_get_filetype() --> \"", type, "\"")
         file_type <- "nc"
     }
