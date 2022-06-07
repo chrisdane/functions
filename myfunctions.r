@@ -1376,6 +1376,63 @@ par_px2in <- function(px) {
     }
 } # par_px2in 
 
+# show font info
+font_info <- function() {
+
+    # from ?png:
+    # type: character string, one of '"Xlib"' or '"quartz"' (some macOS
+    #       builds) or '"cairo"'.  The latter will only be available if
+    #       the system was compiled with support for cairo - otherwise
+    #       '"Xlib"' will be used.  The default is set by
+    #       'getOption("bitmapType")' - the 'out of the box' default is
+    #       '"quartz"' or '"cairo"' where available, otherwise '"Xlib"'.
+    type <- getOption("bitmapType")
+    message("\ngetOption(\"bitmapType\"): ", type)
+
+    # from ?png:
+    # For types '"cairo"' and '"quartz"', the 'family' argument can
+    # be supplied.  See the 'Cairo fonts' section in the help for
+    # 'X11'.
+    # For type '"cairo"', the 'symbolfamily' argument can be
+    # supplied.  See 'X11.options'.
+
+    # from grDecives::X11.options():
+    x11_opts <- grDevices::X11.options()
+    message("\nX11.options:")
+    cat(capture.output(str(x11_opts)), sep="\n")
+
+    # from grDevices::X11():
+    fonts <- get(".X11.Fonts", envir=grDevices:::.X11env)
+    message("\n.X11.Fonts:")
+    cat(capture.output(str(fonts)), sep="\n")
+
+    message("\nplot ", length(fonts), " fonts ...")
+    plotnames <- rep(NA, t=length(fonts))
+    for (fi in seq_along(fonts)) {
+        plotnames[fi] <- paste0("font_", names(fonts)[fi], "_", gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], ".png")
+        message("plot ", plotnames[fi], " ...")
+        png(plotnames[fi], width=1000, height=1000, res=300, family=names(fonts)[fi])
+        plot(1:10, 1:10, t="n", main=names(fonts)[fi])
+        text(1:10, 1:10, paste0(R.version.string, " ", Sys.info()["nodename"]))
+        dev.off()
+    } # for fi
+
+    nm <- grDevices::n2mfrow(length(fonts))
+    plotname <- paste0(gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], "_", length(fonts), "_fonts.png")
+    cmd <- paste0("magick montage -label %f ", paste(plotnames, collapse=" "),
+                  " -geometry 1500x1500 -frame ", nm[1], " -tile 1x", nm[2],
+                  " miff:- | magick montage - -geometry +0+0 -tile ", nm[1], "x1 ", plotname)
+    message("\nrun `", cmd, "` ...")
+    system(cmd)
+    message("--> check combined plot ", plotname)
+
+    message("\nremove ", length(plotnames), " single plots ...")
+    invisible(file.remove(plotnames))
+
+    message("\nfinished")
+
+} # font_info
+
 # load function for packages
 load_packages <- function(pkgs) {
     status <- sapply(pkgs, function(pkg) {
