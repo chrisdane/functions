@@ -298,6 +298,88 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
 
 } # make_posixlt_origin
 
+difftime_yr <- function(from, to) {
+    # the first- and current-year-problem:
+    # calc age from e.g. 1992-05-02 (leap year) to 2022-05-02 (non-leap year)
+    # wrong method:
+    # age_a <- 1 - from[datei]$yday/366 # rest of first year = 0.6666667
+    # age_a <- age_a + to[datei]$yday/365 # first part of current year = 0.3342466
+    # --> age_a = 0.6666667 + 0.3342466 = 1.000913 != 1 --> wrong
+    # --> this method only works if first and current year are both either non-leap or leap years
+    # correct method:
+    # age_a <- 1 - (from[datei]$mon/12 + from[datei]$mday/31/12) # rest of first year = 0.6612903
+    # age_a <- age_a + to[datei]$mon/12 + to[datei]$mday/31/12 # first part of current year = 0.3387097
+    # --> age_a = 0.6612903 + 0.3387097 = 1 --> correct
+    if (missing(from)) from <- as.POSIXct("1970-1-1", tz="UTC")
+    if (missing(to)) to <- as.POSIXct(Sys.time(), tz="UTC")
+    for (i in seq_len(2)) {
+        if (i == 1) class <- class(from)
+        if (i == 2) class <- class(to)
+        if (length(class) == 2 && class[2] == "POSIXt") {
+        } else if (length(class) == 1 && class == "Date") { # add further if needed
+        } else {
+            message("class of `", ifelse(i == 1, "from", "to"), "` (\"",  
+                    paste(class, collapse="\", \""), "\") must be \"Date\" or \"POSIX*t\" --> run `base::as.POSIXct()` ...")
+            if (i == 1) from <- as.POSIXct(from)
+            if (i == 2) to <- as.POSIXct(to)
+        }
+    }
+    if (length(from) != length(to)) {
+        if (length(from) == 1 && length(to) != 1) { # repeat from
+            from <- rep(from, t=length(to))
+        } else if (length(from) != 1 && length(to) == 1) { # repeat to
+            to <- rep(to, t=length(from))
+        } else {
+            stop("`from` and `to` must either be of same length or, if not, one of both must be of length 1")
+        }
+    }
+    # ignore hour, min, sec
+    fromlt <- as.POSIXlt(from, tz="UTC"); tolt <- as.POSIXlt(to, tz="UTC")
+    fromlt$hour <- fromlt$min <- fromlt$sec <- tolt$hour <- tolt$min <- tolt$sec <- 0
+    from <- as.POSIXct(fromlt); to <- as.POSIXct(tolt)
+    dpms <- c("Jan"=31, "Feb"=28, "Mar"=31, "Apr"=30, "May"=31, "Jun"=30, # days per month of non-leap year
+              "Jul"=31, "Aug"=31, "Sep"=30, "Oct"=31, "Nov"=30, "Dec"=31)
+    mpy <- 12 # 12 months per year
+    ages_yr <- rep(NA, t=length(from))
+    for (datei in seq_along(ages_yr)) {
+        dpm_start <- unname(dpms[fromlt[datei]$mon + 1]) # days per month of start month
+        if (fromlt[datei]$mon + 1 == 2 && # if start mon is Feb and start year is leap year
+            ((fromlt[datei]$year+1900 %% 4 == 0) & (fromlt[datei]$year+1900 %% 100 != 0)) | (fromlt[datei]$year+1900 %% 400 == 0)) { 
+            dpm_start <- 29
+        }
+        # decimal of start date:
+        age_a <- fromlt[datei]$mon/mpy + fromlt[datei]$mday/dpm_start/mpy # 0.3387097
+        if (to[datei] > from[datei]) { # current date is after start date (hour, min, sec ignored)
+            if (tolt[datei]$year > fromlt[datei]$year) { # current date is already next year
+                age_a <- 1 - age_a # rest of first year: 1 - 0.3387097 = 0.6612903 yrs
+                dpm_current <- unname(dpms[tolt[datei]$mon + 1]) # days per month of current month
+                if (tolt[datei]$mon + 1 == 2 && # if current mon is Feb and current year is leap year
+                    ((tolt[datei]$year+1900 %% 4 == 0) & (tolt[datei]$year+1900 %% 100 != 0)) | (tolt[datei]$year+1900 %% 400 == 0)) { 
+                    dpm_current <- 29
+                }
+                # rest of first year + decimal of current date:
+                age_a <- age_a + tolt[datei]$mon/mpy + tolt[datei]$mday/dpm_current/mpy # 0.6612903 + (0 < x <= 1)
+                # add 1 year for every year between start year and current year:
+                nyears <- tolt[datei]$year - fromlt[datei]$year
+                age_a <- age_a + nyears - 1
+            } else { # current date is in the same year as first date
+                age_a <- (tolt[datei]$mon/mpy + tolt[datei]$mday/dpm_start/mpy) - age_a # (0.3413978 <= x <= 1) - 0.3387097 
+                # -> age_a = 0.3413978 - 0.3387097 = 0.0026881 yrs if current date only one day later than start date
+            }
+        } else if (to[datei] == from[datei]) { # current date and start date are identical
+            if (((fromlt[datei]$year+1900 %% 4 == 0) & (fromlt[datei]$year+1900 %% 100 != 0)) | (fromlt[datei]$year+1900 %% 400 == 0)) { 
+                age_a <- 1/366 # 0.00273224 yrs 
+            } else {
+                age_a <- 1/365 # 0.002739726 yrs
+            }
+        } else { # current date is before start date
+            message("datei ", datei, ": ", events[datei], " from ", from[datei], " to ", to[datei], " --> start date is in future")
+        }
+        ages_yr[datei] <- age_a
+    } # for datei
+    return(data.frame(from=from, to=to, dyr=ages_yr, dmon=ages_yr*12))
+} # difftime_yr()
+
 if (F) { # todo: seq(from, to, b=non-integer-month)
     origin <- as.POSIXlt("2015-1-1 00:00:00") # from nc1$dim$time$units = "months since 2015-1-1 00:00:00"
     dts <- nc1$dim$time$vals # 0.5 12 24 ... 984 996 1007 months since 2015-1-1
@@ -1406,10 +1488,11 @@ font_info <- function() {
     message("\n.X11.Fonts:")
     cat(capture.output(str(fonts)), sep="\n")
 
-    message("\nplot ", length(fonts), " fonts ...")
+    # plot x11 fonts
+    message("\nplot ", length(fonts), " x11 fonts ...")
     plotnames <- rep(NA, t=length(fonts))
     for (fi in seq_along(fonts)) {
-        plotnames[fi] <- paste0("font_", names(fonts)[fi], "_", gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], ".png")
+        plotnames[fi] <- paste0("x11_font_", names(fonts)[fi], "_", gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], ".png")
         message("plot ", plotnames[fi], " ...")
         png(plotnames[fi], width=1000, height=1000, res=300, family=names(fonts)[fi])
         plot(1:10, 1:10, t="n", main=names(fonts)[fi])
@@ -1418,16 +1501,97 @@ font_info <- function() {
     } # for fi
 
     nm <- grDevices::n2mfrow(length(fonts))
-    plotname <- paste0(gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], "_", length(fonts), "_fonts.png")
+    plotname <- paste0(gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], "_", length(fonts), "_x11_fonts.png")
     cmd <- paste0("magick montage -label %f ", paste(plotnames, collapse=" "),
                   " -geometry 1500x1500 -frame ", nm[1], " -tile 1x", nm[2],
                   " miff:- | magick montage - -geometry +0+0 -tile ", nm[1], "x1 ", plotname)
     message("\nrun `", cmd, "` ...")
     system(cmd)
     message("--> check combined plot ", plotname)
-
     message("\nremove ", length(plotnames), " single plots ...")
     invisible(file.remove(plotnames))
+
+    # get all available fonts via fc-list
+    message("\nget all available fc-list fonts ...")
+    # figure out which font lib is used: default or non-default (R compiled against specific systemfonts.so):
+    # # default:
+    # fc-list | grep "Sans" | grep ":style=Regular"
+    # # non-default:
+    # ```
+    # unalias R
+    # which R: /sw/spack-levante/r-4.1.2-eprwea/bin/R
+    # ldd $(dirname $(dirname $(which R)))/rlib/R/library/systemfonts/libs/systemfonts.so | grep font
+    # libfontconfig.so.1 => /sw/spack-levante/fontconfig-2.13.94-vzwyua/lib/libfontconfig.so.1 (0x00007f69ec088000)
+    #                       /sw/spack-levante/fontconfig-2.13.94-vzwyua/bin/fc-list | grep "Sans" | grep ":style=Regular"
+    # ```
+    # todo: https://github.com/r-lib/systemfonts/issues/99: unique(dirname(systemfonts::system_fonts()$path))
+    systemfonts_so <- paste0(R.home(), "/library/systemfonts/libs/systemfonts.so")
+    if (!file.exists(systemfonts_so)) { # default
+        message("did not find systemfonts.so in `R.home()` --> use default fc-list ...")
+        fc_list <- Sys.which("fc-list")
+    } else { # non-default: R was compiled against specific systemfonts.so
+        message("found systemfonts.so in `R.home()`: ", systemfonts_so, " --> find specific fc-list ...")
+        cmd <- paste0("ldd ", systemfonts_so, " | grep font")
+        ldd <- system(cmd, intern=T) # e.g. "\tlibfontconfig.so.1 => /sw/spack-levante/fontconfig-2.13.94-vzwyua/lib/libfontconfig.so.1 (0x00007f1182051000)"
+        if (length(ldd) != 1) stop("ldd result must be of length 1")
+        fontconfig <- strsplit(ldd, " => ")[[1]][2] # e.g. "/sw/spack-levante/fontconfig-2.13.94-vzwyua/lib/libfontconfig.so.1 (0x00007f1182051000)"
+        fontconfig <- strsplit(fontconfig, " ")[[1]][1]
+        fc_list <- paste0(dirname(dirname(fontconfig)), "/bin/fc-list")
+    }
+    if (!file.exists(fc_list)) stop("could not find ", fc_list)
+    fonts <- system(fc_list, intern=T) # e.g. "/sw/spack-levante/font-util-1.3.2-m5qnf5/share/fonts/X11/100dpi/timB18-ISO8859-1.pcf.gz: Times:style=Bold"
+    fonts <- fonts[which(!duplicated(sapply(basename(fonts), "[", 1)))] # throw out duplicated .ttf/.gz entries
+    fonts <- strsplit(fonts, ":") # e.g. "/sw/spack-levante/font-util-1.3.2-m5qnf5/share/fonts/X11/100dpi/timB18-ISO8859-1.pcf.gz" " Times" "style=Bold"
+    fontnames <- trimws(sapply(fonts, "[", 2))
+    fontstyles <- gsub("style=", "", trimws(sapply(fonts, "[", 3)))
+    
+    # plot all "*Sans*" "Regular" fonts
+    message("\ncheck fc-list fonts for \"*Sans*\" and style=\"Regular\" fonts from `fc-list` ...")
+    inds1 <- grep("Sans", fontnames)
+    inds2 <- which(fontstyles == "Regular")
+    inds <- intersect(inds1, inds2)
+    if (length(inds) == 0) {
+        message("\nfound zero \"*Sans*\" and \"Regular\" fonts from `fc-list`. cannot plot any")
+    } else { # found some "*Sans*" and "Regular" fonts
+        fonts <- fonts[inds]; fontnames <- fontnames[inds]; fontstyles <- fontstyles[inds]
+        if (any(duplicated(fontnames))) {
+            inds <- which(duplicated(fontnames))
+            message("found ", length(inds), " duplicated \"*Sans*\" and \"Regular\" fonts from fc-list:")
+            for (fi in seq_along(inds)) {
+                cat(capture.output(str(fonts[which(fontnames == fontnames[inds[fi]])])), sep="\n")
+                message("--> take 1st entry")
+                rminds <- which(fontnames == fontnames[inds[fi]])
+                rminds <- rminds[2:length(rminds)]
+                fonts[rminds] <- NA
+            } # for fi
+            fontnames <- fontnames[which(!is.na(fonts))]
+            fontstyles <- fontstyles[which(!is.na(fonts))]
+            fonts <- fonts[which(!is.na(fonts))]
+        } # if (any(duplicated(fontnames))) {
+
+        message("\nplot ", length(fonts), " \"*Sans*\" and \"Regular\" fonts from `fc-list` ...")
+        plotnames <- rep(NA, t=length(fonts))
+        for (fi in seq_along(fonts)) {
+            fontname <- gsub(" ", "_", fontnames[fi])
+            plotnames[fi] <- paste0("fc_list_font_", fontname, "_", gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], ".png")
+            message("plot ", plotnames[fi], " ...")
+            png(plotnames[fi], width=1000, height=1000, res=300, family=fontnames[fi])
+            plot(1:10, 1:10, t="n", main=fontnames[fi])
+            text(1:10, 1:10, paste0(R.version.string, " ", Sys.info()["nodename"]))
+            dev.off()
+        } # for fi
+
+        nm <- grDevices::n2mfrow(length(fonts))
+        plotname <- paste0(gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], "_", length(fonts), "_fc_list_fonts.png")
+        cmd <- paste0("magick montage -label %f ", paste(plotnames, collapse=" "),
+                      " -geometry 1500x1500 -frame ", nm[1], " -tile 1x", nm[2],
+                      " miff:- | magick montage - -geometry +0+0 -tile ", nm[1], "x1 ", plotname)
+        message("\nrun `", cmd, "` ...")
+        system(cmd)
+        message("--> check combined plot ", plotname)
+        message("\nremove ", length(plotnames), " single plots ...")
+        invisible(file.remove(plotnames))
+    } # if (length(inds) > 0) {
 
     message("\nfinished")
 
