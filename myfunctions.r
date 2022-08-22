@@ -401,6 +401,14 @@ if (F) { # todo: seq(from, to, b=non-integer-month)
     }
 }
 
+# get times from `cdo showtimestamp` 
+cdo_showtimestamp <- function(file) {
+    if (!file.exists(file)) stop("provided `file` = ", file, " does not exist")
+    if (Sys.which("cdo") == "") stop("could not find cdo")
+    if (getRversion() < "3.2.0") stop("R must be >= 3.2.0 to have base::trimws()")
+    return(as.POSIXct(strsplit(trimws(system(paste0("cdo -s showtimestamp ", file), intern=T)), "  ")[[1]], tz="UTC"))
+} # cdo_showtimestamp
+
 # minute/second degree to decimal degree longitude/latitude
 deg2dec <- function(deg=0.0, min=0.0, sec=0.0, verbose=F) {
     if (verbose) { 
@@ -1189,6 +1197,40 @@ ncdump_get_filetype <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
     return(file_type)
 } # ncdump_get_filetype
 
+ncdump_showdate <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
+    if (verbose) message("ncdump_showdate() start with `verbose`=T ...")
+    stop("todo")
+    years <- 1948:2009
+    timevarname <- "time"
+    cnt <- 0
+    dates_all <- vector("list", l=length(years))
+    for (yi in years) {
+        message(yi, " ", appendLF=F)
+        cnt <- cnt + 1
+        dates <- system(paste0("ncdump -v ", timevarname, " Low01.", yi, ".oce.nc | sed -e '1,/data:/d' -e '$d'"), intern=T)
+        if (any(dates == "")) dates <- dates[-which(dates == "")]
+        if (regexpr(timevarname, dates[1]) == -1) stop("first line should start with ", timevarname)
+        dates[1] <- sub(paste0(timevarname, " = "), "", dates[1])
+        dates <- gsub(";", "", dates)
+        dates <- trimws(dates)
+        dates <- paste(dates, collapse=",")
+        dates <- gsub(",,", ",", dates)
+        dates <- gsub(" ", "", dates)
+        dates <- strsplit(dates, split=",")
+        if (length(dates) != 1) stop("strsplit should yield list of length 1")
+        dates_all[[cnt]] <- as.numeric(dates[[1]])
+    }
+
+    npf <- sapply(dates_all, length)
+    if (length(unique(npf)) != 1) {
+        stop("different number of time points per file detected: ", paste(unique(npf), collapse=", "))
+    } else {
+        time <- rep(years, e=unique(npf))
+    }
+
+    timein <- unlist(dates_all)
+} # ncdump_showdate
+
 # set my default plot options
 myDefaultPlotOptions <- function(plist=list(plot_type="png", 
                                             ts_width_in=7, ts_asp=2,
@@ -1505,11 +1547,15 @@ font_info <- function() {
     cmd <- paste0("magick montage -label %f ", paste(plotnames, collapse=" "),
                   " -geometry 1500x1500 -frame ", nm[1], " -tile 1x", nm[2],
                   " miff:- | magick montage - -geometry +0+0 -tile ", nm[1], "x1 ", plotname)
-    message("\nrun `", cmd, "` ...")
-    system(cmd)
-    message("--> check combined plot ", plotname)
-    message("\nremove ", length(plotnames), " single plots ...")
-    invisible(file.remove(plotnames))
+    if (Sys.which("magick") != "") {
+        message("\nrun `", cmd, "` ...")
+        system(cmd)
+        message("--> check combined plot ", plotname)
+        message("\nremove ", length(plotnames), " single plots ...")
+        invisible(file.remove(plotnames))
+    } else {
+        message("--> imagemagick not installed --> check ", length(plotnames), " single plots")
+    }
 
     # get all available fonts via fc-list
     message("\nget all available fc-list fonts ...")
@@ -1637,7 +1683,7 @@ my_install.packages <- function(pkg="asdasd", dry=T) {
         # R36 mistral
         if (any(sapply(c("mlogin", "mistralpp", "m[0-9][0-9][0-9][0-9][0-9]"), grepl, hostname)) &&
             substr(rversion, 1, 3) == "3.6") {
-            message("units package defined on mistral for r 3.6")
+            message(pkg, " package defined on ", hostname, " for r 3.6")
             udunits2_path <- "/sw/spack-rhel6/udunits2-2.2.24-74lq3k"
             #LD_LIBRARY_PATH <- paste0(udunits2_path, "/lib") # not recommended
             configure.args <- paste0("--with-udunits2-include=", udunits2_path, "/include ",
@@ -1650,6 +1696,7 @@ my_install.packages <- function(pkg="asdasd", dry=T) {
         # R36 mistral
         if (any(sapply(c("mlogin", "mistralpp", "m[0-9][0-9][0-9][0-9][0-9]"), grepl, hostname)) &&
             substr(rversion, 1, 3) == "3.6") {
+            message(pkg, " package defined on ", hostname, " for r 3.6")
             gdal_path <- "/sw/spack-rhel6/gdal-3.1.3-f7koyc"
             proj_path <- "/sw/spack-rhel6/proj-7.1.0-w57onb"
             geos_path <- "/sw/spack-rhel6/geos-3.8.1-ru2zkr"
@@ -1667,6 +1714,7 @@ my_install.packages <- function(pkg="asdasd", dry=T) {
         # R41 mistral
         if (any(sapply(c("mlogin", "mistralpp", "m[0-9][0-9][0-9][0-9][0-9]"), grepl, hostname)) &&
             substr(rversion, 1, 3) == "4.1") {
+            message(pkg, " package defined on ", hostname)
             libxml2_path <- "/sw/spack-rhel6/miniforge3-4.9.2-3-Linux-x86_64-pwdbqi"
             configure.vars <- paste0("LIBS=-Wl,-rpath,", libxml2_path, "/lib")
         }

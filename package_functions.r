@@ -1,6 +1,7 @@
 # r
 
-load_package <- function(packagename, indent="   ") {
+
+load_package <- function(packagename, indent="   ") { # used by rfesom
         
     if (!exists("verbose")) verbose <- 1
 
