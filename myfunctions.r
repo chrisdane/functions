@@ -1501,7 +1501,7 @@ par_px2in <- function(px) {
 } # par_px2in 
 
 # show font info
-font_info <- function() {
+font_info <- function(fc_list=NULL) {
 
     # from ?png:
     # type: character string, one of '"Xlib"' or '"quartz"' (some macOS
@@ -1572,23 +1572,25 @@ font_info <- function() {
     #                       /sw/spack-levante/fontconfig-2.13.94-vzwyua/bin/fc-list | grep "Sans" | grep ":style=Regular"
     # ```
     # todo: https://github.com/r-lib/systemfonts/issues/99: unique(dirname(systemfonts::system_fonts()$path))
-    systemfonts_so <- paste0(R.home(), "/library/systemfonts/libs/systemfonts.so")
-    if (!file.exists(systemfonts_so)) { # default
-        message("did not find systemfonts.so in `R.home()` --> use default fc-list ...")
-        fc_list <- Sys.which("fc-list")
-    } else { # non-default: R was compiled against specific systemfonts.so
-        message("found systemfonts.so in `R.home()`: ", systemfonts_so, " --> find specific fc-list ...")
-        cmd <- paste0("ldd ", systemfonts_so, " | grep font")
-        ldd <- system(cmd, intern=T) # e.g. "\tlibfontconfig.so.1 => /sw/spack-levante/fontconfig-2.13.94-vzwyua/lib/libfontconfig.so.1 (0x00007f1182051000)"
-        if (length(ldd) != 1) stop("ldd result must be of length 1")
-        fontconfig <- strsplit(ldd, " => ")[[1]][2] # e.g. "/sw/spack-levante/fontconfig-2.13.94-vzwyua/lib/libfontconfig.so.1 (0x00007f1182051000)"
-        fontconfig <- strsplit(fontconfig, " ")[[1]][1]
-        fc_list <- paste0(dirname(dirname(fontconfig)), "/bin/fc-list")
-    }
+    if (is.null(fc_list)) {
+        systemfonts_so <- paste0(R.home(), "/library/systemfonts/libs/systemfonts.so")
+        if (!file.exists(systemfonts_so)) { # default
+            message("did not find systemfonts.so in `R.home()` --> use default fc-list ...")
+            fc_list <- Sys.which("fc-list")
+        } else { # non-default: R was compiled against specific systemfonts.so
+            message("found systemfonts.so in `R.home()`: ", systemfonts_so, " --> find specific fc-list ...")
+            cmd <- paste0("ldd ", systemfonts_so, " | grep font")
+            ldd <- system(cmd, intern=T) # e.g. "\tlibfontconfig.so.1 => /sw/spack-levante/fontconfig-2.13.94-vzwyua/lib/libfontconfig.so.1 (0x00007f1182051000)"
+            if (length(ldd) != 1) stop("ldd result must be of length 1")
+            fontconfig <- strsplit(ldd, " => ")[[1]][2] # e.g. "/sw/spack-levante/fontconfig-2.13.94-vzwyua/lib/libfontconfig.so.1 (0x00007f1182051000)"
+            fontconfig <- strsplit(fontconfig, " ")[[1]][1]
+            fc_list <- paste0(dirname(dirname(fontconfig)), "/bin/fc-list")
+        }
+    } # if (is.null(fc_list)) {
     if (!file.exists(fc_list)) stop("could not find ", fc_list)
     message("run `", fc_list, " ...")
     fonts <- system(fc_list, intern=T) # e.g. "/sw/spack-levante/font-util-1.3.2-m5qnf5/share/fonts/X11/100dpi/timB18-ISO8859-1.pcf.gz: Times:style=Bold"
-    fonts <- fonts[which(!duplicated(sapply(basename(fonts), "[", 1)))] # remove duplicated .ttf/.gz files
+    fonts <- fonts[which(!duplicated(sapply(basename(fonts), "[", 1)))] # remove duplicated .ttf/.gz files from different directories 
     fonts <- strsplit(fonts, ":") # e.g. "/sw/spack-levante/font-util-1.3.2-m5qnf5/share/fonts/X11/100dpi/timB18-ISO8859-1.pcf.gz" " Times" "style=Bold"
     fontnames <- trimws(sapply(fonts, "[", 2))
     inds <- sort(tolower(fontnames), index.return=T)$ix # sort alphabetically
@@ -1608,13 +1610,16 @@ font_info <- function() {
         if (any(duplicated(fontnames))) {
             inds <- which(duplicated(fontnames))
             message("found ", length(inds), " duplicated \"*Sans*\" and \"Regular\" fonts from fc-list:")
+            rminds_all <- c()
             for (fi in seq_along(inds)) {
                 cat(capture.output(str(fonts[which(fontnames == fontnames[inds[fi]])])), sep="\n")
                 message("--> take 1st entry")
                 rminds <- which(fontnames == fontnames[inds[fi]])
                 rminds <- rminds[2:length(rminds)]
-                fonts[rminds] <- NA
+                rminds_all <- c(rminds_all, rminds)
             } # for fi
+            rminds_all <- sort(unique(rminds_all))
+            fonts[rminds_all] <- NA
             fontnames <- fontnames[which(!is.na(fonts))]
             fontstyles <- fontstyles[which(!is.na(fonts))]
             fonts <- fonts[which(!is.na(fonts))]
