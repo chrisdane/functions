@@ -1527,6 +1527,7 @@ font_info <- function() {
 
     # from grDevices::X11():
     fonts <- get(".X11.Fonts", envir=grDevices:::.X11env)
+    fonts <- fonts[sort(tolower(names(fonts)), index.return=T)$ix] # sort alphabetically
     message("\n.X11.Fonts:")
     cat(capture.output(str(fonts)), sep="\n")
 
@@ -1585,10 +1586,14 @@ font_info <- function() {
         fc_list <- paste0(dirname(dirname(fontconfig)), "/bin/fc-list")
     }
     if (!file.exists(fc_list)) stop("could not find ", fc_list)
+    message("run `", fc_list, " ...")
     fonts <- system(fc_list, intern=T) # e.g. "/sw/spack-levante/font-util-1.3.2-m5qnf5/share/fonts/X11/100dpi/timB18-ISO8859-1.pcf.gz: Times:style=Bold"
-    fonts <- fonts[which(!duplicated(sapply(basename(fonts), "[", 1)))] # throw out duplicated .ttf/.gz entries
+    fonts <- fonts[which(!duplicated(sapply(basename(fonts), "[", 1)))] # remove duplicated .ttf/.gz files
     fonts <- strsplit(fonts, ":") # e.g. "/sw/spack-levante/font-util-1.3.2-m5qnf5/share/fonts/X11/100dpi/timB18-ISO8859-1.pcf.gz" " Times" "style=Bold"
     fontnames <- trimws(sapply(fonts, "[", 2))
+    inds <- sort(tolower(fontnames), index.return=T)$ix # sort alphabetically
+    fonts <- fonts[inds] 
+    fontnames <- fontnames[inds]
     fontstyles <- gsub("style=", "", trimws(sapply(fonts, "[", 3)))
     
     # plot all "*Sans*" "Regular" fonts
