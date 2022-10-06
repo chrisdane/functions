@@ -298,6 +298,23 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
 
 } # make_posixlt_origin
 
+doy <- function(doys) {
+    if (missing(doys)) {
+        doys <- 1:366
+    } else {
+        if (!is.numeric(doys)) stop("provided doy must be numeric")
+        if (any(min(doys) < 1)) stop("provided doys must be larger than 0")
+        if (any(max(doys) > 366)) stop("provided doys must be smaller than 367")
+    }
+    dates <- seq.POSIXt(from=as.POSIXct("2004-1-1", "UTC"), # all 366 days of leap year
+                        to=as.POSIXct("2004-12-31", "UTC"),
+                        l=366)
+    doys_all <- as.POSIXlt(dates)$yday + 1
+    inds <- match(doys, doys_all)
+    if (any(is.na(inds))) stop("this case should be captured in the check above. implement!")
+    return(data.frame(date=dates[inds], doy=doys_all[inds]))
+} # doy
+
 difftime_yr <- function(from, to) {
     # the first- and current-year-problem:
     # calc age from e.g. 1992-05-02 (leap year) to 2022-05-02 (non-leap year)
@@ -334,7 +351,7 @@ difftime_yr <- function(from, to) {
         }
     }
     # ignore hour, min, sec
-    fromlt <- as.POSIXlt(from, tz="UTC"); tolt <- as.POSIXlt(to, tz="UTC")
+    fromlt <- as.POSIXlt(from); tolt <- as.POSIXlt(to)
     fromlt$hour <- fromlt$min <- fromlt$sec <- tolt$hour <- tolt$min <- tolt$sec <- 0
     from <- as.POSIXct(fromlt); to <- as.POSIXct(tolt)
     dpms <- c("Jan"=31, "Feb"=28, "Mar"=31, "Apr"=30, "May"=31, "Jun"=30, # days per month of non-leap year
@@ -871,6 +888,9 @@ kgC_s1_to_PgC_yr1 <- function(kgC_s1) {
 kgCO2_m2_s1_to_PgC_yr1 <- function(kgCO2_m2_s1) {
     Aearth <- 5.100656e14 # m2
     kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+}
+kgCO2_m2_s1_to_gC_m2_s1 <- function(kgCO2_m2_s1) {
+    kgCO2_m2_s1 * 365.25*86400 / 3.664191 * 100 # s-1 -> yr-1; kgCO2 -> kgC; kgC -> gC
 }
 kgCO2_m2_to_ppm <- function(kgCO2_m2) {
     Aearth <- 5.100656e14 # m2
