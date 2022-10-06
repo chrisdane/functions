@@ -903,17 +903,29 @@ kgCO2_m2_to_PgC <- function(kgCO2_m2) {
 kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
     kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
 }
+mmolC_d1_to_PgC_yr1 <- function(mmolC_d1) {
+    mmolC_d1 / 1e3 * 12.0107 / 1e15 * 365.25 # mmolC --> molC; molC --> gC; gC --> PgC; d-1 --> yr-1
+}
+mmolC_m2_d1_to_gC_m2_yr1 <- function(mmolC_m2_d1) {
+    mmolC_m2_d1 / 1e3 * 12.0107 * 365.25 # mmolC --> molC; molC --> gC; d-1 --> yr-1
+}
+mmolC_to_kgCO2 <- function(mmolC) {
+    mmolC / 1e3 * 12.0107 * 3.664191 / 1e3 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2
+}
+mmolC_to_PgC <- function(mmolC) {
+    mmolC / 1e3 * 12.0107 / 1e15 # mmolC --> molC; molC --> gC; gC --> PgC
+}
 molC_m2_yr1_to_gC_m2_yr1 <- function(molC_m2_yr1) {
     molC_m2_yr1 * 12.0107 # molC --> gC
+}
+molC_s1_to_PgC_yr1 <- function(molC_s1) {
+    molC_s1 * 12.0107 * 365.25*86400 / 1e15 # molC --> gC; s-1 -> yr-1; g -> Pg
 }
 molC_to_kgCO2 <- function(molC) {
     molC * 12.0107 * 3.664191 / 1e3 # molC --> gC; gC --> gCO2; gCO2 --> kgCO2
 }
 molC_to_PgC <- function(molC) {
     molC * 12.0107 / 1e15 # molC --> gC; g -> Pg
-}
-molC_s1_to_PgC_yr1 <- function(molC_s1) {
-    molC_s1 * 12.0107 * 365.25*86400 / 1e15 # molC --> gC; s-1 -> yr-1; g -> Pg
 }
 molCO2_m2_s1_to_PgC_yr1 <- function(molCO2_m2_s1) {
     Aearth <- 5.100656e14 # m2
@@ -926,7 +938,7 @@ molCO2_s1_to_PgC_yr1 <- function(molCO2_s1) {
     molCO2_s1 * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg 
 }
 
-## section 2/2: r-stuff
+## section 2/2: r and system stuff
 
 # return currently running R executable
 Rexe <- function() return(paste0(R.home(), "/bin/exec/R"))
@@ -1035,8 +1047,8 @@ thisFile <- function() {
     }
 } # thisFile()
 
-# get memory of current r session
-get_memory <- function(method="ps", verbose=F) {
+# get memory used by current r session
+get_memory_used <- function(method="ps", verbose=F) {
     known_methods <- c("ps")
     if (is.na(match(method, known_methods))) {
         stop("`method` must be one of \"", paste(known_methods, collapse="\", \""), "\"")
@@ -1059,7 +1071,23 @@ get_memory <- function(method="ps", verbose=F) {
         message("pid ", pid, " ", paste(paste0(mem[,1], ": ", mem[,3]), collapse=", "))
     }
     #return(mem)
-} # get_memory()
+} # get_memory_used()
+
+# get memory free on current cpu
+get_memory_free <- function(format=T) {
+  gc()
+  if (Sys.info()[["sysname"]] == "Windows") {
+    memfree <- 1024^2 * (utils::memory.limit() - utils::memory.size())
+  } else {
+    # http://stackoverflow.com/a/6457769/6103040
+    memfree <- 1024 * as.numeric(system("awk '/MemFree/ {print $2}' /proc/meminfo", intern = TRUE))
+  }
+  if (format) {
+      format(structure(memfree, class="object_size"), units="auto")
+  } else {
+      memfree
+  }
+} # get_memory_free()
 
 # check if all elements of a list are identical
 # https://stackoverflow.com/questions/4752275/test-for-equality-among-all-elements-of-a-single-vector

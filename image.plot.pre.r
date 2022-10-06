@@ -49,12 +49,15 @@ image.plot.pre <- function(zlim=NULL,
     if (verbose) cat("zlim =", zlim, "\n")
    
     ## check if both positive and negative numbers
+    if (is.null(center_around)) center_around <- 0 # default
     if (is.null(anom_colorbar)) {
+        if (verbose) message("anom_colorbar is NULL --> ", appendLF=F)
         if (any(zlim < center_around) && any(zlim > center_around)) {
             anom_colorbar <- T
         } else {
             anom_colorbar <- F
         }
+        if (verbose) message("set anom_colorbar to ", anom_colorbar, " (zlim = ", zlim[1], ", ", zlim[2], ")")
     } else if (!is.null(anom_colorbar)) {
         if (verbose) message("******\ncheck given anom_colorbar = ", anom_colorbar, " ...")
         if (anom_colorbar &&
