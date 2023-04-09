@@ -9,68 +9,98 @@ is.leap <- function(years) {
     return(((years %% 4 == 0) & (years %% 100 != 0)) | (years %% 400 == 0))
 }
 
-# convert decimal year yyyy.f to YYYY-MM-DD HH:MM:SS 
+ymdhms_to_yearsdec <- function(ymdhms) {
+
+    if (is.character(ymdhms) || is.Date(ymdhms)) { # try to convert to posix
+        message("input ymdhms is of type ", typeof(ymdhms), " --> try to convert to POSIX ...")
+        ymdhms <- as.POSIXlt(ymdhms, tz="UTC")
+        message("-->"); print(head(ymdhms))
+        if (length(ymdhms) > 10) print(tail(ymdhms))
+    }
+    if (all(is.na(match(class(ymdhms), c("Date", "POSIXct", "POSIXlt", "POSIXt"))))) {
+        stop("ymdhms must be POSIX*, Date, or character that can be converted to the first two")
+    }
+    is.leap <- function(years) {
+        return(((years %% 4 == 0) & (years %% 100 != 0)) | (years %% 400 == 0))
+    }
+    
+    years <- ymdhms$year + 1900
+    yday <- ymdhms$yday # 0 for January 1; 364 for non-leap December 31
+    yearsdec <- years + yday/365
+    leapinds <- which(is.leap(years))
+    if (length(leapinds) > 0) {
+        yearsdec[leapinds] <- years[leapinds] + yday[leapinds]/366
+    }
+    return(yearsdec)
+
+} # ymdhms_to_yearsdec
+
+# convert positive or negative decimal year yyyy.f  to (-)YYYY-MM-DD HH:MM:SS 
 yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
-    # simpler: lubridate::date_decimal() but this function has a bug:
-    # as.POSIXlt(lubridate::date_decimal(seq(2000, b=1/12, l=12)))$mon+1 = 
-    # 1  1  3  4  5  6  7  8  9 10 10 12
-    #yearsdec <- seq(-1-2*1/12, 11/12, b=1/12) # with -0.
-    #yearsdec <- c(seq(-2-2*1/12, -1.0-1/12, b=1/12), seq(0, b=1/12, l=14)) # wout -0.
-    #yearsdec <- seq(1, b=1/12, l=12)
-    #yearsdec <- seq(1, 2, l=365)
-    #yearsdec <- seq(0.00000000000000000000000, 0.08333333333329999426109, l=30)
-    #yearsdec <- seq(0.08333333333329999426109, 0.16666666666669999186112, l=30)
-    #yearsdec <- seq(0.83333333333329995262773, 0.91666666666670004737227, l=30)
-    #yearsdec <- seq(0.91666666666670004737227, 1, l=30)
+    # - lubridate::date_decimal() is supposed to do the same thing but has a bug (see below)
+    # - zoo::yearmon() works well except a slight difference in HH:MM:SS, and only works for years >= 0
+    if (F) { # debug
+        library(lubridate); library(zoo)
+        years <- seq(2000, b=1/12, l=12) # positive 
+        data.frame(lubri=lubridate::date_decimal(years), zoo=as.POSIXct(zoo::yearmon(years)), my=yearsdec_to_ymdhms(years)$text)
+        #                 lubri                 zoo                  my
+        #1  2000-01-01 00:00:00 2000-01-01 01:00:00 2000-01-01 00:00:00
+        #2  2000-01-31 11:59:59 2000-02-01 01:00:00 2000-02-01 00:00:00
+        #3  2000-03-02 00:00:00 2000-03-01 01:00:00 2000-03-01 00:00:00
+        #4  2000-04-01 12:00:00 2000-04-01 02:00:00 2000-04-01 00:00:00
+        #5  2000-05-01 23:59:59 2000-05-01 02:00:00 2000-05-01 00:00:00
+        #6  2000-06-01 12:00:00 2000-06-01 02:00:00 2000-06-01 00:00:00
+        #7  2000-07-02 00:00:00 2000-07-01 02:00:00 2000-07-01 00:00:00
+        #8  2000-08-01 11:59:59 2000-08-01 02:00:00 2000-08-01 00:00:00
+        #9  2000-09-01 00:00:00 2000-09-01 02:00:00 2000-09-01 00:00:00
+        #10 2000-10-01 12:00:00 2000-10-01 02:00:00 2000-10-01 00:00:00
+        #11 2000-10-31 23:59:59 2000-11-01 01:00:00 2000-11-01 00:00:00
+        #12 2000-12-01 12:00:00 2000-12-01 01:00:00 2000-12-01 00:00:00
+        years <- seq(-1, b=1/12, l=24) # negative
+        data.frame(lubri=lubridate::date_decimal(years), my=yearsdec_to_ymdhms(years)$text)
+        #               lubri                my
+        #1  -1-01-01 00:00:00 -1-01-01 00:00:00
+        #2  -1-01-30 12:00:00 -1-02-01 00:00:00
+        #3  -1-03-02 00:00:00 -1-03-01 00:00:00
+        #4  -1-04-01 12:00:00 -1-04-01 00:00:00
+        #5  -1-05-02 00:00:00 -1-05-01 00:00:00
+        #6  -1-06-01 12:00:00 -1-06-01 00:00:00
+        #7  -1-07-02 00:00:00 -1-07-01 00:00:00
+        #8  -1-08-01 12:00:00 -1-08-01 00:00:00
+        #9  -1-09-01 00:00:00 -1-09-01 00:00:00
+        #10 -1-10-01 12:00:00 -1-10-01 00:00:00
+        #11 -1-11-01 00:00:00 -1-11-01 00:00:00
+        #12 -1-12-01 12:00:00 -1-12-01 00:00:00
+        #13  0-01-01 00:00:00  0-01-01 00:00:00
+        #14  0-01-31 12:00:00  0-02-01 00:00:00
+        #15  0-03-02 00:00:00  0-03-01 00:00:00
+        #16  0-04-01 12:00:00  0-04-01 00:00:00
+        #17  0-05-02 00:00:00  0-05-01 00:00:00
+        #18  0-06-01 12:00:00  0-06-01 00:00:00
+        #19  0-07-02 00:00:00  0-07-01 00:00:00
+        #20  0-08-01 12:00:00  0-08-01 00:00:00
+        #21  0-09-01 00:00:00  0-09-01 00:00:00
+        #22  0-10-01 12:00:00  0-10-01 00:00:00
+        #23  0-11-01 00:00:00  0-11-01 00:00:00
+        #24  0-12-01 12:00:00  0-12-01 00:00:00
+    } # debug
+    
+    # check
     if (missing(yearsdec)) stop("yearsdec missing")
     if (!is.numeric(yearsdec)) stop("yearsdec must be numeric")
-    #options("digits"=22, scipen=999999999)
     nonNAinds <- which(!is.na(yearsdec))
+    if (length(nonNAinds) == 0) stop("all yearsdec are NA")
+    yearsf <- yearsdec[nonNAinds]
+
     # rounding issue: https://github.com/tidyverse/lubridate/issues/833
     round <- 13 # round necessary; todo: somehow possible without round?
-    #yearsf <- round(as.numeric(yearsdec), 13)
-    yearsf <- round(yearsdec[nonNAinds], round)
-    #                                   yearsdec             lubri            my
-    #1  -1.1666666666666667406815349750104360282 -2-11-01 04:00:00 -2-11-1 0:0:0
-    #2  -1.0833333333333334813630699500208720565 -2-12-01 14:00:00 -2-12-1 0:0:0
-    #3  -1.0000000000000000000000000000000000000 -1-01-01 00:00:00  -1-1-1 0:0:0
-    #4  -0.9166666666666667406815349750104360282 -1-01-30 12:00:00  -1-2-1 0:0:0
-    #5  -0.8333333333333334813630699500208720565 -1-03-02 00:00:00  -1-3-1 0:0:0
-    #6  -0.7500000000000001110223024625156540424 -1-04-01 12:00:00  -1-4-1 0:0:0
-    #7  -0.6666666666666667406815349750104360282 -1-05-02 00:00:00  -1-5-1 0:0:0
-    #8  -0.5833333333333334813630699500208720565 -1-06-01 12:00:00  -1-6-1 0:0:0
-    #9  -0.5000000000000001110223024625156540424 -1-07-02 00:00:00  -1-7-1 0:0:0
-    #10 -0.4166666666666667406815349750104360282 -1-08-01 12:00:00  -1-8-1 0:0:0
-    #11 -0.3333333333333334813630699500208720565 -1-09-01 00:00:00  -1-9-1 0:0:0
-    #12 -0.2500000000000001110223024625156540424 -1-10-01 12:00:00 -1-10-1 0:0:0
-    #13 -0.1666666666666667406815349750104360282 -1-11-01 00:00:00 -1-11-1 0:0:0
-    #14 -0.0833333333333334813630699500208720565 -1-12-01 12:00:00 -1-12-1 0:0:0
-    #15 -0.0000000000000002220446049250313080847  0-01-01 00:00:00   0-1-1 0:0:0
-    #16  0.0833333333333332593184650249895639718  0-01-31 12:00:00   0-2-1 0:0:0
-    #17  0.1666666666666665186369300499791279435  0-03-02 00:00:00   0-3-1 0:0:0
-    #18  0.2499999999999997779553950749686919153  0-04-01 12:00:00   0-4-1 0:0:0
-    #19  0.3333333333333332593184650249895639718  0-05-02 00:00:00   0-5-1 0:0:0
-    #20  0.4166666666666665186369300499791279435  0-06-01 12:00:00   0-6-1 0:0:0
-    #21  0.4999999999999997779553950749686919153  0-07-02 00:00:00   0-7-1 0:0:0
-    #22  0.5833333333333332593184650249895639718  0-08-01 12:00:00   0-8-1 0:0:0
-    #23  0.6666666666666665186369300499791279435  0-09-01 00:00:00   0-9-1 0:0:0
-    #24  0.7499999999999997779553950749686919153  0-10-01 12:00:00  0-10-1 0:0:0
-    #25  0.8333333333333332593184650249895639718  0-11-01 00:00:00  0-11-1 0:0:0
-    #26  0.9166666666666662965923251249478198588  0-12-01 12:00:00  0-12-1 0:0:0    
-    if (F) { # this does not work
-        if (any(yearsf >= -1 & yearsf < 0)) {
-            message("there are some `-1 <= yearsdec < 0`. these are not defined since ",
-                    "trunc(-0.5) = 0 = trunc(0.5) so decimal years -0.5 and 0.5 would ",
-                    "yield the same year (year 0), whereas e.g. trunc(-1.5) = -1 != ",
-                    "trunc(1.5) = 1.")
-            yearsf[yearsf >= -1 & yearsf < 0] <- yearsf[yearsf >= -1 & yearsf < 0] - 1
-            #yearsf[yearsf < 0] <- yearsf[yearsf < 0] - 1
-        }
-    } else if (T) { # shift negative years by -1 but not e.g. -1.0, -2.0
-        if (any(yearsf < 0 & yearsf %% 1 != 0)) { 
-            yearsf[yearsf < 0 & yearsf %% 1 != 0] <- yearsf[yearsf < 0 & yearsf %% 1 != 0] - 1
-        }
-    }
+    #yearsf <- round(as.numeric(yearsf), 13)
+    yearsf <- round(yearsf, round)
+    
+    # shift negative years by -1 but not e.g. -1.0, -2.0
+    inds <- which(yearsf < 0 & yearsf %% 1 != 0)
+    if (length(inds) > 0) yearsf[inds] <- yearsf[inds] - 1
+    
     years <- trunc(yearsf)
     yearsrel <- yearsf - years
     yearsrel[yearsrel < 0] <- 1 - abs(yearsrel[yearsrel < 0])
@@ -115,8 +145,7 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
         hours <- hours2; mins <- mins2; secs <- secs2
         text <- text2
     }
-    return(list(ymdhms=list(year=years, mon=months, day=days, hour=hours, min=mins, sec=secs),
-                text=text))
+    return(list(ymdhms=list(year=years, mon=months, day=days, hour=hours, min=mins, sec=secs), text=text))
 } # yearsdec_to_ymdhms
 
 # make POSIX time with negative years
@@ -417,14 +446,6 @@ if (F) { # todo: seq(from, to, b=non-integer-month)
         }
     }
 }
-
-# get times from `cdo showtimestamp` 
-cdo_showtimestamp <- function(file) {
-    if (!file.exists(file)) stop("provided `file` = ", file, " does not exist")
-    if (Sys.which("cdo") == "") stop("could not find cdo")
-    if (getRversion() < "3.2.0") stop("R must be >= 3.2.0 to have base::trimws()")
-    return(as.POSIXct(strsplit(trimws(system(paste0("cdo -s showtimestamp ", file), intern=T)), "  ")[[1]], tz="UTC"))
-} # cdo_showtimestamp
 
 # minute/second degree to decimal degree longitude/latitude
 deg2dec <- function(deg=0.0, min=0.0, sec=0.0, verbose=F) {
@@ -792,6 +813,46 @@ get_pval <- function(model) {
     1-pf(c, n_predictors, n_df)
 } # get_pval
 
+# test time series for normality
+isnormal <- function(x, significance=0.05, verbose=T) {
+    if (missing(x)) x <- stats::rnorm(30)
+    if (!is.numeric(x)) stop("`x` must be numeric")
+    if (!is.vector(x)) stop("`x` must be vector")
+    if (!is.numeric(significance)) stop("`significance` must be numeric")
+    if (!is.vector(significance)) stop("`significance` must be vector")
+    if (length(significance) != 1) stop("length of `significance` must be 1")
+
+    res <- rep(T, t=2) # default: distribution of x is not significantly different from normal distribution
+    
+    # 1. shapiro
+    st <- stats::shapiro.test(x)
+    if (verbose) {
+        message("p-value of \"", st$method, "\" of time series of length ", length(x), " is ", st$p.value, "\n",
+                "--> ", st$p.value, " ", ifelse(st$p.value > significance, ">", "<="), " ", significance, 
+                " --> x distribution is ", ifelse(st$p.value > significance, "not", ""), 
+                " significantly different from normal distribution")
+    }
+    if (st$p.value <= significance) res[1] <- F
+    
+    # 2. Kolmogorov-Smirnov (K-S)
+    ks <- stats::ks.test(x=x, y="pnorm", mean=mean(x), sd=sd(x))
+    if (verbose) {
+        message("p-value of \"", ks$method, "\" of time series of length ", length(x), " is ", ks$p.value, "\n",
+                "--> ", ks$p.value, " ", ifelse(ks$p.value > significance, ">", "<="), " ", significance, 
+                " --> x distribution is ", ifelse(ks$p.value > significance, "not", ""), 
+                " significantly different from normal distribution")
+    }
+    if (ks$p.value <= significance) res[2] <- F
+    
+    crit <- paste0(format(c(st$p.value, ks$p.value), digits=3), " > ", significance)
+    inds <- which(!res)
+    if (length(inds) > 0) crit[inds] <- paste0(format(c(st$p.value, ks$p.value)[inds], digits=3), " <= ", significance)
+    attributes(res) <- list(method=c(st$method, ks$method),
+                            p.value=c(st$p.value, ks$p.value),
+                            crit=crit)
+    return(res)
+} # isnormal
+
 # effective sample size after thiebaux and zwiers 1984
 # --> formulated as in hannachi et al. 2007: `n_eff = n * (1 + 2 * sum_{k=1}^{n-1} (1-k/n) * \rho(k))^{-1}
 neff <- function(ts) {
@@ -873,6 +934,29 @@ masses <- function(x=1, unit="kg") {
     print(df)
     invisible(df)
 } # masses function
+
+# convert freshwater units
+#         Sv = 1e6 m3 s-1
+#     rho_fw = 1e3 kg m-3
+# -->   m_fw = 1e3 kg
+sv_fw_to_gt_fw_yr1 <- function(sv_fw, verbose=F) {
+    fac_m3_s1 <- 1e9*1e3/(360*86400*1e3) # m3 s-1
+    # 1 yr = 360    days: 31104   m3 s-1
+    # 1 yr = 365    days: 31536   m3 s-1
+    # 1 yr = 365.25 days: 31557.6 m3 s-1
+    # 1 yr = 366    days: 31622.4 m3 s-1
+    # approximation:      31500   m3 s-1
+    if (verbose) {
+        message("rho_freshwater = 1e3 kg m-3\n",
+                "--> v_freshwater = m/rho_freshwater = 1 kg / (1e3 kg m-3) = 1/1e3 m3\n",
+                "    Gt freshwater   1e9 * 1e3 kg freshwater   1e9 * 1e3        m3\n",
+                "    ------------- = ----------------------- = -------------------- = ", fac_m3_s1, " m3 s-1\n",
+                "    yr              365.25 * 86400 s          365.25 * 86400 s 1e3\n",
+                "<=> 1/", fac_m3_s1, " Gt yr-1 = ", 1/fac_m3_s1, " Gt yr-1 = m3 s-1\n",
+                "--> Sv = 1e6 m3 s-1 = 1e6/", fac_m3_s1, " Gt yr-1 = ", 1e6/fac_m3_s1, " Gt yr-1")
+    }
+    sv_fw * 1e6/fac_m3_s1
+}
 
 # convert carbon units
 kgC_m2_s1_to_gC_m2_yr1 <- function(kgC_m2_s1) {
@@ -1226,6 +1310,14 @@ mylocator_list2poly <- function(result_of_mylocator) {
     return(poly)
 } # mylocator_list2df
 
+# get times from `cdo showtimestamp` 
+cdo_showtimestamp <- function(file) {
+    if (!file.exists(file)) stop("provided `file` = ", file, " does not exist")
+    if (Sys.which("cdo") == "") stop("could not find cdo")
+    if (getRversion() < "3.2.0") stop("R must be >= 3.2.0 to have base::trimws()")
+    return(as.POSIXct(strsplit(trimws(system(paste0("cdo -s showtimestamp ", file), intern=T)), "  ")[[1]], tz="UTC"))
+} # cdo_showtimestamp
+
 # get file format
 ncdump_get_filetype <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
     if (verbose) message("ncdump_get_filetype() start with `verbose`=T ...")
@@ -1290,6 +1382,40 @@ ncdump_showdate <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
 
     timein <- unlist(dates_all)
 } # ncdump_showdate
+
+# summarize nc infos lazily
+# --> actual dim values cannot be retrieved lazily
+nc_infos <- function(ncfile) {
+    #ncfile <- system.file("nc/reduced.nc", package="stars")
+    # depends package: RNetCDF
+    # depends software: cdo (to display time range)
+    if (missing(ncfile)) stop("provide ncfile")
+    if (!is.character(ncfile)) stop("ncfile must be character")
+    if (file.access(ncfile, mode=0) == -1) stop("ncfile ", ncfile, " does not exist")
+    if (file.access(ncfile, mode=4) == -1) stop("ncfile ", ncfile, " exists but is not readable")
+    library(RNetCDF)
+    nc <- RNetCDF::open.nc(ncfile) # lazy open in contast to ncdf4::nc_open()
+    infos <- RNetCDF::file.inq.nc(nc)
+    dims <- lapply(seq_len(infos$ndims)-1, function(x) RNetCDF::dim.inq.nc(nc, x))
+    vars <- lapply(seq_len(infos$nvars)-1, function(x) RNetCDF::var.inq.nc(nc, x))
+    varnames <- sapply(vars, "[[", "name")
+    for (vari in seq_along(varnames)) {
+        ind <- which(sapply(vars, "[[", "name") == varnames[vari])
+        dimids <- vars[[ind]]$dimids
+        diminds <- match(dimids, sapply(dims, "[[", "id"))
+        dimnames <- sapply(dims[diminds], "[[", "name")
+        dimlens <- sapply(dims[diminds], "[[", "length")
+        message("varname ", vari, ": \"", varnames[vari], "\" (", 
+                paste(paste0("dim", seq_along(dimids), ":", dimnames, ",id=", dimids, ",len=", dimlens), collapse=";"), ")")
+    } # for vari
+    cdo <- Sys.which("cdo")
+    if (cdo != "") {
+        if (suppressWarnings(!inherits(try(system(paste0(cdo, " -s showtimestamp ", ncfile), ignore.stderr=T, intern=T), silent=T), "try-error"))) {
+            time <- as.POSIXct(strsplit(trimws(system(paste0(cdo, " -s showtimestamp ", ncfile), ignore.stderr=T, intern=T)), "  ")[[1]], tz="UTC")
+            message(length(time), " time points from ", min(time), " to ", max(time))
+        }
+    }
+} # nc_infos
 
 # set my default plot options
 myDefaultPlotOptions <- function(plist=list(plot_type="png", 
@@ -1900,32 +2026,26 @@ mynews <- function() {
     for (i in seq_along(db)) message(i, "/", length(db), ": ", db[i])
 }
 
-# draw secret christmas present lists
-xmas_secret_present_list <- function(persons, verbose=F) {
+# draw secret santa present lists; schrottwichteln
+secret_santa_list <- function(persons=c("mat", "mer", "mal", "mec", "vol"), ndraw=1, verbose=F) {
     
-    if (interactive()) {
-        persons <- list("wakenvillagers"=c("LeV", "Meck", "Malle", "Mörl", "Mattis"))
-    } else {
-        if (missing(persons)) stop("must provide persons")
-        if (!is.list(persons)) stop("persons must be a named list")
-        if (is.null(names(persons))) stop("persons must be named list")
-    }
+    if (!is.character(persons)) stop("`persons` must be character")
+    if (!is.finite(ndraw)) stop("`ndraw` must be finite")
 
-    # do for all provided person lists
-    for (li in seq_along(persons)) {
-        if (!is.character(persons[[li]])) stop("persons[[", li, "]] not of type character")
-        
+    message("draw santa list ", ndraw, " times ...")
+    for (i in seq_len(ndraw)) {
+
         # draw the samples
-        senders <- sample(persons[[li]])
-        recipients <- sample(persons[[li]])
+        senders <- sample(persons)
+        recipients <- sample(persons)
         while (any(senders == recipients)) {
-            recipients <- sample(persons[[li]])
+            recipients <- sample(persons)
         }
 
         # sort as in beginning
-        inds <- rep(NA, t=length(persons[[li]]))
-        for (i in seq_along(persons[[li]])) {
-            inds[i] <- which(recipients == persons[[li]][i])
+        inds <- rep(NA, t=length(persons))
+        for (i in seq_along(persons)) {
+            inds[i] <- which(recipients == persons[i])
         }
         recipients <- recipients[inds]
         senders <- senders[inds]
@@ -1935,15 +2055,91 @@ xmas_secret_present_list <- function(persons, verbose=F) {
         if (verbose) message(paste(res, collapse="\n"))
 
         # save result
-        fout <- paste0(names(persons)[li], ".txt")
-        message("save ", fout)
-        write(res, fout, sep="\n")
-        cmd <- paste0("chmod 600 ", fout)
-        message("run `", cmd, "` ...")
-        system(cmd)
-    } # for li
+        if (i == ndraw) {
+            fout <- paste0("santa_", substr(paste(substr(persons, 1, 1), collapse=""), 1, 10), "_", format(Sys.time(), "%Y"), ".txt")
+            message("save ", fout, ifelse(!verbose, " (if you want to print the result here, run with `verbose=T`)", ""))
+            write(res, fout, sep="\n")
+            cmd <- paste0("chmod 600 ", fout)
+            message("run `", cmd, "` ...")
+            system(cmd)
+        } # if i == ndraw
 
-} # xmas_secret_present_list
+    } # for i ndraw
+
+} # secret_santa_list
+
+check_mailhost <- function(mails="bla@example.com") {
+    if (!is.character(mails)) stop("`mails` must be character")
+    if (!is.vector(mails)) stop("`mails` must be vector") 
+    nslookup <- Sys.which("nslookup")
+    if (nslookup == "") stop("could not find nsloopkup")
+    mails <- as.list(mails)
+
+    # get user and host of mail adress
+    for (mi in seq_along(mails)) {
+        tmp <- strsplit(mails[[mi]], "@")[[1]]
+        if (length(tmp) != 2) stop("mails must be of format \"user@host\"")
+        mails[[mi]] <- list(user=tmp[1], host=tmp[2])
+    } # for mi
+
+    for (mi in seq_along(mails)) {
+        cmd <- paste0(nslookup, " -q=mx ", mails[[mi]]$host)
+        message("******************************************************\n",
+                "mail ", mi, "/", length(mails), ": ", 
+                mails[[mi]]$user, "@", mails[[mi]]$host, 
+                " --> run `", cmd, "` ...")
+        nsl <- suppressWarnings(system(cmd, intern=T))
+        inds <- c(which(nsl == "Non-authoritative answer:"),
+                  which(nsl == "Authoritative answers can be found from:"))
+        if (length(inds) == 2) { # success
+            nsl <- nsl[(inds[1]+1):(inds[2]-1)]
+            if (any(nsl == "")) nsl <- nsl[-which(nsl == "")]
+            message("--> ok, host ", mails[[mi]]$host, " has ", length(nsl), " mail exchange server:")
+            mails[[mi]]$server <- nsl
+            mails[[mi]]$status <- T
+        } else { # no success
+            message("--> error, host ", mails[[mi]]$host, " has no mail exchange server:")
+            mails[[mi]]$status <- F
+        }
+        print(nsl)
+    } # for mi
+} # check_mailhost
+
+# from dirk eddelbuettel
+isConnected <- function(site="https://www.example.com") {
+    uoc <- function(site) {
+        con <- url(site)                # need to assign so that we can close
+        open(con)                       # in case of success we have a connection
+        close(con)                      # ... so we need to clean up
+    }
+    suppressWarnings(!inherits(try(uoc(site), silent=T), "try-error"))
+} # isConnected
+
+# work time recording
+work_time <- function(time_come=Sys.time()) {
+    # 8:40 +7.8+0.5h = 16:58
+    # 8:59 +7.8+0.5h = 17:17
+    if (is.character(time_come)) {
+        message("provided `time_come` = \"", time_come, 
+                "\" is character --> try to convert to posix ...")
+        time_come <- as.POSIXct(time_come)
+    }
+    if (!any(!is.na(match(class(time_come), "POSIXt")))) {
+        stop("`time_come` must be of class `POSIXt`")
+    }
+    dt_0.5h <- difftime(as.POSIXct("2000-1-1 0:30"), as.POSIXct("2000-1-1 0:0"))
+    dt_6h <- difftime(as.POSIXct("2000-1-1 6:00"), as.POSIXct("2000-1-1 0:0"))
+    dt_7.8h <- difftime(as.POSIXct("2000-1-1 7:48"), as.POSIXct("2000-1-1 0:0"))
+    time_go_6h <- seq.POSIXt(time_come, b=dt_6h, l=2)[2]
+    time_go_6.5h <- seq.POSIXt(time_come, b=dt_6h+dt_0.5h, l=2)[2]
+    time_go_7.8h <- seq.POSIXt(time_come, b=dt_7.8h, l=2)[2]
+    time_go_8.3h <- seq.POSIXt(time_come, b=dt_7.8h+dt_0.5h, l=2)[2]
+    message("come --> ", format(time_come, usetz=T), "\n",
+            "--> go after 6h                 --> ", format(time_go_6h, usetz=T), "\n",
+            "--> go after 6h + 0.5h          --> ", format(time_go_6.5h, usetz=T), "\n",
+            "--> go after 7.8h               --> ", format(time_go_7.8h, usetz=T), "\n",
+            "--> go after 7.8h + 0.5h = 8.3h --> ", format(time_go_8.3h, usetz=T))
+} # work_time
 
 # paste stuff that I always forget
 myhelp <- function() {
