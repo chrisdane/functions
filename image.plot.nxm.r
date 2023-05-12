@@ -246,6 +246,11 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                             if (is.null(polygon_list[[vi]][[i]]$y)) stop("provided `polygon_list` but `polygon_list[[", vi, "]][[", i, "]]$y` is missing")
                             if (is.null(polygon_list[[vi]][[i]]$z)) {
                                 # case 1: show only outline of polygon --> no z needed
+                                if (!is.null(polygon_list[[vi]][[i]]$col)) {
+                                    polygon_list[[vi]][[i]]$border <- polygon_list[[vi]][[i]]$col
+                                    polygon_list[[vi]][[i]]$col <- NULL
+                                }
+                                if (is.null(polygon_list[[vi]][[i]]$border)) polygon_list[[vi]][[i]]$border <- "black"
                                 if (is.null(polygon_list[[vi]][[i]]$lty)) polygon_list[[vi]][[i]]$lty <- 1
                                 if (is.null(polygon_list[[vi]][[i]]$lwd)) polygon_list[[vi]][[i]]$lwd <- 1
                             } else if (!is.null(polygon_list[[vi]][[i]]$z)) {
@@ -353,11 +358,14 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 if (!is.na(addland_list[i])) {
                     if (!is.null(addland_list[[i]]$data)) {
                         if (is.character(addland_list[[i]]$data)) {
-                            if (!any(addland_list[[i]]$data == c("world", "world2"))) {
+                            if (!any(addland_list[[i]]$data == c("world", "world2", "worldHires", "world2Hires"))) {
                                 stop("provided `addland_list[[", i, "]]$data` must be ",
-                                     "\"world\" (for lons -180,...,180) or \"world2\" (for lons 0,...,360)")
+                                     "\"world\"/\"worldHires\" (for lons -180,...,180) or \"world2\"/\"world2Hires\" (for lons 0,...,360)")
                             }
                             if (!any(search() == "package:maps")) library(maps)
+                            if (any(addland_list[[i]]$data == c("worldHires", "world2Hires"))) {
+                                if (!any(search() == "package:mapdata")) library(mapdata)
+                            }
                             addland_list[[i]]$type <- "map"
                         } else {
                             if (length(addland_list[[i]]$data) == 4 && 
@@ -600,30 +608,16 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         cat(capture.output(str(y)), sep="\n")
     }
 
-    # unique xlim ylim
-    if (!any(dot_names == "xlim")) {
-        xlim <- range(x, na.rm=T)
-        if (verbose) cat("automatic ")
-    } else if (any(dot_names == "xlim")) {
-        xlim <- dot_list[["xlim"]]
-        if (verbose) cat("provided ")
-    }
-    if (verbose) { cat("xlim = "); dput(xlim) }
-    if (!any(dot_names == "ylim")) {
-        ylim <- range(y, na.rm=T)
-        if (verbose) cat("automatic ")
-    } else if (any(dot_names == "ylim")) {
-        ylim <- dot_list[["ylim"]]
-        if (verbose) cat("provided ")
-    }
-    if (verbose) { cat("ylim = "); dput(ylim) }
-    
     # unique x and y axes of same length for base::plot()
     # (not projected)
+    xrange <- range(x, na.rm=T)
+    if (verbose) { cat("xrange = "); dput(xrange) }
+    yrange <- range(y, na.rm=T)
+    if (verbose) { cat("yrange = "); dput(yrange) }
     l <- max(c(sapply(x, length), sapply(y, length)))
-    x_plot <- seq(xlim[1], xlim[2], l=l)
-    y_plot <- seq(ylim[1], ylim[2], l=l)
-
+    x_plot <- seq(xrange[1], xrange[2], l=l)
+    y_plot <- seq(yrange[1], yrange[2], l=l)
+    
     # project coords
     if (F) { # test
         proj <- "+proj=ortho +lat_0=30 +lon_0=-45" # orthographic
@@ -643,12 +637,12 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         } else { # projection success
             colnames(xy_proj) <- c("lon", "lat")
             xy_proj <- as.data.frame(xy_proj)
-            # update xlim ylim to projected coords
-            xlim_proj <- range(xy_proj$lon, na.rm=T)
-            ylim_proj <- range(xy_proj$lat, na.rm=T)
+            # update xrange yrange to projected coords
+            xrange_proj <- range(xy_proj$lon, na.rm=T)
+            yrange_proj <- range(xy_proj$lat, na.rm=T)
             if (verbose) {
-                cat("xlim_proj = "); dput(xlim_proj)
-                cat("ylim_proj = "); dput(ylim_proj)
+                cat("xrange_proj = "); dput(xrange_proj)
+                cat("yrange_proj = "); dput(yrange_proj)
             }
         }
     } # if !is.null(proj)
@@ -658,34 +652,46 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     if (!is.null(zoomfac)) {
         if (verbose) message("apply `zoomfac` = ", zoomfac, " ...")
         # from https://github.com/cbarbu/R-package-zoom
-        # find new xlim/ylim wrt zoomfac as in zoom:::multipancPoint()
-        xlim <- (1 - 1/zoomfac)*mean(xlim) + 1/zoomfac*xlim
-        ylim <- (1 - 1/zoomfac)*mean(ylim) + 1/zoomfac*ylim
+        # find new xrange/yrange wrt zoomfac as in zoom:::multipancPoint()
+        xrange <- (1 - 1/zoomfac)*mean(xrange) + 1/zoomfac*xrange
+        yrange <- (1 - 1/zoomfac)*mean(yrange) + 1/zoomfac*yrange
         if (verbose) {
-            message("--> new xlim = ", paste(xlim, collapse=", "), "\n",
-                    "--> new ylim = ", paste(ylim, collapse=", "))
+            message("--> new xrange = ", paste(xrange, collapse=", "), "\n",
+                    "--> new yrange = ", paste(yrange, collapse=", "))
         }
         if (proj != "") {
-            xlim_proj <- (1 - 1/zoomfac)*mean(xlim_proj) + 1/zoomfac*xlim_proj
-            ylim_proj <- (1 - 1/zoomfac)*mean(ylim_proj) + 1/zoomfac*ylim_proj
+            xrange_proj <- (1 - 1/zoomfac)*mean(xrange_proj) + 1/zoomfac*xrange_proj
+            yrange_proj <- (1 - 1/zoomfac)*mean(yrange_proj) + 1/zoomfac*yrange_proj
             if (verbose) {
-                message("--> new xlim_proj = ", paste(xlim_proj, collapse=", "), "\n",
-                        "--> new ylim_proj = ", paste(ylim_proj, collapse=", "))
+                message("--> new xrange_proj = ", paste(xrange_proj, collapse=", "), "\n",
+                        "--> new yrange_proj = ", paste(yrange_proj, collapse=", "))
             }
         }
     } # if zoomfac
 
-    # from here, xlim and ylim (and xlim_proj and ylim_proj if proj =! "") are finished
+    # from here, xrange and yrange (and xrange_proj and yrange_proj if proj =! "") are finished
 
     # update unique x and y axes for base::plot wrt zoomfac
     # (not projected)
-    x_plot <- seq(xlim[1], xlim[2], l=l)
-    y_plot <- seq(ylim[1], ylim[2], l=l)
+    x_plot <- seq(xrange[1], xrange[2], l=l)
+    y_plot <- seq(yrange[1], yrange[2], l=l)
     if (verbose) {
         cat("x_plot = ")
         cat(capture.output(str(x_plot)), sep="\n")
         cat("y_plot = ")
         cat(capture.output(str(y_plot)), sep="\n")
+    }
+    
+    # apply user provided xlim ylim
+    xlim <- xrange # default
+    if (any(dot_names == "xlim")) {
+        xlim <- dot_list[["xlim"]]
+        if (verbose) { cat("provided xlim = "); dput(xlim) }
+    }
+    ylim <- yrange # default
+    if (any(dot_names == "ylim")) {
+        ylim <- dot_list[["ylim"]]
+        if (verbose) { cat("provided ylim = "); dput(ylim) }
     }
 
     # find tick values of unique x and y axes
@@ -863,7 +869,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         # Open i-th subplot device, even if there is nothing to draw
         if (proj == "") { # default
             # usage of helper-`x_plot` more flexible than just using combination of `xlim` and `x=0`
-            plot(x_plot, y_plot, t="n", 
+            plot(x_plot, y_plot, t="n",
+                 xlim=xlim, ylim=ylim,
                  axes=F, xlab=NA, ylab=NA,
                  xaxs="i", yaxs="i")
       
@@ -892,8 +899,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                          grid=F, type="n", 
                          #longitudelim=c(-95, -5), 
                          #latitudelim=c(20, 90),
-                         xlim=xlim_proj, # when xlim and/or ylim are provided,
-                         ylim=ylim_proj, # longitudelim and latitudelim will be ignored
+                         xlim=xrange_proj, # when xlim and/or ylim are provided,
+                         ylim=yrange_proj, # longitudelim and latitudelim will be ignored
                          axes=F, drawBox=F,
                          debug=1) # 0 1
         
@@ -902,12 +909,16 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         # its possible that there are less data to plot than nrow*ncols (e.g. length(x) = 5, ncol=2, nrow=3)
         # --> do not plot anything if (length(x) == nplots - 1 && i == nplots)
         #if (length(x) == nplots - 1 && i == nplots) { 
-        if (i > nz) {
+        if (i > nz || is.null(z[[i]])) {
             # nothing to do
             if (verbose) {
                 #message("length(x) = ", length(x), " == nplots - 1 = ", nplots - 1, 
                 #        " && i == nplots = ", nplots, " --> nothing to draw")
-                message("i = ", i, " > nz = ", nz, " --> nothing to draw")
+                if (is.null(z[[i]])) {
+                    message("z[[", i, "]] is null --> nothind to draw")
+                } else {
+                    message("i = ", i, " > nz = ", nz, " --> nothing to draw")
+                }
             }
 
         } else { # if length(x) != nplots - 1 && i != nplots
@@ -988,10 +999,12 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
                 # distinguish between positive and negative contours
                 if (contour_posneg_soliddashed || contour_posneg_redblue) {
-                    if (contour_posneg_soliddashed) {
-                        message("`contour_posneg_soliddashed`=T --> use solid lines for pos and dashed lines for neg values ...")
-                    } else if (contour_posneg_redblue) {
-                        message("`contour_posneg_redblue`=T --> use red lines for pos and blue lines for neg values ...")
+                    if (verbose) {
+                        if (contour_posneg_soliddashed) {
+                            message("`contour_posneg_soliddashed`=T --> use solid lines for pos and dashed lines for neg values ...")
+                        } else if (contour_posneg_redblue) {
+                            message("`contour_posneg_redblue`=T --> use red lines for pos and blue lines for neg values ...")
+                        }
                     }
                     if (any(axis.at < 0)) { # add negative values
                         contour_levels <- axis.at[axis.at < 0]
@@ -1373,13 +1386,17 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 if (is.null(addland_list[[i]]$xlim)) {
                     if (addland_list[[i]]$type == "map") {
                         if (addland_list[[i]]$data == "world") {
-                            addland_list[[i]]$xlim <- c(-183.77640, 194.04724)
+                            addland_list[[i]]$xlim <- c(-180.0000, 190.2708) # why?: c(-183.77640, 194.04724)
                         } else if (addland_list[[i]]$data == "world2") {
-                            addland_list[[i]]$xlim <- c(3.666292, 363.666292)
+                            addland_list[[i]]$xlim <- c(0, 360) # why?: c(3.666292, 363.666292)
+                        } else if (addland_list[[i]]$data == "worldHires") {
+                            addland_list[[i]]$xlim <- c(-180.0189, 190.3094)
+                        } else if (addland_list[[i]]$data == "world2Hires") {
+                            addland_list[[i]]$xlim <- c(-2.198639, 362.541626)
                         }
                     } else if (addland_list[[i]]$type == "segments") {
                         addland_list[[i]]$xlim <- range(addland_list[[i]]$data$x0, 
-                                                   addland_list[[i]]$data$x1, na.rm=T)
+                                                        addland_list[[i]]$data$x1, na.rm=T)
                     }
                 } else if (!is.null(addland_list[[i]]$xlim)) {
                     if (length(addland_list[[i]]$xlim) == 1) {
@@ -1402,13 +1419,17 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 if (is.null(addland_list[[i]]$ylim)) {
                     if (addland_list[[i]]$type == "map") {
                         if (addland_list[[i]]$data == "world") {
-                            addland_list[[i]]$ylim <- c(-86.91386, 85.32129)
+                            addland_list[[i]]$ylim <- c(-85.19218, 83.59961) # why: c(-86.91386, 85.32129)
                         } else if (addland_list[[i]]$data == "world2") {
-                            addland_list[[i]]$ylim <- c(-91.760620, 85.370223)
+                            addland_list[[i]]$ylim <- c(-89.99001, 83.59961) # why: c(-91.760620, 85.370223)
+                        } else if (addland_list[[i]]$data == "worldHires") {
+                            addland_list[[i]]$ylim <- c(-85.47029, 83.62359) 
+                        } else if (addland_list[[i]]$data == "world2Hires") {
+                            addland_list[[i]]$ylim <- c(-85.47029, 83.62359)
                         }
                     } else if (addland_list[[i]]$type == "segments") {
-                    addland_list[[i]]$ylim <- range(addland_list[[i]]$data$y0, 
-                                               addland_list[[i]]$data$y1, na.rm=T)
+                        addland_list[[i]]$ylim <- range(addland_list[[i]]$data$y0, 
+                                                        addland_list[[i]]$data$y1, na.rm=T)
                     }
                 } else if (!is.null(addland_list[[i]]$ylim)) {
                     if (length(addland_list[[i]]$ylim) == 1) {

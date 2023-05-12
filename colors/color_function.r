@@ -259,7 +259,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
             if (length(class(rgb)) == 1 && class(rgb) == "function") { # built-in function was not overwritten
                 stop("palette name '", names[i], "' not known. choose one of\n", 
-                     paste0(all, collapse=","))
+                     paste(all, collapse=","))
             }
 
             rgb_list[[i]] <- rgb

@@ -959,6 +959,7 @@ sv_fw_to_gt_fw_yr1 <- function(sv_fw, verbose=F) {
 }
 
 # convert carbon units
+# Gt = Pg
 kgC_m2_s1_to_gC_m2_yr1 <- function(kgC_m2_s1) {
     kgC_m2_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g 
 }
@@ -986,6 +987,9 @@ kgCO2_m2_to_PgC <- function(kgCO2_m2) {
 }
 kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
     kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+}
+gC_s1_to_PgCO2_yr1 <- function(gC_s1) {
+    gC_s1 * 365.25*86400 * 3.664191 / 1e15 # s-1 --> yr-1; gC --> gCO2; g --> Pg
 }
 mmolC_d1_to_PgC_yr1 <- function(mmolC_d1) {
     mmolC_d1 / 1e3 * 12.0107 / 1e15 * 365.25 # mmolC --> molC; molC --> gC; gC --> PgC; d-1 --> yr-1
@@ -1275,7 +1279,7 @@ mycols <- function(n) {
     if (n > 2) cols <- c(cols, "#377EB8") # myblue
     if (n > 3) {
         library(RColorBrewer) # https://www.r-bloggers.com/palettes-in-r/
-        cols <- c(cols, brewer.pal(min(8, max(3, n)), "Dark2"))
+        cols <- c(cols, RColorBrewer::brewer.pal(min(8, max(3, n)), "Dark2"))
         cols <- cols[seq_len(min(length(cols), n))]
     }
     if (n > 3+8) cols <- c(cols, (3+8+1):n) # add default until end
@@ -1385,36 +1389,60 @@ ncdump_showdate <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
 
 # summarize nc infos lazily
 # --> actual dim values cannot be retrieved lazily
-nc_infos <- function(ncfile) {
-    #ncfile <- system.file("nc/reduced.nc", package="stars")
+nc_infos <- function(ncfile, short=T) {
     # depends package: RNetCDF
-    # depends software: cdo (to display time range)
+    # if not short: depends on software: cdo
+    #ncfile <- system.file("nc/reduced.nc", package="stars")
     if (missing(ncfile)) stop("provide ncfile")
     if (!is.character(ncfile)) stop("ncfile must be character")
     if (file.access(ncfile, mode=0) == -1) stop("ncfile ", ncfile, " does not exist")
+    ncfile <- normalizePath(ncfile)
     if (file.access(ncfile, mode=4) == -1) stop("ncfile ", ncfile, " exists but is not readable")
+    message(utils:::format.object_size(file.info(files[fi])$size, "auto"), " file ", ncfile, ":")
     library(RNetCDF)
     nc <- RNetCDF::open.nc(ncfile) # lazy open in contast to ncdf4::nc_open()
-    infos <- RNetCDF::file.inq.nc(nc)
-    dims <- lapply(seq_len(infos$ndims)-1, function(x) RNetCDF::dim.inq.nc(nc, x))
-    vars <- lapply(seq_len(infos$nvars)-1, function(x) RNetCDF::var.inq.nc(nc, x))
-    varnames <- sapply(vars, "[[", "name")
-    for (vari in seq_along(varnames)) {
-        ind <- which(sapply(vars, "[[", "name") == varnames[vari])
-        dimids <- vars[[ind]]$dimids
-        diminds <- match(dimids, sapply(dims, "[[", "id"))
-        dimnames <- sapply(dims[diminds], "[[", "name")
-        dimlens <- sapply(dims[diminds], "[[", "length")
-        message("varname ", vari, ": \"", varnames[vari], "\" (", 
-                paste(paste0("dim", seq_along(dimids), ":", dimnames, ",id=", dimids, ",len=", dimlens), collapse=";"), ")")
-    } # for vari
-    cdo <- Sys.which("cdo")
-    if (cdo != "") {
-        if (suppressWarnings(!inherits(try(system(paste0(cdo, " -s showtimestamp ", ncfile), ignore.stderr=T, intern=T), silent=T), "try-error"))) {
-            time <- as.POSIXct(strsplit(trimws(system(paste0(cdo, " -s showtimestamp ", ncfile), ignore.stderr=T, intern=T)), "  ")[[1]], tz="UTC")
-            message(length(time), " time points from ", min(time), " to ", max(time))
+    if (short) {
+        RNetCDF::print.nc(nc)
+    } else {
+        infos <- RNetCDF::file.inq.nc(nc)
+        dims <- lapply(seq_len(infos$ndims)-1, function(x) RNetCDF::dim.inq.nc(nc, x))
+        vars <- lapply(seq_len(infos$nvars)-1, function(x) RNetCDF::var.inq.nc(nc, x))
+        varnames <- sapply(vars, "[[", "name")
+        for (vari in seq_along(varnames)) {
+            ind <- which(sapply(vars, "[[", "name") == varnames[vari])
+            dimids <- vars[[ind]]$dimids
+            diminds <- match(dimids, sapply(dims, "[[", "id"))
+            dimnames <- sapply(dims[diminds], "[[", "name")
+            dimlens <- sapply(dims[diminds], "[[", "length")
+            att_names <- sapply(lapply(seq_len(vars[[vari]]$natts)-1, function(x) RNetCDF::att.inq.nc(nc, varnames[vari], x)), "[[", "name")
+            att_vals <- sapply(seq_len(vars[[vari]]$natts)-1, function(x) RNetCDF::att.get.nc(nc, varnames[vari], x))
+            atts <- as.list(att_vals)
+            names(atts) <- att_names
+            message("*********************************************************************\n",
+                    "varname ", vari, ": \"", varnames[vari], "\" (", 
+                    paste(paste0("dim", seq_along(dimids), ":", dimnames, ",id=", dimids, ",len=", dimlens), collapse=";"), ")")
+            if (length(atts) > 0) cat(capture.output(str(atts)), sep="\n")
+        } # for vari
+        cdo <- Sys.which("cdo")
+        if (cdo != "") {
+            if (suppressWarnings(!inherits(try(system(paste0(cdo, " -s showtimestamp ", ncfile), ignore.stderr=T, intern=T), silent=T), "try-error"))) {
+                time <- system(paste0(cdo, " -s showtimestamp ", ncfile), ignore.stderr=T, intern=T)
+                if (length(time) > 0) {
+                    time <- as.POSIXct(strsplit(trimws(time), "  ")[[1]], tz="UTC")
+                    dt <- diff(time)
+                    message("*********************************************************************\n",
+                            length(time), " time points from ", min(time), " to ", max(time), 
+                            " (mean/median dt = ", round(mean(dt), 3), "/", median(dt), " ", attributes(dt)$units, ")")
+                } else {
+                    message("(`cdo showtimestamp` on this file yields nothing)")
+                }
+            } else {
+                message("(`cdo showtimestamp` on this file failed")
+            }
+        } else {
+            message("(cdo not found to get time info)")
         }
-    }
+    } # if short or not
 } # nc_infos
 
 # set my default plot options
@@ -1518,7 +1546,7 @@ myDefaultPlotOptions <- function(plist=list(plot_type="png",
 # 1 inch = 96 pixel if ppi = 96
 # 1 inch = 300 pixel if ppi = 300
 # default ppi of `grDevices::png()` = 72
-plot_sizes <- function(width_in=NULL, height_in=NULL,
+plot_sizes <- function(width_in=7, height_in=NULL,
                        width_cm=NULL, height_cm=NULL,
                        png_ppi=300, asp=4/3, verbose=F) {
     
@@ -1530,13 +1558,7 @@ plot_sizes <- function(width_in=NULL, height_in=NULL,
     } else if (is.numeric(height_in) && is.numeric(height_cm)) {
         stop("provide either `height_in` or `height_cm`")
     }
-    if (is.logical(asp)) {
-        if (asp) {
-            asp <- 4/3 # default
-        } else if (!asp) {
-            asp <- 1 # no asp; height=width if one is missing
-        }
-    }
+    if (!is.finite(asp)) stop("`asp` must be finite")
     if (is.numeric(width_in) && !is.numeric(height_in)) height_in <- width_in/asp
     if (!is.numeric(width_in) && is.numeric(height_in)) width_in <- height_in*asp
     if (is.numeric(width_cm) && !is.numeric(height_cm)) height_cm <- width_cm/asp
@@ -1545,7 +1567,7 @@ plot_sizes <- function(width_in=NULL, height_in=NULL,
     if (!is.numeric(height_in)) height_in <- height_cm/2.54
     if (!is.numeric(width_cm)) width_cm <- width_in*2.54
     if (!is.numeric(height_cm)) height_cm <- height_in*2.54
-    asp <- width_in/height_in # same for width_cm/height_cm
+    asp <- width_in/height_in # udate asp; same for width_cm/height_cm
 
     # for png
     width_px <- width_in*png_ppi
@@ -1838,6 +1860,54 @@ font_info <- function(fc_list=NULL) {
     message("\nfinished")
 
 } # font_info
+
+# find largest empty region in plot based on all data points
+my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=10) {
+    
+    if (!is.list(x_all)) stop("x_all must be list")
+    if (!is.list(y_all)) stop("y_all must be list")
+    if (length(x_all) != length(y_all)) stop("x_all and y_all must be of same length")
+
+    # interp all data points to get better result, i.e. artifcially increase the resolution
+    if (n_interp > 0) {
+        for (i in seq_along(x_all)) {
+            tmp <- vector("list", l=length(x_all[[i]])-1)
+            for (j in seq_along(tmp)) {
+                tmp[[j]] <- approx(x=x_all[[i]][c(j, j+1)], y=y_all[[i]][c(j, j+1)], n=n_interp)
+            } # for j
+            x_all[[i]] <- unlist(lapply(tmp, "[[", "x"))
+            y_all[[i]] <- unlist(lapply(tmp, "[[", "y"))
+        } # for i
+    } # if n_interp > 0
+    x_all <- unlist(x_all)
+    y_all <- unlist(y_all)
+    inds <- which(is.na(y_all))
+    if (length(inds) > 0) {
+        x_all <- x_all[-inds]
+        y_all <- y_all[-inds]
+    }
+    message("myfunctions.r:my_maxempty(): get automatic legend position at largest empty area with ", 
+            method, "() on ", length(x_all), " points ... ", appendLF=F) 
+    if (method == "Hmisc::largest.empty") { # adagio::maxempty works better
+        if (suppressPackageStartupMessages(require(Hmisc))) {
+            method <- "area" # "exhaustive" "area" "maxdim"
+            tmp <- Hmisc::largest.empty(x=x_all, y=y_all, method=method)
+            #rect(tmp$rect$x[1], tmp$rect$y[1], tmp$rect$x[2], tmp$rect$y[3])
+            pos <- c(x=min(tmp$rect$x), y=max(tmp$rect$y)) # topleft corner of Hmisc result
+        } else {
+            message("could not load Hmisc package")
+        }
+    } else if (method == "adagio::maxempty") { # works better than Hmisc::largest.empty
+        if (suppressPackageStartupMessages(require(adagio))) {
+            tmp <- adagio::maxempty(x=x_all, y=y_all, ax=par("usr")[1:2], ay=par("usr")[3:4])
+            #rect(tmp$rect[1], tmp$rect[2], tmp$rect[3], tmp$rect[4])
+            pos <- c(x=tmp$rect[1], y=tmp$rect[4]) # topleft corner if x- and y-coords are both increasing (default)
+        } else {
+            message("could not load adagio package")
+        }
+    } # which method
+    return(list(pos=pos))
+} # my_maxempty
 
 # Get month names in specific locale
 mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {

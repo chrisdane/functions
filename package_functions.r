@@ -162,6 +162,11 @@ my_install.packages <- function(pkg="asdasd", dry=T) {
             message(pkg, " package defined on ", hostname)
             libxml2_path <- "/sw/spack-rhel6/miniforge3-4.9.2-3-Linux-x86_64-pwdbqi"
             configure.vars <- paste0("LIBS=-Wl,-rpath,", libxml2_path, "/lib")
+        } else if (any(sapply(c("levante", "lvt"), grepl, hostname)) &&
+            substr(rversion, 1, 3) == "4.1") {
+            message(pkg, " package defined on ", hostname)
+            libxml2_path <- "/sw/spack-levante/mambaforge-4.11.0-0-Linux-x86_64-sobz6z"
+            configure.vars <- paste0("LIBS=-Wl,-rpath,", libxml2_path, "/lib")
         }
 
     } # which package
