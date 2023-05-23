@@ -386,7 +386,7 @@ difftime_yr <- function(from, to) {
     dpms <- c("Jan"=31, "Feb"=28, "Mar"=31, "Apr"=30, "May"=31, "Jun"=30, # days per month of non-leap year
               "Jul"=31, "Aug"=31, "Sep"=30, "Oct"=31, "Nov"=30, "Dec"=31)
     mpy <- 12 # 12 months per year
-    ages_yr <- rep(NA, t=length(from))
+    ages_yr <- ages_day <- rep(NA, t=length(from)) # todo: ages_day
     for (datei in seq_along(ages_yr)) {
         dpm_start <- unname(dpms[fromlt[datei]$mon + 1]) # days per month of start month
         if (fromlt[datei]$mon + 1 == 2 && # if start mon is Feb and start year is leap year
@@ -938,9 +938,9 @@ masses <- function(x=1, unit="kg") {
 # convert freshwater units
 #         Sv = 1e6 m3 s-1
 #     rho_fw = 1e3 kg m-3
-# -->   m_fw = 1e3 kg
-sv_fw_to_gt_fw_yr1 <- function(sv_fw, verbose=F) {
-    fac_m3_s1 <- 1e9*1e3/(360*86400*1e3) # m3 s-1
+# -->   M_fw = 1e3 kg
+sv_fw_to_gt_fw_yr1 <- function(sv_fw=0.1, ndpy=365.25, verbose=T) {
+    fac_m3_s1 <- 1e9*1e3/(ndpy*86400*1e3) # m3 s-1
     # 1 yr = 360    days: 31104   m3 s-1
     # 1 yr = 365    days: 31536   m3 s-1
     # 1 yr = 365.25 days: 31557.6 m3 s-1
@@ -948,15 +948,15 @@ sv_fw_to_gt_fw_yr1 <- function(sv_fw, verbose=F) {
     # approximation:      31500   m3 s-1
     if (verbose) {
         message("rho_freshwater = 1e3 kg m-3\n",
-                "--> v_freshwater = m/rho_freshwater = 1 kg / (1e3 kg m-3) = 1/1e3 m3\n",
+                "--> V_freshwater = M/rho_freshwater = 1 kg / (1e3 kg m-3) = 1/1e3 m3\n",
                 "    Gt freshwater   1e9 * 1e3 kg freshwater   1e9 * 1e3        m3\n",
                 "    ------------- = ----------------------- = -------------------- = ", fac_m3_s1, " m3 s-1\n",
-                "    yr              365.25 * 86400 s          365.25 * 86400 s 1e3\n",
+                "    yr              ", ndpy, " * 86400 s          ", ndpy, " * 86400 s 1e3\n",
                 "<=> 1/", fac_m3_s1, " Gt yr-1 = ", 1/fac_m3_s1, " Gt yr-1 = m3 s-1\n",
                 "--> Sv = 1e6 m3 s-1 = 1e6/", fac_m3_s1, " Gt yr-1 = ", 1e6/fac_m3_s1, " Gt yr-1")
     }
     sv_fw * 1e6/fac_m3_s1
-}
+} # sv_fw_to_gt_fw_yr1
 
 # convert carbon units
 # Gt = Pg
@@ -1898,6 +1898,7 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=10) {
             message("could not load Hmisc package")
         }
     } else if (method == "adagio::maxempty") { # works better than Hmisc::largest.empty
+        if (is.null(dev.list())) stop("there is no open plot device. cannot run adagio::maxempty ...")
         if (suppressPackageStartupMessages(require(adagio))) {
             tmp <- adagio::maxempty(x=x_all, y=y_all, ax=par("usr")[1:2], ay=par("usr")[3:4])
             #rect(tmp$rect[1], tmp$rect[2], tmp$rect[3], tmp$rect[4])
@@ -1960,13 +1961,23 @@ mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
 
 # convert human readable size to bytes
 # https://stackoverflow.com/questions/10910688/converting-kilobytes-megabytes-etc-to-bytes-in-r/49380514
-size2byte <- function(x, unit) {
-    if (any(!is.finite(x)) || any(!is.character(unit))) stop("x must be finite and unit must be character")
+size2byte <- function(string, val, unit) {
+    if (missing(string)) { # val and unit given
+        if (any(!is.finite(val)) || any(!is.character(unit))) stop("val must be finite and unit must be character")
+    } else if (missing(val) && missing(unit)) {
+        if (!is.character(string)) stop("`string` must be character, e.g. \"2.2T\"")
+    } else {
+        stop("provide either `string=\"2.2T\"` or `val=2.2, unit=\"T\"`")
+    }
+    if (missing(val) && missing(unit)) {
+        val <- as.numeric(gsub('[[:alpha:]]', "", string))                            # "2.2T" --> 2.2
+        unit <- base::Reduce(base::setdiff, base::strsplit(c(string, val), split="")) # "T"
+    }
     if (any(is.na(match(unit, c("B", "K", "M", "G", "T", "P"))))) {
         stop("`unit` must be one of \"B\", \"K\", \"M\", \"G\", \"T\" or \"P\"")
     }
     mult <- c("B"=1,  "K"=1024,  "M"=1024^2,  "G"=1024^3,  "T"=1024^4,  "P"=1024^5)
-    x * unname(mult[unit])
+    val * unname(mult[unit])
 } # size2byte function
 
 get_encoding <- function(test_symbol="ä", test_ctype="de", verbose=F) {
@@ -2190,8 +2201,13 @@ work_time <- function(time_come=Sys.time()) {
     # 8:40 +7.8+0.5h = 16:58
     # 8:59 +7.8+0.5h = 17:17
     if (is.character(time_come)) {
-        message("provided `time_come` = \"", time_come, 
-                "\" is character --> try to convert to posix ...")
+        message("provided `time_come` = \"", time_come, "\" is character")
+        if (grepl(":", time_come) && !grepl("-", time_come)) { # if only H:M was given, not y-m-d
+            message("--> includes \":\" but no \"-\" --> assume that only %H:%M was given --> add current %Y-%m-%d to get full date --> ", appendLF=F)
+            time_come <- paste0(format(Sys.time(), "%Y-%m-%d"), " ", time_come)
+            message("\"", time_come, "\"")
+        }
+        message("--> try to convert \"", time_come, "\" to posix ...")
         time_come <- as.POSIXct(time_come)
     }
     if (!any(!is.na(match(class(time_come), "POSIXt")))) {
