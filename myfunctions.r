@@ -1177,6 +1177,14 @@ get_memory_free <- function(format=T) {
   }
 } # get_memory_free()
 
+# base::load cannot give a name for the new loaded data
+# --> usage: `myname <- myload("file.RData")` 
+myload <- function(file_rdata) {
+    if (missing(file_rdata)) stop("provide `file_rdata`")
+    base::load(file_rdata)
+    base::mget(ls()[ls() != "file_rdata"])
+} # myload
+
 # check if all elements of a list are identical
 # https://stackoverflow.com/questions/4752275/test-for-equality-among-all-elements-of-a-single-vector
 identical_list <- function(x) {
@@ -1263,12 +1271,12 @@ grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
 }
 
 # color2rgb
-col2rgba <- function(x, alpha) {
-    if (missing(x)) stop("must provide colors")
+col2rgba <- function(cols, alpha) {
+    if (missing(cols)) stop("must provide colors")
     if (missing(alpha)) {
-        apply(col2rgb(x)/255, 2, function(x) rgb(matrix(x, ncol=3)))
+        apply(grDevices::col2rgb(cols)/255, 2, function(x) grDevices::rgb(matrix(x, ncol=3)))
     } else {
-        apply(col2rgb(x)/255, 2, function(x) rgb(matrix(x, ncol=3), alpha=alpha))
+        apply(grDevices::col2rgb(cols)/255, 2, function(x) grDevices::rgb(matrix(x, ncol=3), alpha=alpha))
     }
 }
 
