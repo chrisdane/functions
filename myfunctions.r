@@ -419,7 +419,7 @@ difftime_yr <- function(from, to) {
                 age_a <- 1/365 # 0.002739726 yrs
             }
         } else { # current date is before start date
-            message("datei ", datei, ": ", events[datei], " from ", from[datei], " to ", to[datei], " --> start date is in future")
+            stop("datei ", datei, ": from ", from[datei], " to ", to[datei], " --> start date is in future")
         }
         ages_yr[datei] <- age_a
     } # for datei
@@ -960,6 +960,16 @@ sv_fw_to_gt_fw_yr1 <- function(sv_fw=0.1, ndpy=365.25, verbose=T) {
 
 # convert carbon units
 # Gt = Pg
+# 1 mole C = 1 mole CO2; 1 mole = 6.02214076 * 1e23 particles
+# 1 mole C = 12.0107 g C
+# --> convert mole C to g C: *12.0107 
+# 1 mole CO2 = 44.0095 g CO2
+# --> convert mole CO2 to g CO2: *44.0095
+# --> 12.0107 g C = 44.0095         g CO2
+# <=>       1 g C = 44.0095/12.0107 g CO2
+# <=>       1 g C = 3.664191        g CO2
+# --> convert g C   to g CO2: *3.664191 (or /0.272912)
+# --> convert g CO2 to g C  : /3.664191 (or *0.272912)
 kgC_m2_s1_to_gC_m2_yr1 <- function(kgC_m2_s1) {
     kgC_m2_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g 
 }
@@ -987,6 +997,9 @@ kgCO2_m2_to_PgC <- function(kgCO2_m2) {
 }
 kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
     kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+}
+kgCO2_to_kgC <- function(kgCO2) {
+    kgC <- kgCO2 * 0.272912
 }
 gC_s1_to_PgCO2_yr1 <- function(gC_s1) {
     gC_s1 * 365.25*86400 * 3.664191 / 1e15 # s-1 --> yr-1; gC --> gCO2; g --> Pg
@@ -1870,7 +1883,7 @@ font_info <- function(fc_list=NULL) {
 } # font_info
 
 # find largest empty region in plot based on all data points
-my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=10) {
+my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
     
     if (!is.list(x_all)) stop("x_all must be list")
     if (!is.list(y_all)) stop("y_all must be list")
