@@ -36,7 +36,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     # demo values
     if (missing(x) && missing(y) && missing(z)) {
         message("x,y,z not provided --> run demo ...")
-        n <- 3; m <- 2
+        if (is.null(n)) n <- 3
+        if (is.null(m)) m <- 2
         x <- y <- z <- vector("list", l=n*m)
         for (i in 1:(n*m)) {
             x[[i]] <- 1:20
@@ -89,8 +90,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         }
     }
 
-    # figure out nrow and ncol aready here that dry run is faster
-    # just learned: grDevices::n2mfrow(nplots) is doing the trick
+    # get nrow and ncol: `grDevices::n2mfrow(nplots)`
     nz <- length(z) 
     if (is.null(n) || is.null(m)) { # default
         if (is.null(n) && is.null(m)) {
@@ -128,12 +128,58 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
         } # if n or m or both are missing
     } # if n or m are missing
-    
-    # nplots based on derived number of rows (n) and columns (m)
     nplots <- n*m
     if (verbose) message("--> n x m = ", n, " rows x ", m, " cols = ", nplots, " plots (nz = ", nz, ")")
     if (nplots < nz) {
         stop("n*m = ", nplots, " < nz = ", nz, ". re-run with proper n (nrow) or/and m (ncol)")
+    }
+    
+    ## construct layout mat based on n x m; nrow x ncol
+    if (top_bottom) { # plot figures from top to bottom and left to right
+	    layout_mat <- matrix(1:(n*m), nrow=n, ncol=m, byrow=F)
+    } else { # plot figures from left to right and top to bottom
+        layout_mat <- matrix(1:(n*m), nrow=n, ncol=m, byrow=T)
+    }
+    if (!contour_only) { # need colorbar
+        if (!horizontal) { # vertical colorbar on the right
+
+            # left region for axes in cm; columns for plots in relative units; right region for colorbar in cm  
+            layout_mat2 <- cbind(rep(0, t=n), # left axis row
+                                 layout_mat,
+                                 rep(n*m + 1, t=n)) # right legend column
+            layout_widths <- c(lcm(cm_left), rep(1/m, t=m), lcm(cm_right))
+            
+            # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
+            layout_mat2 <- rbind(rep(0, t=m + 2), # title row
+                                 layout_mat2,
+                                 rep(0, t=m + 2)) # bottom axis row
+            layout_heights <- c(lcm(cm_top), rep(1/n, t=n), lcm(cm_bottom))
+
+        } else { # horizontal colorbar at the bottom
+            stop("not yet") 
+        }
+
+    } else if (contour_only) { # no colorbar needed
+        
+        # same as for !contour_only case but with thinner cm_right
+        layout_mat2 <- cbind(rep(0, t=n), # left axis row
+                             layout_mat,
+                             rep(n*m + 1, t=n)) # right legend column
+        layout_widths <- c(lcm(cm_left), rep(1/m, t=m), lcm(1)) # 1 cm instead of cm_right
+        # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
+        layout_mat2 <- rbind(rep(0, t=m + 2), # title row
+                             layout_mat2,
+                             rep(0, t=m + 2)) # bottom axis row
+        layout_heights <- c(lcm(cm_top), rep(1/n, t=n), lcm(cm_bottom))
+    
+    } # if contour_only or not
+    if (verbose) {
+        cat("layout_widths=")
+        dput(layout_widths)
+        cat("layout_heights=")
+        dput(layout_heights)
+        cat("layout_mat2=")
+        print(layout_mat2)
     }
 
     # decide which axes are drawn to which subplot
@@ -191,6 +237,10 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     return_list$ncol <- m
     return_list$nplots <- nplots
     return_list$nz <- nz
+    return_list$layout_mat <- layout_mat
+    return_list$layout_mat2 <- layout_mat2
+    return_list$layout_widths <- layout_widths
+    return_list$layout_heights <- layout_heights
     return_list$top_bottom <- top_bottom
     return_list$left_axis_inds <- left_axis_inds
     return_list$bottom_axis_inds <- bottom_axis_inds
@@ -580,6 +630,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             if (verbose) message("`useRaster`=T --> check if x,y are regular for graphics::image(..., useRaster=T) usage ...")
             for (i in seq_along(z)) {
                 if (check_irregular(x[[i]], y[[i]])) {
+                    if (verbose) message("  --> make regular grid for setting ", i, " ...")
                     x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), l=length(x[[i]])) # overwrite original coord
                     y[[i]] <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), l=length(y[[i]]))
                 }
@@ -740,71 +791,6 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         }
     }
 
-    # construct layout mat based on n x m; nrow x ncol
-    if (top_bottom) { # plot figures from top to bottom and left to right
-	    layout_mat <- matrix(1:(n*m), nrow=n, ncol=m, byrow=F)
-    } else { # plot figures from left to right and top to bottom
-        layout_mat <- matrix(1:(n*m), nrow=n, ncol=m, byrow=T)
-    }
-
-	# vertical colorbar on the right
-    if (!contour_only) {
-        if (!horizontal) {
-
-            # left region for axes in cm; columns for plots in relative units; right region for colorbar in cm  
-            layout_mat2 <- cbind(rep(0, t=n), # left axis row
-                                 layout_mat,
-                                 rep(n*m + 1, t=n)) # right legend column
-            layout_widths <- c(lcm(cm_left), rep(1/m, t=m), lcm(cm_right))
-            
-            # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
-            layout_mat2 <- rbind(rep(0, t=m + 2), # title row
-                                 layout_mat2,
-                                 rep(0, t=m + 2)) # bottom axis row
-            layout_heights <- c(lcm(cm_top), rep(1/n, t=n), lcm(cm_bottom))
-
-        # horizontal colorbar at the bottom
-        } else {
-            stop("not yet") 
-        }
-
-    } else if (contour_only) {
-        
-        # left region for axes in cm; columns for plots in relative units; right region for colorbar in cm  
-        if (F) { # old
-            layout_mat2 <- cbind(rep(0, t=n), # left axis row
-                             layout_mat)
-            layout_widths <- c(lcm(cm_left), rep(1/m, t=m))
-            # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
-            layout_mat2 <- rbind(rep(0, t=m + 1), # title row
-                                 layout_mat2,
-                                 rep(0, t=m + 1)) # bottom axis row
-        } else if (T) { # new: same as for !contour_only case but with thinner cm_right
-            layout_mat2 <- cbind(rep(0, t=n), # left axis row
-                                 layout_mat,
-                                 rep(n*m + 1, t=n)) # right legend column
-            layout_widths <- c(lcm(cm_left), rep(1/m, t=m), lcm(1)) # 1 cm instead of cm_right
-            # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
-            layout_mat2 <- rbind(rep(0, t=m + 2), # title row
-                                 layout_mat2,
-                                 rep(0, t=m + 2)) # bottom axis row
-        }
-        layout_heights <- c(lcm(cm_top), rep(1/n, t=n), lcm(cm_bottom))
-    
-    } # if contour_only or not
-    return_list$layout_mat <- layout_mat
-    return_list$layout_mat2 <- layout_mat2
-    return_list$layout_widths <- layout_widths
-    return_list$layout_heights <- layout_heights
-    
-    if (verbose) {
-        cat("layout_widths=")
-        dput(layout_widths)
-        cat("layout_heights=")
-        dput(layout_heights)
-        cat("layout_mat2=")
-        print(layout_mat2)
-    }
 
     ## Open new or use already open plot device
     if (plot_type == "active") { 

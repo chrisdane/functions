@@ -923,7 +923,7 @@ speeds <- function(x=1, unit="cm/s") {
 } # speeds function
 
 # convert masses with units package
-masses <- function(x=1, unit="kg") {
+masses <- function(x=1, unit="g") {
     library(units) # valid_udunits()
     x <- set_units(x=x, value=unit, mode="standard")
     units <- data.frame(unit=c("g", "kg", "t", "Mt",               "Gt",                                    "Tg",                                     "Pg",      "Tt"),
@@ -1250,7 +1250,7 @@ reorder_legend <- function(le) {
 } # reorder_legend
 
 # headtail
-ht <- function(x, n=15, ...) {
+ht <- function(x, n=15, transpose=F, ...) {
     # small changes based on FSA::headtail
     if (!(is.matrix(x) | is.data.frame(x))) 
         x <- as.data.frame(x)
@@ -1266,7 +1266,11 @@ ht <- function(x, n=15, ...) {
         t <- utils::tail(x, n=min(N/2, n), keepnums=T, ...)
         tmp <- rbind(h, t)
     }
-    print(t(tmp))
+    if (transpose) {
+        print(t(tmp))
+    } else {
+        print(tmp)
+    }
 } # ht function
 
 grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
@@ -1885,12 +1889,18 @@ font_info <- function(fc_list=NULL) {
 # find largest empty region in plot based on all data points
 my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
     
-    if (!is.list(x_all)) stop("x_all must be list")
-    if (!is.list(y_all)) stop("y_all must be list")
-    if (length(x_all) != length(y_all)) stop("x_all and y_all must be of same length")
+    if (!is.list(x_all)) stop("`x_all` must be list")
+    if (!is.list(y_all)) stop("`y_all` must be list")
+    if (length(x_all) != length(y_all)) stop("`x_all` and `y_all` must be of same length")
+    known_methods <- c("Hmisc::largest.empty", "adagio::maxempty")
+    if (!any(method == known_methods)) {
+        stop("`method` must be one of \"", paste(known_methods, collapse="\", \""), "\"")
+    }
 
     # interp all data points to get better result, i.e. artifcially increase the resolution
     if (n_interp > 0) {
+        message("myfunctions.r:my_maxempty(): `n_interp` = ", n_interp, " > 0 --> interp to ", 
+                length(x_all), " * ", n_interp, " = ", length(x_all)*n_interp, " points ...")
         for (i in seq_along(x_all)) {
             tmp <- vector("list", l=length(x_all[[i]])-1)
             for (j in seq_along(tmp)) {
@@ -1902,33 +1912,36 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
     } # if n_interp > 0
     x_all <- unlist(x_all)
     y_all <- unlist(y_all)
-    inds <- which(is.na(y_all))
+    
+    # exclude NA
+    inds <- c()
+    if (anyNA(x_all)) inds <- c(inds, which(is.na(x_all)))
+    if (anyNA(y_all)) inds <- c(inds, which(is.na(y_all)))
     if (length(inds) > 0) {
+        inds <- unique(inds)
         x_all <- x_all[-inds]
         y_all <- y_all[-inds]
     }
-    message("myfunctions.r:my_maxempty(): get automatic legend position at largest empty area with ", 
+    message("myfunctions.r:my_maxempty(): get automatic legend position at largest empty area with `method` = ", 
             method, "() on ", length(x_all), " points ... ", appendLF=F) 
+    
     if (method == "Hmisc::largest.empty") { # adagio::maxempty works better
-        if (suppressPackageStartupMessages(require(Hmisc))) {
-            method <- "area" # "exhaustive" "area" "maxdim"
-            tmp <- Hmisc::largest.empty(x=x_all, y=y_all, method=method)
-            #rect(tmp$rect$x[1], tmp$rect$y[1], tmp$rect$x[2], tmp$rect$y[3])
-            pos <- c(x=min(tmp$rect$x), y=max(tmp$rect$y)) # topleft corner of Hmisc result
-        } else {
-            message("could not load Hmisc package")
-        }
+        if (!suppressPackageStartupMessages(require(Hmisc))) stop("could not load Hmisc package")
+        method <- "area" # "exhaustive" "area" "maxdim"
+        tmp <- Hmisc::largest.empty(x=x_all, y=y_all, method=method)
+        #rect(tmp$rect$x[1], tmp$rect$y[1], tmp$rect$x[2], tmp$rect$y[3])
+        pos <- c(x=min(tmp$rect$x), y=max(tmp$rect$y)) # topleft corner of Hmisc result
+
     } else if (method == "adagio::maxempty") { # works better than Hmisc::largest.empty
+        if (!suppressPackageStartupMessages(require(adagio))) stop("could not load adagio package")
         if (is.null(dev.list())) stop("there is no open plot device. cannot run adagio::maxempty ...")
-        if (suppressPackageStartupMessages(require(adagio))) {
-            tmp <- adagio::maxempty(x=x_all, y=y_all, ax=par("usr")[1:2], ay=par("usr")[3:4])
-            #rect(tmp$rect[1], tmp$rect[2], tmp$rect[3], tmp$rect[4])
-            pos <- c(x=tmp$rect[1], y=tmp$rect[4]) # topleft corner if x- and y-coords are both increasing (default)
-        } else {
-            message("could not load adagio package")
-        }
+        tmp <- adagio::maxempty(x=x_all, y=y_all, ax=par("usr")[1:2], ay=par("usr")[3:4])
+        #rect(tmp$rect[1], tmp$rect[2], tmp$rect[3], tmp$rect[4])
+        pos <- c(x=tmp$rect[1], y=tmp$rect[4]) # topleft corner if x- and y-coords are both increasing (default)
     } # which method
+    
     return(list(pos=pos))
+
 } # my_maxempty
 
 # Get month names in specific locale

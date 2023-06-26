@@ -554,8 +554,12 @@ image.plot.pre <- function(zlim=NULL,
     } else {
 
         if (is.numeric(axis.labels)) {
-            axis.labels <- format(axis.labels, trim=T)
-            if (verbose) cat("case nonexp & numeric; axis.labels =", axis.labels, "\n")
+            #if (!is.null(axis.round)) {
+            #    axis.labels <- format(axis.labels, digits=axis.round, trim=T)
+            #} else {
+                axis.labels <- format(axis.labels, trim=T)
+            #}
+            if (verbose) cat("case nonexp & numeric; axis.labels after =", axis.labels, "\n")
         } # if is.numeric(axis.labels)
         
     } # which method
@@ -579,12 +583,12 @@ image.plot.pre <- function(zlim=NULL,
             if (as.numeric(sprintf(paste0("%.", axis.round, "f"), zlim[1])) < as.numeric(axis.labels[1])) {
                 if (verbose) message("zlim[1] = ", zlim[1], " < axis.labels[1] = ", axis.labels[1])
                 axis.labels <- c(sprintf(paste0("%.", axis.round, "f"), zlim[1]), axis.labels)
-                axis.at <- c(as.numeric(sprintf(paste0("%.", axis.round, "f"), zlim[1])), axis.at)
+                axis.at <- c(zlim[1], axis.at)
                 axis.at.ind <- c(1, axis.at.ind)
             }
             if (as.numeric(sprintf(paste0("%.", axis.round, "f"), zlim[2])) > as.numeric(axis.labels[length(axis.labels)])) {
                 axis.labels <- c(axis.labels, sprintf(paste0("%.", axis.round, "f"), zlim[2]))
-                axis.at <- c(axis.at, as.numeric(sprintf(paste0("%.", axis.round, "f"), zlim[2])))
+                axis.at <- c(axis.at, zlim[2])
                 axis.at.ind <- c(axis.at.ind, nlevels)
             }
             if (verbose) {
@@ -765,6 +769,6 @@ image.plot.pre <- function(zlim=NULL,
                 axis.at=axis.at, axis.at.ind=axis.at.ind, axis.at.small=axis.at.small,
                 axis.labels=axis.labels, axis.round=axis.round,
                 axis.zoom=axis.zoom, axis.addzlims=axis.addzlims,
-                method=method))
+                method=method, anom_colorbar=anom_colorbar))
 
 } # image.plot.pre function
