@@ -1328,8 +1328,9 @@ mylocator <- function(...) {
             "3. For every wanted location left-click and wait for the cursor to appear as cross. Repeat for all points.\n",
             "4. To exit, right- or middle-click into the plot.\n",
             "Tip: Run `coords <- mylocator()` to save the coords as variable.")
-    locator(type="o", ...)
+    coords <- locator(type="o", ...)
     message("********* mylocator() end *********")
+    return(coords)
 } # mylocator
 
 mylocator_list2poly <- function(result_of_mylocator) {
