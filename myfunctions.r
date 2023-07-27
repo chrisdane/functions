@@ -1104,28 +1104,61 @@ masses <- function(x=1, unit="g") {
     invisible(df)
 } # masses function
 
+kg_fw_m2_s1_to_Gt_fw_yr1 <- function(kg_fw_m2_s1=0.00010075) {
+    Aearth <- 5.100656e14 # m2
+    kg_fw_m2_s1 * Aearth / 1e12 * (365.25*86400) # m-2 -> fldint; kg -> Gt; s-1 -> yr-1
+} # kg_fw_m2_s1_to_Gt_fw_yr
+
+kg_fw_s1_to_Gt_fw_yr1 <- function(kg_fw_s1=0.0785866) {
+    kg_fw_s1 / 1e12 * (365.25*86400) # kg -> Gt; s-1 -> yr-1
+} # kg_fw_s1_to_Gt_fw_yr
+
+Gt_fw_yr1_to_kg_fw_m2_s1 <- function(Gt_fw_yr1=31557.6) { # 1 Sv
+    Aearth <- 5.100656e14 # m2
+    Gt_fw_yr1 / Aearth * 1e12 / (365.25*86400) # global -> m-2; Gt -> kg; yr-1 -> s-1
+} # gt_fw_yr1_to_kg_fw_m2_s1
+
+Gt_fw_yr1_to_kg_fw_s1 <- function(Gt_fw_yr1=31557.6) {
+    Gt_fw_yr1 * 1e12 / (365.25*86400) # Gt -> kg; yr-1 -> s-1
+} # gt_fw_yr1_to_kg_fw_s1
+
 # convert freshwater units
-#         Sv = 1e6 m3 s-1
-#     rho_fw = 1e3 kg m-3
-# -->   M_fw = 1e3 kg
-sv_fw_to_gt_fw_yr1 <- function(sv_fw=0.1, ndpy=365.25, verbose=T) {
+#          Sv = 1e6 m3 s-1
+#      rho_fw = 1e3 kg m-3
+# --> mass_fw = 1e3 kg
+Sv_fw_to_Gt_fw_yr1 <- function(Sv_fw=NULL, Gt_fw_yr1=NULL, ndpy=365.25, verbose=T) {
+    if (is.null(Sv_fw) && is.null(Gt_fw_yr1)) stop("one of `Sv_fw` or `Gt_fw_yr1` must not be null")
     fac_m3_s1 <- 1e9*1e3/(ndpy*86400*1e3) # m3 s-1
-    # 1 yr = 360    days: 31104   m3 s-1
-    # 1 yr = 365    days: 31536   m3 s-1
-    # 1 yr = 365.25 days: 31557.6 m3 s-1
-    # 1 yr = 366    days: 31622.4 m3 s-1
-    # approximation:      31500   m3 s-1
+    # 1 yr = 360    days:       31104   m3 s-1
+    # approximation often used: 31500   m3 s-1
+    # 1 yr = 365    days:       31536   m3 s-1
+    # 1 yr = 365.25 days:       31557.6 m3 s-1
+    # 1 yr = 366    days:       31622.4 m3 s-1
     if (verbose) {
         message("rho_freshwater = 1e3 kg m-3\n",
-                "--> V_freshwater = M/rho_freshwater = 1 kg / (1e3 kg m-3) = 1/1e3 m3\n",
+                "--> volume_freshwater = mass_freshwater/rho_freshwater = 1 kg / (1e3 kg m-3) = 1/1e3 m3\n",
                 "    Gt freshwater   1e9 * 1e3 kg freshwater   1e9 * 1e3        m3\n",
                 "    ------------- = ----------------------- = -------------------- = ", fac_m3_s1, " m3 s-1\n",
                 "    yr              ", ndpy, " * 86400 s          ", ndpy, " * 86400 s 1e3\n",
                 "<=> 1/", fac_m3_s1, " Gt yr-1 = ", 1/fac_m3_s1, " Gt yr-1 = m3 s-1\n",
                 "--> Sv = 1e6 m3 s-1 = 1e6/", fac_m3_s1, " Gt yr-1 = ", 1e6/fac_m3_s1, " Gt yr-1")
+                # rho_freshwater = 1e3 kg m-3
+                # --> volume_freshwater = mass_freshwater/rho_freshwater = 1 kg / (1e3 kg m-3) = 1/1e3 m3
+                #     Gt freshwater   1e9 * 1e3 kg freshwater   1e9 * 1e3        m3
+                #     ------------- = ----------------------- = -------------------- = 31.688087814029 m3 s-1
+                #     yr              365.25 * 86400 s          365.25 * 86400 s 1e3
+                # <=> 1/31.688087814029 Gt yr-1 = 0.0315576 Gt yr-1 = m3 s-1
+                # --> Sv = 1e6 m3 s-1 = 1e6/31.688087814029 Gt yr-1 = 31557.6 Gt yr-1
     }
-    sv_fw * 1e6/fac_m3_s1
-} # sv_fw_to_gt_fw_yr1
+    if (is.null(Gt_fw_yr1)) {
+        res <- Sv_fw * 1e6 / fac_m3_s1
+        attributes(res) <- list("units"="Gt freshwater yr-1")
+    } else if (is.null(Sv_fw)) {
+        res <- Gt_fw_yr1 / 1e6 * fac_m3_s1
+        attributes(res) <- list("units"="Sv freshwater")
+    }
+    return(res)
+} # Sv_fw_to_Gt_fw_yr1
 
 # convert carbon units
 # Gt = Pg
