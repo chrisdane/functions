@@ -1433,20 +1433,15 @@ check_irregular <- function(x, y) {
     (length(dy) && !isTRUE(all.equal(dy, rep(dy[1], length(dy)))))
 }
 
+# reorder legend order from (1:top->bottom,2:left->right) to (1:left->right,2:top->bottom)
 reorder_legend <- function(le) {
-    # check input
-    if (le$ncol < 1) warning("reorder_legend(): le$ncol=", ncol, ". set to 1")
-    le$ncol <- max(1, le$ncol)
+    if (!any(names(le) == "ncol")) le$ncol <- 1
     n <- length(le$text)
     nrow <- ceiling(n/le$ncol)
     # https://stackoverflow.com/questions/39552682/base-r-horizontal-legend-with-multiple-rows
-    MyOrder <- as.vector(matrix(1:(nrow*le$ncol), nrow=nrow, ncol=le$ncol, byrow=T))
-    
-    # reorder every list element of length n
-    for (i in 1:length(le)) {
-        if (length(le[[i]]) == n) {
-            le[[i]] <- le[[i]][MyOrder]
-        }
+    inds <- as.vector(matrix(1:(nrow*le$ncol), nrow=nrow, ncol=le$ncol, byrow=T))
+    for (i in 1:length(le)) { # reorder every list element of length n
+        if (length(le[[i]]) == n) le[[i]] <- le[[i]][inds]
     }
     return(le)
 } # reorder_legend
@@ -1547,7 +1542,7 @@ cdo_showtimestamp <- function(file) {
     if (!file.exists(file)) stop("provided `file` = ", file, " does not exist")
     if (Sys.which("cdo") == "") stop("could not find cdo")
     if (getRversion() < "3.2.0") stop("R must be >= 3.2.0 to have base::trimws()")
-    return(as.POSIXct(strsplit(trimws(system(paste0("cdo -s showtimestamp ", file), intern=T)), "  ")[[1]], tz="UTC"))
+    return(as.POSIXct(strsplit(trimws(system(paste0("cdo -s showtimestamp ", file), intern=T)), "  ")[[1]], format="%Y-%m-%dT%H:%M:%S", tz="UTC"))
 } # cdo_showtimestamp
 
 # get file format
