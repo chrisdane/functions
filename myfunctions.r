@@ -482,6 +482,199 @@ m2lat <- function(dm, alat) {
     return(dlat)
 } # m2lat
 
+km2deg <- function(dkm=100, lat=45) {
+    # modified from https://github.com/omerkara/okara/blob/master/R/spatial_functions.R:km2d
+    library(fields)
+    if (!is.vector(dkm)) stop("`dkm` must be vector")
+    if (!is.vector(lat)) stop("`lat` must be vector")
+    if (length(dkm) != length(lat)) {
+        if (length(dkm) == 1) {
+            dkm <- rep(dkm, t=length(lat))
+        } else if (length(lat) == 1) {
+            lat <- rep(lat, t=length(dkm))
+        } else {
+            stop("`dkm` and `lat` must either be of same length or one of the two must be of length 1")
+        }
+    }
+    deg <- rep(NA, t=length(dkm))
+    for (di in seq_along(dkm)) {
+        one_deg_km <- fields::rdist.earth(cbind(0, lat[di]),
+                                          cbind(1, lat[di]),
+                                          miles=F)
+        deg[di] <- dkm[di]/one_deg_km
+    } # for di
+    return(data.frame(dkm=dkm, lat=lat, deg=deg))
+} # km2deg
+
+## spatial distances
+# https://www.r-bloggers.com/great-circle-distance-calculations-in-r/
+
+# Calculates the geodesic distance between two points specified by radian latitude/longitude using the
+# Spherical Law of Cosines (slc)
+distance_slc <- function(lon1, lat1, lon2, lat2, r_earth_km=6371) {
+    pi180 <- pi/180
+    lon1 <- lon1*pi180
+    lat1 <- lat1*pi180
+    lon2 <- lon2*pi180
+    lat2 <- lat2*pi180
+    d <- acos(sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2) * cos(lon2-lon1)) * r_earth_km
+    return(list(dist_km=d, r_km=r_earth_km))
+} # distance_slc
+
+# Calculates the geodesic distance between two points specified by radian latitude/longitude using the
+# Haversine formula (hf)
+distance_hf <- function(lon1, lat1, lon2, lat2, r_earth_km=6371) {
+    pi180 <- pi/180
+    lon1 <- lon1*pi180
+    lat1 <- lat1*pi180
+    lon2 <- lon2*pi180
+    lat2 <- lat2*pi180
+    dlon <- lon2 - lon1
+    dlat <- lat2 - lat1
+    a <- sin(dlat/2)^2 + cos(lat1) * cos(lat2) * sin(dlon/2)^2
+    c <- 2 * asin(min(1,sqrt(a)))
+    d <- r_earth_km * c
+    return(list(dist_km=d, r_km=r_earth_km))
+} # distance_hf
+
+# Calculates the geodesic distance between two points specified by radian latitude/longitude using
+# Vincenty inverse formula for ellipsoids (vif)
+distance_vif <- function(lon1, lat1, lon2, lat2, globe="WGS-84 ellipsoid") {
+ 
+    if (globe == "WGS-84 ellipsoid") { # WGS-84 ellipsoid parameters
+        a <- 6378137         # length of major axis of the ellipsoid (radius at equator)
+        b <- 6356752.314245  # ength of minor axis of the ellipsoid (radius at the poles)
+        f <- 1/298.257223563 # flattening of the ellipsoid
+    } else {
+        stop("globe ", globe, " not implemented")
+    }
+
+    pi180 <- pi/180
+    lon1 <- lon1*pi180
+    lat1 <- lat1*pi180
+    lon2 <- lon2*pi180
+    lat2 <- lat2*pi180
+
+    L <- lon2 - lon1 # difference in longitude
+    U1 <- atan((1-f) * tan(lat1)) # reduced latitude
+    U2 <- atan((1-f) * tan(lat2)) # reduced latitude
+    sinU1 <- sin(U1)
+    cosU1 <- cos(U1)
+    sinU2 <- sin(U2)
+    cosU2 <- cos(U2)
+
+    cosSqAlpha <- NULL
+    sinSigma <- NULL
+    cosSigma <- NULL
+    cos2SigmaM <- NULL
+    sigma <- NULL
+
+    lambda <- L
+    lambdaP <- 0
+    iterLimit <- 100
+    while (abs(lambda-lambdaP) > 1e-12 & iterLimit>0) {
+        sinLambda <- sin(lambda)
+        cosLambda <- cos(lambda)
+        sinSigma <- sqrt( (cosU2*sinLambda) * (cosU2*sinLambda) +
+                          (cosU1*sinU2-sinU1*cosU2*cosLambda) * (cosU1*sinU2-sinU1*cosU2*cosLambda) )
+        if (sinSigma==0) return(0)  # Co-incident points
+        cosSigma <- sinU1*sinU2 + cosU1*cosU2*cosLambda
+        sigma <- atan2(sinSigma, cosSigma)
+        sinAlpha <- cosU1 * cosU2 * sinLambda / sinSigma
+        cosSqAlpha <- 1 - sinAlpha*sinAlpha
+        cos2SigmaM <- cosSigma - 2*sinU1*sinU2/cosSqAlpha
+        if (is.na(cos2SigmaM)) cos2SigmaM <- 0  # Equatorial line: cosSqAlpha=0
+        C <- f/16*cosSqAlpha*(4+f*(4-3*cosSqAlpha))
+        lambdaP <- lambda
+        lambda <- L + (1-C) * f * sinAlpha *
+                  (sigma + C*sinSigma*(cos2SigmaM+C*cosSigma*(-1+2*cos2SigmaM*cos2SigmaM)))
+        iterLimit <- iterLimit - 1
+    }
+    if (iterLimit==0) return(NA)  # formula failed to converge
+    uSq <- cosSqAlpha * (a*a - b*b) / (b*b)
+    A <- 1 + uSq/16384*(4096+uSq*(-768+uSq*(320-175*uSq)))
+    B <- uSq/1024 * (256+uSq*(-128+uSq*(74-47*uSq)))
+    deltaSigma = B*sinSigma*(cos2SigmaM+B/4*(cosSigma*(-1+2*cos2SigmaM^2) -
+                             B/6*cos2SigmaM*(-3+4*sinSigma^2)*(-3+4*cos2SigmaM^2)))
+    s <- b*A*(sigma-deltaSigma) / 1000
+
+    return(list(dist_km=s, r_eq_km=a/1e3, r_pole_km=b/1e3, f=f))
+} # distance_vif
+
+# distance from fields::rdist.earth
+distance_fields <- function(lon1, lat1, lon2, lat2) {
+    library(fields)
+    dist <- fields::rdist.earth(x1=matrix(c(lon1, lat1), ncol=2), 
+                                x2=matrix(c(lon2, lat2), ncol=2), 
+                                miles=F)
+    return(list(dist_km=dist, r_km=6378.388))
+}
+
+# distance from raster::pointDistance
+# uses `raster:::.geodist`:  a = 6378137, f = 1/298.257223563
+distance_raster <- function(lon1, lat1, lon2, lat2) {
+    library(raster)
+    p1 <- c(lon1, lat1)
+    p2 <- c(lon2, lat2)
+    dist <- raster::pointDistance(p1, p2, lonlat=T)
+    return(list(dist_km=dist/1e3, r_km=6378137/1e3, f=1/298.257223563))
+} # distance_raster
+
+# http://www.teos-10.org/pubs/gsw/html/gsw_distance.html
+# converted from matlab to r form https://github.com/TEOS-10/GSW-Matlab
+distance_teos10 <- function(lon1, lat1, lon2, lat2, pres1=0, pres2=0, r_earth_m=6371000) {
+
+    pi180 <- pi/180
+    lon1 <- lon1*pi180
+    lat1 <- lat1*pi180
+    lon2 <- lon2*pi180
+    lat2 <- lat2*pi180
+    
+    dlon <- lon2 - lon1
+	dlat <- lat2 - lat1
+	a <- (sin(0.5*dlat))^2 + cos(lat1)*cos(lat2)*(sin(0.5*dlon))^2
+	angles <- 2 * atan2(sqrt(a), sqrt(1 - a))
+    p_mid <- 0.5*(pres1 + pres2)
+	if (p_mid != 0) {
+        lat_mid <- 0.5*(lat1 + lat1)
+        library(gsw)
+        z <- gsw::gsw_z_from_p(p=p_mid, latitude=lat_mid) # z is height and is negative in the ocean
+    } else {
+        z <- p_mid # = 0
+    }
+	distance <- (r_earth_m + z)*angles
+	
+    return(list(dist_km=distance/1e3, r_km=r_earth_m/1e3))
+} # distance_teos10
+
+# fesom1 gen_support.F90:dist_on_earth
+distance_fesom1 <- function(lon1, lat1, lon2, lat2, r_earth_km=6367.5) {
+    pi180 <- pi/180
+    lon1 <- lon1*pi180
+    lat1 <- lat1*pi180
+    lon2 <- lon2*pi180
+    lat2 <- lat2*pi180
+    alpha <- acos(cos(lat1)*cos(lat2)*cos(lon1-lon2)+sin(lat1)*sin(lat2))
+    dist <- r_earth_km*abs(alpha)
+    return(list(dist_km=dist, r_km=r_earth_km))
+} # distance_fesom1
+
+# Calculates the geodesic distance between two points specified by degrees latitude/longitude 
+# using different methods
+dists <- function(lon1=8.38, lat1=45.80, lon2=8.38+1, lat2=45.80+1, pres1=0, pres2=0) {
+	slc <- distance_slc(lon1, lat1, lon2, lat2)
+    hf <- distance_hf(lon1, lat1, lon2, lat2)
+	vif <- distance_vif(lon1, lat1, lon2, lat2)
+	fields <- distance_fields(lon1, lat1, lon2, lat2)
+	raster <- distance_raster(lon1, lat1, lon2, lat2)
+    teos10 <- distance_teos10(lon1, lat1, lon2, lat2)
+    fesom1 <- distance_fesom1(lon1, lat1, lon2, lat2)
+    df <- data.frame(slc=slc$dist_km, hf=hf$dist_km, vif=vif$dist_km,
+                     fields=fields$dist_km, raster=raster$dist_km, teos10=teos10$dist_km,
+                     fesom1=fesom1$dist_km)
+    return(df)
+} # dists
+
 # convert longitudes from 0,360 to -180,180
 convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360, londimind) {
     # input:
@@ -728,175 +921,6 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
     }
 } # convert_lon_360_to_180
 
-## spatial distances
-# https://www.r-bloggers.com/great-circle-distance-calculations-in-r/
-
-# Calculates the geodesic distance between two points specified by radian latitude/longitude using the
-# Spherical Law of Cosines (slc)
-distance_slc <- function(lon1, lat1, lon2, lat2, r_earth_km=6371) {
-    pi180 <- pi/180
-    lon1 <- lon1*pi180
-    lat1 <- lat1*pi180
-    lon2 <- lon2*pi180
-    lat2 <- lat2*pi180
-    d <- acos(sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2) * cos(lon2-lon1)) * r_earth_km
-    return(list(dist_km=d, r_km=r_earth_km))
-} # distance_slc
-
-# Calculates the geodesic distance between two points specified by radian latitude/longitude using the
-# Haversine formula (hf)
-distance_hf <- function(lon1, lat1, lon2, lat2, r_earth_km=6371) {
-    pi180 <- pi/180
-    lon1 <- lon1*pi180
-    lat1 <- lat1*pi180
-    lon2 <- lon2*pi180
-    lat2 <- lat2*pi180
-    dlon <- lon2 - lon1
-    dlat <- lat2 - lat1
-    a <- sin(dlat/2)^2 + cos(lat1) * cos(lat2) * sin(dlon/2)^2
-    c <- 2 * asin(min(1,sqrt(a)))
-    d <- r_earth_km * c
-    return(list(dist_km=d, r_km=r_earth_km))
-} # distance_hf
-
-# Calculates the geodesic distance between two points specified by radian latitude/longitude using
-# Vincenty inverse formula for ellipsoids (vif)
-distance_vif <- function(lon1, lat1, lon2, lat2, globe="WGS-84 ellipsoid") {
- 
-    if (globe == "WGS-84 ellipsoid") { # WGS-84 ellipsoid parameters
-        a <- 6378137         # length of major axis of the ellipsoid (radius at equator)
-        b <- 6356752.314245  # ength of minor axis of the ellipsoid (radius at the poles)
-        f <- 1/298.257223563 # flattening of the ellipsoid
-    } else {
-        stop("globe ", globe, " not implemented")
-    }
-
-    pi180 <- pi/180
-    lon1 <- lon1*pi180
-    lat1 <- lat1*pi180
-    lon2 <- lon2*pi180
-    lat2 <- lat2*pi180
-
-    L <- lon2 - lon1 # difference in longitude
-    U1 <- atan((1-f) * tan(lat1)) # reduced latitude
-    U2 <- atan((1-f) * tan(lat2)) # reduced latitude
-    sinU1 <- sin(U1)
-    cosU1 <- cos(U1)
-    sinU2 <- sin(U2)
-    cosU2 <- cos(U2)
-
-    cosSqAlpha <- NULL
-    sinSigma <- NULL
-    cosSigma <- NULL
-    cos2SigmaM <- NULL
-    sigma <- NULL
-
-    lambda <- L
-    lambdaP <- 0
-    iterLimit <- 100
-    while (abs(lambda-lambdaP) > 1e-12 & iterLimit>0) {
-        sinLambda <- sin(lambda)
-        cosLambda <- cos(lambda)
-        sinSigma <- sqrt( (cosU2*sinLambda) * (cosU2*sinLambda) +
-                          (cosU1*sinU2-sinU1*cosU2*cosLambda) * (cosU1*sinU2-sinU1*cosU2*cosLambda) )
-        if (sinSigma==0) return(0)  # Co-incident points
-        cosSigma <- sinU1*sinU2 + cosU1*cosU2*cosLambda
-        sigma <- atan2(sinSigma, cosSigma)
-        sinAlpha <- cosU1 * cosU2 * sinLambda / sinSigma
-        cosSqAlpha <- 1 - sinAlpha*sinAlpha
-        cos2SigmaM <- cosSigma - 2*sinU1*sinU2/cosSqAlpha
-        if (is.na(cos2SigmaM)) cos2SigmaM <- 0  # Equatorial line: cosSqAlpha=0
-        C <- f/16*cosSqAlpha*(4+f*(4-3*cosSqAlpha))
-        lambdaP <- lambda
-        lambda <- L + (1-C) * f * sinAlpha *
-                  (sigma + C*sinSigma*(cos2SigmaM+C*cosSigma*(-1+2*cos2SigmaM*cos2SigmaM)))
-        iterLimit <- iterLimit - 1
-    }
-    if (iterLimit==0) return(NA)  # formula failed to converge
-    uSq <- cosSqAlpha * (a*a - b*b) / (b*b)
-    A <- 1 + uSq/16384*(4096+uSq*(-768+uSq*(320-175*uSq)))
-    B <- uSq/1024 * (256+uSq*(-128+uSq*(74-47*uSq)))
-    deltaSigma = B*sinSigma*(cos2SigmaM+B/4*(cosSigma*(-1+2*cos2SigmaM^2) -
-                             B/6*cos2SigmaM*(-3+4*sinSigma^2)*(-3+4*cos2SigmaM^2)))
-    s <- b*A*(sigma-deltaSigma) / 1000
-
-    return(list(dist_km=s, r_eq_km=a/1e3, r_pole_km=b/1e3, f=f))
-} # distance_vif
-
-# distance from fields::rdist.earth
-distance_fields <- function(lon1, lat1, lon2, lat2) {
-    library(fields)
-    dist <- fields::rdist.earth(x1=matrix(c(lon1, lat1), ncol=2), 
-                                x2=matrix(c(lon2, lat2), ncol=2), 
-                                miles=F)
-    return(list(dist_km=dist, r_km=6378.388))
-}
-
-# distance from raster::pointDistance
-# uses `raster:::.geodist`:  a = 6378137, f = 1/298.257223563
-distance_raster <- function(lon1, lat1, lon2, lat2) {
-    library(raster)
-    p1 <- c(lon1, lat1)
-    p2 <- c(lon2, lat2)
-    dist <- raster::pointDistance(p1, p2, lonlat=T)
-    return(list(dist_km=dist/1e3, r_km=6378137/1e3, f=1/298.257223563))
-} # distance_raster
-
-# http://www.teos-10.org/pubs/gsw/html/gsw_distance.html
-# converted from matlab to r form https://github.com/TEOS-10/GSW-Matlab
-distance_teos10 <- function(lon1, lat1, lon2, lat2, pres1=0, pres2=0, r_earth_m=6371000) {
-
-    pi180 <- pi/180
-    lon1 <- lon1*pi180
-    lat1 <- lat1*pi180
-    lon2 <- lon2*pi180
-    lat2 <- lat2*pi180
-    
-    dlon <- lon2 - lon1
-	dlat <- lat2 - lat1
-	a <- (sin(0.5*dlat))^2 + cos(lat1)*cos(lat2)*(sin(0.5*dlon))^2
-	angles <- 2 * atan2(sqrt(a), sqrt(1 - a))
-    p_mid <- 0.5*(pres1 + pres2)
-	if (p_mid != 0) {
-        lat_mid <- 0.5*(lat1 + lat1)
-        library(gsw)
-        z <- gsw::gsw_z_from_p(p=p_mid, latitude=lat_mid) # z is height and is negative in the ocean
-    } else {
-        z <- p_mid # = 0
-    }
-	distance <- (r_earth_m + z)*angles
-	
-    return(list(dist_km=distance/1e3, r_km=r_earth_m/1e3))
-} # distance_teos10
-
-# fesom1 gen_support.F90:dist_on_earth
-distance_fesom1 <- function(lon1, lat1, lon2, lat2, r_earth_km=6367.5) {
-    pi180 <- pi/180
-    lon1 <- lon1*pi180
-    lat1 <- lat1*pi180
-    lon2 <- lon2*pi180
-    lat2 <- lat2*pi180
-    alpha <- acos(cos(lat1)*cos(lat2)*cos(lon1-lon2)+sin(lat1)*sin(lat2))
-    dist <- r_earth_km*abs(alpha)
-    return(list(dist_km=dist, r_km=r_earth_km))
-} # distance_fesom1
-
-# Calculates the geodesic distance between two points specified by degrees latitude/longitude 
-# using different methods
-distances <- function(lon1=8.38, lat1=45.80, lon2=8.38+1, lat2=45.80+1, pres1=0, pres2=0) {
-	slc <- distance_slc(lon1, lat1, lon2, lat2)
-    hf <- distance_hf(lon1, lat1, lon2, lat2)
-	vif <- distance_vif(lon1, lat1, lon2, lat2)
-	fields <- distance_fields(lon1, lat1, lon2, lat2)
-	raster <- distance_raster(lon1, lat1, lon2, lat2)
-    teos10 <- distance_teos10(lon1, lat1, lon2, lat2)
-    fesom1 <- distance_fesom1(lon1, lat1, lon2, lat2)
-    df <- data.frame(slc=slc$dist_km, hf=hf$dist_km, vif=vif$dist_km,
-                     fields=fields$dist_km, raster=raster$dist_km, teos10=teos10$dist_km,
-                     fesom1=fesom1$dist_km)
-    return(df)
-}
-
 # running mean
 myma <- function(x, order, verbose=F, ...) {
     if (verbose) {
@@ -983,7 +1007,7 @@ get_pval <- function(model) {
 } # get_pval
 
 # test time series for normality
-isnormal <- function(x, significance=0.05, verbose=T) {
+is_normal <- function(x, significance=0.05, verbose=T) {
     if (missing(x)) x <- stats::rnorm(30)
     if (!is.numeric(x)) stop("`x` must be numeric")
     if (!is.vector(x)) stop("`x` must be vector")
@@ -998,20 +1022,22 @@ isnormal <- function(x, significance=0.05, verbose=T) {
     if (verbose) {
         message("p-value of \"", st$method, "\" of time series of length ", length(x), " is ", st$p.value, "\n",
                 "--> ", st$p.value, " ", ifelse(st$p.value > significance, ">", "<="), " ", significance, 
-                " --> x distribution is ", ifelse(st$p.value > significance, "not", ""), 
-                " significantly different from normal distribution")
+                " --> x distribution is ", ifelse(st$p.value > significance, "not ", ""), 
+                "significantly different from normal distribution")
     }
     if (st$p.value <= significance) res[1] <- F
+    names(res)[1] <- "shapiro"
     
     # 2. Kolmogorov-Smirnov (K-S)
     ks <- stats::ks.test(x=x, y="pnorm", mean=mean(x), sd=sd(x))
     if (verbose) {
         message("p-value of \"", ks$method, "\" of time series of length ", length(x), " is ", ks$p.value, "\n",
                 "--> ", ks$p.value, " ", ifelse(ks$p.value > significance, ">", "<="), " ", significance, 
-                " --> x distribution is ", ifelse(ks$p.value > significance, "not", ""), 
-                " significantly different from normal distribution")
+                " --> x distribution is ", ifelse(ks$p.value > significance, "not ", ""), 
+                "significantly different from normal distribution")
     }
     if (ks$p.value <= significance) res[2] <- F
+    names(res)[1] <- "kolmogorov-smirnov"
     
     crit <- paste0(format(c(st$p.value, ks$p.value), digits=3), " > ", significance)
     inds <- which(!res)
@@ -1020,7 +1046,52 @@ isnormal <- function(x, significance=0.05, verbose=T) {
                             p.value=c(st$p.value, ks$p.value),
                             crit=crit)
     return(res)
-} # isnormal
+} # is_normal
+
+# test data for equality
+are_equal <- function(x, y, significance=0.05, verbose=T) {
+    if (missing(x)) x <- stats::rnorm(30)
+    if (missing(y)) y <- stats::rnorm(30)
+    if (!is.numeric(x)) stop("`x` must be numeric")
+    if (!is.numeric(y)) stop("`y` must be numeric")
+    if (!is.vector(x)) stop("`x` must be vector")
+    if (!is.vector(y)) stop("`y` must be vector")
+    if (!is.numeric(significance)) stop("`significance` must be numeric")
+    if (!is.vector(significance)) stop("`significance` must be vector")
+    if (length(significance) != 1) stop("length of `significance` must be 1")
+
+    res <- rep(T, t=2) # default: x and y are equal
+    
+    # 1. t-test
+    ttest <- stats::t.test(x, y)
+    if (verbose) {
+        message("p-value of \"", ttest$method, "\" of t-test is ", ttest$p.value, "\n",
+                "--> ", ttest$p.value, " ", ifelse(ttest$p.value > significance, ">", "<="), " ", significance, 
+                " --> x and y are ", ifelse(ttest$p.value > significance, "not ", ""), 
+                "significantly different")
+    }
+    if (ttest$p.value <= significance) res[1] <- F
+    names(res)[1] <- "t-test"
+    
+    # 2. wilcox
+    wilcox <- stats::wilcox.test(x, y)
+    if (verbose) {
+        message("p-value of \"", wilcox$method, "\" of wilcox is ", wilcox$p.value, "\n",
+                "--> ", wilcox$p.value, " ", ifelse(wilcox$p.value > significance, ">", "<="), " ", significance, 
+                " --> x and y are ", ifelse(wilcox$p.value > significance, "not ", ""), 
+                "significantly different")
+    }
+    if (wilcox$p.value <= significance) res[2] <- F
+    names(res)[1] <- "wilcox"
+    
+    crit <- paste0(format(c(ttest$p.value, wilcox$p.value), digits=3), " > ", significance)
+    inds <- which(!res)
+    if (length(inds) > 0) crit[inds] <- paste0(format(c(ttest$p.value, wilcox$p.value)[inds], digits=3), " <= ", significance)
+    attributes(res) <- list(method=c(ttest$method, wilcox$method),
+                            p.value=c(ttest$p.value, wilcox$p.value),
+                            crit=crit)
+    return(res)
+} # are_equal
 
 # effective sample size after thiebaux and zwiers 1984
 # --> formulated as in hannachi et al. 2007: `n_eff = n * (1 + 2 * sum_{k=1}^{n-1} (1-k/n) * \rho(k))^{-1}
@@ -1068,10 +1139,10 @@ north_etal_1982_rule <- function(eigenval, eigenvec=NULL) {
 } # north_etal_1982_rule function
 
 # model resolutions
-res_km_from_nx_ny <- function(nx, ny) {
-    # boucher et al. 2020 https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2019MS002010
+km_from_nx_ny <- function(nx, ny) {
+    # from introduction of boucher et al. 2020: https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2019MS002010
     Rearth <- 6371 # km 
-    sqrt(4*pi*Rearth^2/(nx*ny))
+    sqrt(4*pi*Rearth^2/(nx*ny)) # km
 }
 
 # convert velocities with units package
@@ -1540,10 +1611,43 @@ mylocator_list2poly <- function(result_of_mylocator) {
 # get times from `cdo showtimestamp` 
 cdo_showtimestamp <- function(file) {
     if (!file.exists(file)) stop("provided `file` = ", file, " does not exist")
-    if (Sys.which("cdo") == "") stop("could not find cdo")
+    cdo <- Sys.which("cdo")
+    if (cdo == "") stop("could not find cdo")
     if (getRversion() < "3.2.0") stop("R must be >= 3.2.0 to have base::trimws()")
-    return(as.POSIXct(strsplit(trimws(system(paste0("cdo -s showtimestamp ", file), intern=T)), "  ")[[1]], format="%Y-%m-%dT%H:%M:%S", tz="UTC"))
+    return(as.POSIXct(strsplit(trimws(system(paste0(cdo, " -s showtimestamp ", file), intern=T)), "  ")[[1]], format="%Y-%m-%dT%H:%M:%S", tz="UTC"))
 } # cdo_showtimestamp
+
+# get temporal means via `cdo yearmean/monmean/...`
+cdo_timstatmean <- function(file, varname, timstats="yearmean") {
+    if (!file.exists(file)) stop("provided `file` = ", file, " does not exist")
+    cdo <- Sys.which("cdo")
+    if (cdo == "") stop("could not find cdo")
+    if (getRversion() < "3.2.0") stop("R must be >= 3.2.0 to have base::trimws()")
+    if (!missing(varname)) {
+        res <- vector("list", l=1)
+        names(res) <- varname
+    } else {
+        res <- vector("list", l=as.integer(trimws(system(paste0(cdo, " nvar ", file), intern=T))))
+        names(res) <- strsplit(trimws(system(paste0(cdo, " showname ", file), intern=T)), " ")[[1]]
+    }
+    for (vari in seq_along(res)) {
+        tmp <- vector("list", l=length(timstats))
+        names(tmp) <- timstats
+        for (timstati in seq_along(timstats)) {
+            fout <- paste0("/tmp/tmp_cdo_r", Sys.getpid(), "_vari_", vari, "_", names(res)[vari], "_timstati_", timstati, "_", timstats[timstati])
+            if (file.exists(fout)) stop("tmp file ", fout, " already exists")
+            cmd <- paste0(cdo, " -s -L -", timstats[timstati], " -select,name=", names(res)[vari], " ", fin, " ", fout)
+            message("run `", cmd, "` ...")
+            check <- system(cmd)
+            if (check != 0) stop("cmd failed")
+            tmp[[timstati]] <- list(time=cdo_showtimestamp(fout),
+                                    y=trimws(system(paste0(cdo, " output ", fout), intern=T)))
+            file.remove(fout)
+        } # for stati
+        res[[vari]] <- tmp
+    } # for vari
+    return(res)
+} # cdo_timstatmean
 
 # get file format
 ncdump_get_filetype <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
