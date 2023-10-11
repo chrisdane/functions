@@ -485,8 +485,20 @@ m2lat <- function(dm, alat) {
 km2deg <- function(dkm=100, lat=45) {
     # modified from https://github.com/omerkara/okara/blob/master/R/spatial_functions.R:km2d
     library(fields)
-    if (!is.vector(dkm)) stop("`dkm` must be vector")
-    if (!is.vector(lat)) stop("`lat` must be vector")
+    if (!is.vector(dkm)) {
+        if (length(dim(dkm)) == 1) {
+            dkm <- as.vector(dkm)
+        } else {
+            stop("`dkm` must be vector")
+        }
+    }
+    if (!is.vector(lat)) {
+        if (length(dim(lat)) == 1) {
+            lat <- as.vector(lat)
+        } else {
+            stop("`lat` must be vector")
+        }
+    }
     if (length(dkm) != length(lat)) {
         if (length(dkm) == 1) {
             dkm <- rep(dkm, t=length(lat))
@@ -496,6 +508,7 @@ km2deg <- function(dkm=100, lat=45) {
             stop("`dkm` and `lat` must either be of same length or one of the two must be of length 1")
         }
     }
+    message("convert km to degree at ", length(dkm), " locations ...")
     deg <- rep(NA, t=length(dkm))
     for (di in seq_along(dkm)) {
         one_deg_km <- fields::rdist.earth(cbind(0, lat[di]),
