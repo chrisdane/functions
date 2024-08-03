@@ -30,9 +30,9 @@
 #       S   = SSS in psu ?
 # DeltapCO2 = difference of atmospheric and oceanic partial pressures = pCO2_ocean - pCO2_atm
 
-# piston velocity kw
+# gas transfer velocity = piston velocity = kw
 seacarb_piston_vel <- function(wind_speed_ms=10, sea_ice_frac=0, Sc, method="orr17") {
-    if (method == "orr17") {
+    if (method == "orr17") { # eq. 12
         const_a <- 6.97*1e-7 # s m-1
         (1-sea_ice_frac)*const_a*(Sc/600)^(-0.5)*wind_speed_ms^2
     } else {
@@ -43,8 +43,12 @@ seacarb_piston_vel <- function(wind_speed_ms=10, sea_ice_frac=0, Sc, method="orr
 # Schmidt number Sc
 # = ratio of kinematic viscosity of water ν to the diffusion coefficient of the gas D (Sc = ν/D)
 seacarb_Sc <- function(temp_C=25, method="wanninkhof14") {
-    if (method == "wanninkhof14") {
-        2116.8 - 136.25*temp_C + 4.7353*temp_C^2 - 0.092307*temp_C^3 + 0.0007555*temp_C^4
+    if (method == "wanninkhof09") { # row CO2 and footnote of Table A1
+        A <- 2073.1; B <- 125.62; C <- 3.6276; D <- 0.043219
+        A - B*temp + C*temp^2 - D*temp^3
+    } else if (method == "wanninkhof14") { # row CO2 and footnote of Table 1
+        A <- 2116.8; B <- 136.25; C <- 4.7353; D <- 0.092307; E <- 0.0007555
+        A - B*temp_C + C*temp_C^2 - D*temp_C^3 + E*temp_C^4
     } else {
         stop("method = ", method, " not implemented")
     }

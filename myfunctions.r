@@ -4,6 +4,11 @@
 
 ## section 1/2: geo-physical stuff
 
+# days per month
+dpm <- c(Jan=31, Feb=28, Mar=31, Apr=30, May=31, Jun=30, Jul=31, Aug=31, Sep=30, Oct=31, Nov=30, Dec=31)
+dpml <- dpm
+dpml["Feb"] <- 29
+
 # leap years
 is.leap <- function(years) {
     return(((years %% 4 == 0) & (years %% 100 != 0)) | (years %% 400 == 0))
@@ -356,8 +361,14 @@ difftime_yr <- function(from, to) {
     # age_a <- 1 - (from[datei]$mon/12 + from[datei]$mday/31/12) # rest of first year = 0.6612903
     # age_a <- age_a + to[datei]$mon/12 + to[datei]$mday/31/12 # first part of current year = 0.3387097
     # --> age_a = 0.6612903 + 0.3387097 = 1 --> correct
-    if (missing(from)) from <- as.POSIXct("1970-1-1", tz="UTC")
-    if (missing(to)) to <- as.POSIXct(Sys.time(), tz="UTC")
+    if (missing(from)) {
+        message("`from` is missing --> use 1970-1-1")
+        from <- as.POSIXct("1970-1-1", tz="UTC")
+    }
+    if (missing(to)) {
+        to <- as.POSIXct(Sys.time(), tz="UTC")
+        message("`to` is missing --> use today: ", format(to, "%Y-%m-%d"))
+    }
     for (i in seq_len(2)) {
         if (i == 1) class <- class(from)
         if (i == 2) class <- class(to)
@@ -945,14 +956,25 @@ myma <- function(x, order, verbose=F, ...) {
     y <- stats::filter(x, filter=rep(1/order, t=order))
 }
 
+mysd <- function(x) {
+    sqrt(sum((x - mean(x))^2) / length(x))
+}
+mysd1 <- function(x) { # = stats::sd
+    sqrt(sum((x - mean(x))^2) / (length(x) - 1))
+}
+
 # Get the proportion variation explained. See this website for more details: http://goo.gl/jte8X
 # http://www.gettinggeneticsdone.com/2011/08/sync-your-rprofile-across-multiple-r.html
-get_rsq <- function(predicted, actual) {
+get_rsq <- function(actual, predicted) {
     # "goodness of fit" = 
     # "coefficient of determination" = 
     # "fraction of variance explained by the model" = 
     # "Multiple R-squared:"-result of lm()
     1-sum((predicted-actual)^2)/sum((actual-mean(actual))^2)
+}
+
+get_rmsq <- function(actual, predicted) {
+    sqrt(mean((actual - predicted)^2, na.rm=T))
 }
 
 # get p-value of linear model; from 3.2.1 of faraways book
@@ -1078,7 +1100,7 @@ are_equal <- function(x, y, significance=0.05, verbose=T) {
     # 1. t-test
     ttest <- stats::t.test(x, y)
     if (verbose) {
-        message("p-value of \"", ttest$method, "\" of t-test is ", ttest$p.value, "\n",
+        message("p-value of \"", ttest$method, "\" of stats::t.test() is ", ttest$p.value, "\n",
                 "--> ", ttest$p.value, " ", ifelse(ttest$p.value > significance, ">", "<="), " ", significance, 
                 " --> x and y are ", ifelse(ttest$p.value > significance, "not ", ""), 
                 "significantly different")
@@ -1089,7 +1111,7 @@ are_equal <- function(x, y, significance=0.05, verbose=T) {
     # 2. wilcox
     wilcox <- stats::wilcox.test(x, y)
     if (verbose) {
-        message("p-value of \"", wilcox$method, "\" of wilcox is ", wilcox$p.value, "\n",
+        message("p-value of \"", wilcox$method, "\" of stats::wilcox.test() is ", wilcox$p.value, "\n",
                 "--> ", wilcox$p.value, " ", ifelse(wilcox$p.value > significance, ">", "<="), " ", significance, 
                 " --> x and y are ", ifelse(wilcox$p.value > significance, "not ", ""), 
                 "significantly different")
@@ -1151,6 +1173,15 @@ north_etal_1982_rule <- function(eigenval, eigenvec=NULL) {
     result
 } # north_etal_1982_rule function
 
+# detrend ts
+detrend <- function(y=rnorm(10)) {
+    okinds <- !is.na(y)
+    if (length(okinds) < 3) stop("need at least 3 non-NA points")
+    x <- seq_along(okinds)
+    tr <- stats::lm(y[okinds] ~ x)
+    y[okinds] - tr$fitted.values
+} # detrend
+
 # model resolutions
 km_from_nx_ny <- function(nx, ny) {
     # from introduction of boucher et al. 2020: https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2019MS002010
@@ -1188,31 +1219,39 @@ masses <- function(x=1, unit="g") {
     invisible(df)
 } # masses function
 
-kg_fw_m2_s1_to_Gt_fw_yr1 <- function(kg_fw_m2_s1=0.00010075) {
-    Aearth <- 5.100656e14 # m2
-    kg_fw_m2_s1 * Aearth / 1e12 * (365.25*86400) # m-2 -> fldint; kg -> Gt; s-1 -> yr-1
-} # kg_fw_m2_s1_to_Gt_fw_yr
-
-kg_fw_s1_to_Gt_fw_yr1 <- function(kg_fw_s1=0.0785866) {
-    kg_fw_s1 / 1e12 * (365.25*86400) # kg -> Gt; s-1 -> yr-1
-} # kg_fw_s1_to_Gt_fw_yr
-
-Gt_fw_yr1_to_kg_fw_m2_s1 <- function(Gt_fw_yr1=31557.6) { # 1 Sv
-    Aearth <- 5.100656e14 # m2
-    Gt_fw_yr1 / Aearth * 1e12 / (365.25*86400) # global -> m-2; Gt -> kg; yr-1 -> s-1
-} # gt_fw_yr1_to_kg_fw_m2_s1
-
-Gt_fw_yr1_to_kg_fw_s1 <- function(Gt_fw_yr1=31557.6) {
-    Gt_fw_yr1 * 1e12 / (365.25*86400) # Gt -> kg; yr-1 -> s-1
-} # gt_fw_yr1_to_kg_fw_s1
-
 # convert freshwater units
-#          Sv = 1e6 m3 s-1
 #      rho_fw = 1e3 kg m-3
-# --> mass_fw = 1e3 kg
-Sv_fw_to_Gt_fw_yr1 <- function(Sv_fw=NULL, Gt_fw_yr1=NULL, ndpy=365.25, verbose=T) {
-    if (is.null(Sv_fw) && is.null(Gt_fw_yr1)) stop("one of `Sv_fw` or `Gt_fw_yr1` must not be null")
-    fac_m3_s1 <- 1e9*1e3/(ndpy*86400*1e3) # m3 s-1
+# --> mass_fw = rho_fw * vol = 1e3 kg m-3 * 1 m3 = 1e3 kg
+#          Sv = 1e6 m3 s-1
+kgFW_m2_s1_to_mFW_s1 <- function(kgFW_m2_s1) {
+    kgFW_m2_s1 / 1e3 # kg m-2 --> m-1
+}
+
+kgFW_m2_s1_to_GtFW_yr1 <- function(kgFW_m2_s1) {
+    Aearth <- 5.100656e14 # m2
+    kgFW_m2_s1 * Aearth / 1e12 * (365.25*86400) # m-2 -> fldint; kg -> Gt; s-1 -> yr-1
+}
+
+kgFW_s1_to_GtFW_yr1 <- function(kgFW_s1) {
+    kgFW_s1 / 1e12 * (365.25*86400) # kg -> Gt; s-1 -> yr-1
+}
+
+GtFW_yr1_to_kgFW_m2_s1 <- function(GtFW_yr1=31557.6) { # 1 Sv
+    Aearth <- 5.100656e14 # m2
+    GtFW_yr1 / Aearth * 1e12 / (365.25*86400) # global -> m-2; Gt -> kg; yr-1 -> s-1
+}
+
+GtFW_yr1_to_kgFW_s1 <- function(GtFW_yr1=31557.6) {
+    GtFW_yr1 * 1e12 / (365.25*86400) # Gt -> kg; yr-1 -> s-1
+} # gtFW_yr1_to_kgFW_s1
+
+km3_yr1_to_m3_s1 <- function(km3_yr1) {
+    km3_s1 * 1e9 / 365.25 / 86400 # (km)3 -> m3; yr-1 -> s-1
+}
+
+SvFW_to_GtFW_yr1 <- function(SvFW=NULL, GtFW_yr1=NULL, ndpy=365.25, verbose=T) {
+    if (is.null(SvFW) && is.null(GtFW_yr1)) stop("one of `SvFW` or `GtFW_yr1` must be numeric")
+    fac_m3_s1 <- 1e9*1e3/(ndpy*86400*1e3) # 1e9 from giga; 1e3 from t
     # 1 yr = 360    days:       31104   m3 s-1
     # approximation often used: 31500   m3 s-1
     # 1 yr = 365    days:       31536   m3 s-1
@@ -1234,15 +1273,15 @@ Sv_fw_to_Gt_fw_yr1 <- function(Sv_fw=NULL, Gt_fw_yr1=NULL, ndpy=365.25, verbose=
                 # <=> 1/31.688087814029 Gt yr-1 = 0.0315576 Gt yr-1 = m3 s-1
                 # --> Sv = 1e6 m3 s-1 = 1e6/31.688087814029 Gt yr-1 = 31557.6 Gt yr-1
     }
-    if (is.null(Gt_fw_yr1)) {
-        res <- Sv_fw * 1e6 / fac_m3_s1
+    if (is.null(GtFW_yr1)) {
+        res <- SvFW * 1e6 / fac_m3_s1
         attributes(res) <- list("units"="Gt freshwater yr-1")
-    } else if (is.null(Sv_fw)) {
-        res <- Gt_fw_yr1 / 1e6 * fac_m3_s1
+    } else if (is.null(SvFW)) {
+        res <- GtFW_yr1 / 1e6 * fac_m3_s1
         attributes(res) <- list("units"="Sv freshwater")
     }
     return(res)
-} # Sv_fw_to_Gt_fw_yr1
+}
 
 # convert carbon units
 # Gt = Pg
@@ -1266,6 +1305,9 @@ kgC_m2_s1_to_PgC_yr1 <- function(kgC_m2_s1) {
 kgC_s1_to_PgC_yr1 <- function(kgC_s1) {
     kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg 
 }
+kgCO2_PgC <- function(kgCO2) {
+    kgCO2 * 0.272912 / 1e12 # kgCO2 -> kgC; kg -> Pg 
+}
 kgCO2_m2_s1_to_PgC_yr1 <- function(kgCO2_m2_s1) {
     Aearth <- 5.100656e14 # m2
     kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
@@ -1273,9 +1315,28 @@ kgCO2_m2_s1_to_PgC_yr1 <- function(kgCO2_m2_s1) {
 kgCO2_m2_s1_to_gC_m2_s1 <- function(kgCO2_m2_s1) {
     kgCO2_m2_s1 * 365.25*86400 / 3.664191 * 100 # s-1 -> yr-1; kgCO2 -> kgC; kgC -> gC
 }
-kgCO2_m2_to_ppm <- function(kgCO2_m2) {
+kgCO2_to_CO2ppm <- function(kgCO2) {
+    kgCO2 * 0.272912 / 1e12 / 2.124 # kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
+}
+kgCO2_m2_to_CO2ppm <- function(kgCO2_m2) {
     Aearth <- 5.100656e14 # m2
     kgCO2_m2 * Aearth * 0.272912 / 1e12 / 2.124 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
+}
+kgCO2_kg_to_CO2ppm <- function(kgCO2_kg) {
+    # mass mixing ratio in kg kg-1 -> volume mixing ratio in ppm
+    molar_mass_co2_g_mol <- 44.0095 # g mol-1
+    molar_mass_dry_air_g_mol <- 28.9652 # g mol-1
+    kgCO2_kg * 1e6 * molar_mass_dry_air_g_mol/molar_mass_co2_g_mol # 0.6581579
+}
+CO2ppm_to_kgCO2 <- function(CO2ppm) {
+    # 2.124 from Tab. 1 from Friedlingstein et al. 2023
+    CO2ppm * 2.124 * 1e12 / 0.272912 # ppm --> PgC; Pg -> kg; kgC -> kgCO2
+}
+CO2ppm_to_kgCO2_kg <- function(CO2ppm) {
+    # volume mixing ratio in ppm -> mass mixing ratio in kg kg-1
+    molar_mass_co2_g_mol <- 44.0095 # g mol-1
+    molar_mass_dry_air_g_mol <- 28.9652 # g mol-1
+    CO2ppm / 1e6 * molar_mass_co2_g_mol/molar_mass_dry_air_g_mol # 1.519392
 }
 kgCO2_m2_to_PgC <- function(kgCO2_m2) {
     Aearth <- 5.100656e14 # m2
@@ -1287,6 +1348,9 @@ kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
 kgCO2_to_kgC <- function(kgCO2) {
     kgC <- kgCO2 * 0.272912
 }
+gC_s1_to_PgC_yr1 <- function(gC_s1) {
+    gC_s1 * 365.25*86400 / 1e15 # s-1 --> yr-1; g --> Pg
+}
 gC_s1_to_PgCO2_yr1 <- function(gC_s1) {
     gC_s1 * 365.25*86400 * 3.664191 / 1e15 # s-1 --> yr-1; gC --> gCO2; g --> Pg
 }
@@ -1296,11 +1360,14 @@ mmolC_d1_to_PgC_yr1 <- function(mmolC_d1) {
 mmolC_m2_d1_to_gC_m2_yr1 <- function(mmolC_m2_d1) {
     mmolC_m2_d1 / 1e3 * 12.0107 * 365.25 # mmolC --> molC; molC --> gC; d-1 --> yr-1
 }
+mmolC_to_PgC <- function(mmolC) {
+    mmolC / 1e3 * 12.0107 / 1e15 # mmolC --> molC; molC --> gC; gC --> PgC
+}
 mmolC_to_kgCO2 <- function(mmolC) {
     mmolC / 1e3 * 12.0107 * 3.664191 / 1e3 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2
 }
-mmolC_to_PgC <- function(mmolC) {
-    mmolC / 1e3 * 12.0107 / 1e15 # mmolC --> molC; molC --> gC; gC --> PgC
+mmolC_m2_d1_to_kgCO2_m2_s1 <- function(mmolC_m2_d1) {
+    mmolC_m2_d1 / 1e3 * 12.0107 * 3.664191 / 1e3 / 86400 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2; d-1 --> yr-1
 }
 molC_m2_yr1_to_gC_m2_yr1 <- function(molC_m2_yr1) {
     molC_m2_yr1 * 12.0107 # molC --> gC
@@ -1323,6 +1390,12 @@ molCO2_s1_to_kgC_s1 <- function(molCO2_s1) {
 }
 molCO2_s1_to_PgC_yr1 <- function(molCO2_s1) {
     molCO2_s1 * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg 
+}
+mmolCO2_m2_s1_to_kgCO2_m2_s1 <- function(mmolCO2_m2_s1) {
+    mmolCO2_m2_s1 / 1e3 * 44.0095 / 1e3 # mmolCO2 --> molCO2; molCO2 --> gCO2; gCO2 --> kgCO2
+}
+ppm_to_PgC <- function(ppm) {
+    ppm * 2.124 # Tab.1 Friedlingstein et al. 2023; ref: Ballantyne et al. 2012
 }
 
 ## section 2/2: r and system stuff
@@ -1623,6 +1696,7 @@ mylocator_list2poly <- function(result_of_mylocator) {
 
 # get times from `cdo showtimestamp` 
 cdo_showtimestamp <- function(file) {
+    if (missing(file)) stop("provide `file`")
     if (!file.exists(file)) stop("provided `file` = ", file, " does not exist")
     cdo <- Sys.which("cdo")
     if (cdo == "") stop("could not find cdo")
@@ -1632,6 +1706,7 @@ cdo_showtimestamp <- function(file) {
 
 # get temporal means via `cdo yearmean/monmean/...`
 cdo_timstatmean <- function(file, varname, timstats="yearmean") {
+    if (missing(file)) stop("provide `file`")
     if (!file.exists(file)) stop("provided `file` = ", file, " does not exist")
     cdo <- Sys.which("cdo")
     if (cdo == "") stop("could not find cdo")
@@ -1654,7 +1729,7 @@ cdo_timstatmean <- function(file, varname, timstats="yearmean") {
             check <- system(cmd)
             if (check != 0) stop("cmd failed")
             tmp[[timstati]] <- list(time=cdo_showtimestamp(fout),
-                                    y=trimws(system(paste0(cdo, " output ", fout), intern=T)))
+                                    y=as.numeric(trimws(system(paste0(cdo, " output ", fout), intern=T))))
             file.remove(fout)
         } # for stati
         res[[vari]] <- tmp
@@ -1681,8 +1756,7 @@ ncdump_get_filetype <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
         # e.g: "classic"
         #      "netCDF", "NetCDF"
         #      "NetCDF2"
-        #      "netCDF-4", "NetCDF4", "NetCDF4 zip"
-        #      "NetCDF4 classic", "NetCDF4 classic zip", "netCDF-4 classic model"
+        #      "netCDF-4", "NetCDF4", "NetCDF4 zip" "NetCDF4 classic", "NetCDF4 classic zip", "netCDF-4 classic model"
         if (verbose) message("ncdump_get_filetype() --> \"", type, "\"")
         file_type <- "nc"
     }
@@ -2025,7 +2099,7 @@ mypar <- function() {
         }
         message("margin rows:")
         message("   par(\"oma\") = c(", paste0(op$oma, collapse=", "), ") # b l t r")
-        message("   par(\"mar\") = c(", paste0(op$mar, collapse=", "), ") # b l t r (default: c(5.1, 4.1, 4.1, 2.1) + 0.1)")
+        message("   par(\"mar\") = c(", paste0(op$mar, collapse=", "), ") # b l t r (default: c(5, 4, 4, 2) + 0.1)")
         if (!all(op$oma == 0)) {
             message("sum outer and inner margins rows")
             message("   c(", paste0(op$oma + op$mar, collapse=", "), ") # b l t r")
@@ -2310,6 +2384,7 @@ mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
 
 # convert human readable size to bytes
 # https://stackoverflow.com/questions/10910688/converting-kilobytes-megabytes-etc-to-bytes-in-r/49380514
+# for byte2size use `utils:::format.object_size(<byte_integer>, units="auto")` (or gdata::humanReadable or R.utils::hsize)
 size2byte <- function(string, val, unit) {
     if (missing(string)) { # val and unit given
         if (any(!is.finite(val)) || any(!is.character(unit))) stop("val must be finite and unit must be character")
