@@ -1415,9 +1415,9 @@ tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
          warning=W)
 } # tryCatch.W.E
 
-# find unbalanced (), [], {}-code blocks with a missing open or closed part
+# find open brackets (), [], {}-code blocks with a missing open or closed part
 # from https://stat.ethz.ch/pipermail/r-help/2014-May/374864.html
-check_unbalanced_braces <- function(file) {
+find_open_brackets <- function(file) {
     if (!file.exists(file)) {
         stop("`file` = \"", file, "\" does not exist")
     }
@@ -1447,7 +1447,7 @@ check_unbalanced_braces <- function(file) {
     } else {
         message("no warning/error found")
     }
-} # check_unbalanced_braces()
+} # find_open_brackets
 
 # will never understand this
 checkfun <- function() {
@@ -1697,6 +1697,7 @@ mylocator_list2poly <- function(result_of_mylocator) {
 # get times from `cdo showtimestamp` 
 cdo_showtimestamp <- function(file) {
     if (missing(file)) stop("provide `file`")
+    if (!is.character(file)) stop("`file` arg must be character")
     if (!file.exists(file)) stop("provided `file` = ", file, " does not exist")
     cdo <- Sys.which("cdo")
     if (cdo == "") stop("could not find cdo")
@@ -1859,9 +1860,54 @@ nc_infos <- function(ncfile, short=T) {
     } # if short or not
 } # nc_infos
 
+# ncap2 set time
+ncap2_settime <- function(fin, fout, timedimname="time", newtimevals, newtimeunits, newtimecalendar=NULL, overwrite=F) {
+    if (missing(fin)) stop("provide `fin`")
+    if (!is.character(fin)) stop("`fin` must be character")
+    if (!file.exists(fin)) stop("provided `fin` = ", fin, " does not exist")
+    if (missing(fout)) stop("provide `fout`")
+    if (!is.character(fout)) stop("`fout` must be character")
+    dir.create(dirname(fout), recursive=T, showWarnings=F)
+    if (!dir.exists(dirname(fout))) stop("could not create output dir ", dirname(fout))
+    if (!is.character(timedimname)) stop("`timedimname` must be character")
+    if (missing(newtimevals)) stop("provide `newtimevals`")
+    if (missing(newtimeunits)) stop("provide `newtimeunits`")
+    if (!is.character(newtimeunits)) stop("`newtimeunits` must be character")
+    if (!is.null(newtimecalendar)) if (!is.character(newtimecalendar)) stop("if provided, `newtimecalendar` must be character")
+    if (!is.logical(overwrite)) stop("`overwrite` must be logical")
+    ncap2_history <- "-h" # "-h" to turn off
+    # 1/3: strip potentially already existing time bnds
+    ncks <- Sys.which("ncks")
+    if (ncks == "") stop("could not find ncks")
+    cmd <- ncks
+    if (overwrite) cmd <- paste0(cmd, " -O")
+    cmd <- paste0(cmd, " -C -x -v time_bnds ", fin, " ", fout)
+    message("run `", cmd, "` ...")
+    check <- system(cmd)
+    if (check != 0) stop("error")
+    # 2/3: apply new time vals
+    ncap2 <- Sys.which("ncap2")
+    if (ncap2 == "") stop("could not find ncap2")
+    cmd <- paste0(ncap2, " ", ncap2_history, " -O -s '", timedimname, "(:)={<newtimevals>}; ",
+                  timedimname, "@units=\"", newtimeunits, "\"; ", 
+                  timedimname, "@calendar=\"", newtimecalendar, "\"' ", 
+                  fout, " ", fout)
+    message("run `", cmd, "` ...")
+    cmd <- sub("<newtimevals>", paste(newtimevals, collapse=","), cmd)
+    check <- system(cmd)
+    if (check != 0) stop("error")
+    # 3/3: make new time bnds
+    cmd <- paste0(ncap2, " ", ncap2_history, " -O -s 'defdim(\"bnds\",2); time_bnds=make_bounds(", 
+                  timedimname, ",$bnds,\"time_bnds\")' ", 
+                  fout, " ", fout)
+    message("run `", cmd, "` ...")
+    check <- system(cmd)
+    if (check != 0) stop("error")
+} # ncap_settime
+
 # set my default plot options
 myDefaultPlotOptions <- function(plist=list(plot_type="png", 
-                                            ts_width_in=7, ts_asp=2,
+                                            ts_width_in=7, ts_asp=4/3,
                                             ts_mon_width_in=7, ts_mon_asp=1,
                                             depth_width_in=7, depth_asp=0.5,
                                             map_width_in=7, map_asp=4/3,
