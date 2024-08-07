@@ -1656,12 +1656,18 @@ mycols <- function(n) {
     cols <- "black"
     if (n > 1) cols <- c(cols, "#E41A1C") # myred
     if (n > 2) cols <- c(cols, "#377EB8") # myblue
-    if (n > 3) {
+    if (n > 3) cols <- c(cols, "#E6AB02") # myorange
+    if (n > 4) {
         library(RColorBrewer) # https://www.r-bloggers.com/palettes-in-r/
-        cols <- c(cols, RColorBrewer::brewer.pal(min(8, max(3, n)), "Dark2"))
+        if (F) {
+            bp <- RColorBrewer::brewer.pal(8, "Dark2")
+            # "#1B9E77" "#D95F02" "#7570B3" "#E7298A" "#66A61E" "#E6AB02" "#A6761D" "#666666"
+        }
+        bp <- RColorBrewer::brewer.pal(min(8, max(4, n)), "Dark2")
+        cols <- c(cols, bp)
         cols <- cols[seq_len(min(length(cols), n))]
     }
-    if (n > 3+8) cols <- c(cols, (3+8+1):n) # add default until end
+    if (n > 4+8) cols <- c(cols, (4+8+1):n) # add default until end
     return(cols)
 } # mycols
 
