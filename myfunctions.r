@@ -401,7 +401,7 @@ difftime_yr <- function(from, to) {
     for (datei in seq_along(ages_yr)) {
         dpm_start <- unname(dpms[fromlt[datei]$mon + 1]) # days per month of start month
         if (fromlt[datei]$mon + 1 == 2 && # if start mon is Feb and start year is leap year
-            ((fromlt[datei]$year+1900 %% 4 == 0) & (fromlt[datei]$year+1900 %% 100 != 0)) | (fromlt[datei]$year+1900 %% 400 == 0)) { 
+            (((fromlt[datei]$year+1900) %% 4 == 0) & ((fromlt[datei]$year+1900) %% 100 != 0)) | ((fromlt[datei]$year+1900) %% 400 == 0)) { 
             dpm_start <- 29
         }
         # decimal of start date:
@@ -411,7 +411,7 @@ difftime_yr <- function(from, to) {
                 age_a <- 1 - age_a # rest of first year: 1 - 0.3387097 = 0.6612903 yrs
                 dpm_current <- unname(dpms[tolt[datei]$mon + 1]) # days per month of current month
                 if (tolt[datei]$mon + 1 == 2 && # if current mon is Feb and current year is leap year
-                    ((tolt[datei]$year+1900 %% 4 == 0) & (tolt[datei]$year+1900 %% 100 != 0)) | (tolt[datei]$year+1900 %% 400 == 0)) { 
+                    (((tolt[datei]$year+1900) %% 4 == 0) & ((tolt[datei]$year+1900) %% 100 != 0)) | ((tolt[datei]$year+1900) %% 400 == 0)) { 
                     dpm_current <- 29
                 }
                 # rest of first year + decimal of current date:
@@ -424,7 +424,7 @@ difftime_yr <- function(from, to) {
                 # -> age_a = 0.3413978 - 0.3387097 = 0.0026881 yrs if current date only one day later than start date
             }
         } else if (to[datei] == from[datei]) { # current date and start date are identical
-            if (((fromlt[datei]$year+1900 %% 4 == 0) & (fromlt[datei]$year+1900 %% 100 != 0)) | (fromlt[datei]$year+1900 %% 400 == 0)) { 
+            if ((((fromlt[datei]$year+1900) %% 4 == 0) & ((fromlt[datei]$year+1900) %% 100 != 0)) | ((fromlt[datei]$year+1900) %% 400 == 0)) { 
                 age_a <- 1/366 # 0.00273224 yrs 
             } else {
                 age_a <- 1/365 # 0.002739726 yrs
