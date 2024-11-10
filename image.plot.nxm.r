@@ -630,7 +630,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             if (verbose) message("`useRaster`=T --> check if x,y are regular for graphics::image(..., useRaster=T) usage ...")
             for (i in seq_along(z)) {
                 if (check_irregular(x[[i]], y[[i]])) {
-                    if (verbose) message("  --> make regular grid for setting ", i, " ...")
+                    if (verbose) message("  -> setting ", i, " is irregular -> make regular grid for setting ", i, " ...")
                     x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), l=length(x[[i]])) # overwrite original coord
                     y[[i]] <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), l=length(y[[i]]))
                 }
@@ -669,9 +669,10 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     x_plot <- seq(xrange[1], xrange[2], l=l)
     y_plot <- seq(yrange[1], yrange[2], l=l)
     
-    # project coords
+    # project coords if wanted
     if (F) { # test
         proj <- "+proj=ortho +lat_0=30 +lon_0=-45" # orthographic
+        proj <- "+proj=stere +lat_0=90 +lat_ts=90"
         message("test proj = \"", proj, "\" ...")
     }
     if (proj != "") {
@@ -744,6 +745,18 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         ylim <- dot_list[["ylim"]]
         if (verbose) { cat("provided ylim = "); dput(ylim) }
     }
+    if (F && proj != "") { # not needed for oce::mapPlot(); see below
+        xy_lim <- expand.grid(lon=xlim, lat=ylim, KEEP.OUT.ATTRS=F) 
+        xy_lim_proj <- oce::oceProject(xy=xy_lim, proj=proj, debug=0)
+        colnames(xy_lim_proj) <- c("lon", "lat")
+        xy_lim_proj <- as.data.frame(xy_lim_proj)
+        xlim_proj <- range(xy_lim_proj$lon, na.rm=T)
+        ylim_proj <- range(xy_lim_proj$lat, na.rm=T)
+        if (verbose) {
+            cat("xlim_proj = "); dput(xlim_proj)
+            cat("ylim_proj = "); dput(ylim_proj)
+        }
+    }
 
     # find tick values of unique x and y axes
 	# (not projected)
@@ -793,6 +806,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
 
     ## Open new or use already open plot device
+    if (verbose) message("plot_type = ", plot_type)
     if (plot_type == "active") { 
         if (is.null(dev.list())) { # open new interactive device if none is open
             dev.new(family=family)
@@ -855,10 +869,10 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         # Open i-th subplot device, even if there is nothing to draw
         if (proj == "") { # default
             # usage of helper-`x_plot` more flexible than just using combination of `xlim` and `x=0`
-            plot(x_plot, y_plot, t="n",
-                 xlim=xlim, ylim=ylim,
-                 axes=F, xlab=NA, ylab=NA,
-                 xaxs="i", yaxs="i")
+            base::plot(x_plot, y_plot, t="n",
+                       xlim=xlim, ylim=ylim,
+                       axes=F, xlab=NA, ylab=NA,
+                       xaxs="i", yaxs="i")
       
         } else if (proj != "") {
             
@@ -883,10 +897,10 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             oce::mapPlot(longitude=xy_proj$lon, latitude=xy_proj$lat, 
                          projection=proj,
                          grid=F, type="n", 
-                         #longitudelim=c(-95, -5), 
-                         #latitudelim=c(20, 90),
-                         xlim=xrange_proj, # when xlim and/or ylim are provided,
-                         ylim=yrange_proj, # longitudelim and latitudelim will be ignored
+                         longitudelim=xlim, #c(-95, -5), 
+                         latitudelim=ylim, #c(20, 90),
+                         #xlim=xlim_proj, #xrange_proj, # when xlim and/or ylim are provided,
+                         #ylim=ylim_proj, #yrange_proj, # longitudelim and latitudelim will be ignored
                          axes=F, drawBox=F,
                          debug=1) # 0 1
         
@@ -1445,9 +1459,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 # add land stuff to every plot
                 op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
                 par(new=T)
-                plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, t="n",
-                     axes=F, xlab=NA, ylab=NA,
-                     xaxs="i", yaxs="i")
+                base::plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, t="n",
+                           axes=F, xlab=NA, ylab=NA,
+                           xaxs="i", yaxs="i")
                 if (addland_list[[i]]$type == "map") {
                     maps::map(addland_list[[i]]$data, interior=F, add=T, lwd=lwd)
                 } else if (addland_list[[i]]$type == "segments") {
@@ -1549,23 +1563,92 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
 
             # add axes and axes labels
-            if (proj == "") {
-                if (verbose) message("add axes to subplot using graphics::axis() ...")
-                if (left_axis_inds[i]) {
+            if (verbose) message("add axes to subplot using graphics::axis() or oce::mapAxis() ...")
+            if (proj != "") {
+                # todo: mapaxis does not support lwd, las
+                my_mapAxis <- function(side, ...) { # from oce::mapAxis:
+                    if (missing(side)) stop("provide `side`")
+                    usr <- par("usr")
+                    tn <- 100
+                    if (side == 1) {
+                        tx <- seq(usr[1], usr[2], l=tn)
+                        ty <- rep(usr[3], t=tn)
+                    } else if (side == 2) {
+                        tx <- rep(usr[1], t=tn)
+                        ty <- seq(usr[3], usr[4], l=tn)
+                    } else {
+                        stop("`side` = ", side, " not implemented")
+                    }
+                    tt <- oce::map2lonlat(tx, ty)
+                    if (any(side == c(1, 3))) {
+                        check <- tt$longitude
+                        tfcn <- try(approxfun(check, tx), silent=T)
+                        labels <- oce:::.axis()$longitude
+                        formatLonLat_which <- "longitude"
+                        las <- 1
+                    } else if (any(side == c(2, 4))) {
+                        check <- tt$latitude
+                        tfcn <- try(approxfun(check, ty), silent=T)
+                        labels <- oce:::.axis()$latitude
+                        formatLonLat_which <- "latitude"
+                        las <- 2
+                    }
+                    dot_list <- list(...)
+                    if (is.null(dot_list$lwd)) dot_list$lwd <- 0.5
+                    if (is.null(dot_list$lwd.ticks)) dot_list$lwd.ticks <- 0.5
+                    if (is.null(dot_list$labels)) dot_list$labels <- T
+                    if (is.null(dot_list$las)) dot_list$las <- las
+                    if (is.null(dot_list$cex.axis)) dot_list$cex.axis <- 1.5
+                    if (sum(is.finite(check)) > 2) {
+                        if (!inherits(tfcn, "try-error")) {
+                            at <- tfcn(labels)
+                            if (any(is.finite(at))) {
+                                if (dot_list$labels) {
+                                    dot_list$labels <- oce:::formatLonLat(labels, formatLonLat_which, axisStyle=1)
+                                }
+                                graphics::axis(side=side, at=at, labels=dot_list$labels,
+                                               lwd=dot_list$lwd, lwd.ticks=dot_list$lwd.ticks,
+                                               las=dot_list$las, cex.axis=dot_list$cex.axis)
+                            }
+                        }
+                    }
+                } # my_mapAxis
+            } # if proj
+            if (left_axis_inds[i]) {
+                if (proj == "") {
                     graphics::axis(2, at=y_at, labels=y_labels, las=2, cex.axis=cex.axis, 
                                    lwd=0, lwd.ticks=lwd.ticks)
-                    #mtext(ylab, side=2, line=3, cex=1)
-                    mtext(ylab, side=2, line=4, cex=1)
-                    #mtext(ylab, side=2, line=5, cex=1)
-                } else { # just ticks
-                    graphics::axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
+                } else if (proj != "") {
+                    #oce::mapAxis(2, lwd=0, lwd.ticks=lwd.ticks, cex.axis=cex.axis)
+                    #my_mapAxis(side=2, lwd=0, lwd.ticks=lwd.ticks, las=2, cex.axis=cex.axis)
+                    my_mapAxis(side=2, lwd=0, lwd.ticks=0, las=2, cex.axis=cex.axis)
                 }
-                if (bottom_axis_inds[i]) {
+                #mtext(ylab, side=2, line=3, cex=1)
+                mtext(ylab, side=2, line=4, cex=1)
+                #mtext(ylab, side=2, line=5, cex=1)
+            } else { # just ticks
+                if (proj == "") {
+                    graphics::axis(2, at=y_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
+                } else if (proj != "") {
+                    #oce::mapAxis(2, lwd=0, lwd.ticks=lwd.ticks)
+                    #my_mapAxis(side=2, lwd=0, lwd.ticks=lwd.ticks, labels=F, las=2, cex.axis=cex.axis)
+                }
+            }
+            if (bottom_axis_inds[i]) {
+                if (proj == "") {
                     graphics::axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
                                    lwd=0, lwd.ticks=lwd.ticks)
-                    mtext(xlab, side=1, line=3, cex=1)
-                } else { # just ticks
+                } else if (proj != "") {
+                    #oce::mapAxis(1, lwd=0, lwd.ticks=lwd.ticks, cex.axis=cex.axis)
+                    my_mapAxis(side=1, lwd=0, lwd.ticks=lwd.ticks, cex.axis=cex.axis)
+                }
+                mtext(xlab, side=1, line=3, cex=1)
+            } else { # just ticks
+                if (proj == "") {
                     graphics::axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)
+                } else if (proj != "") {
+                    #oce::mapAxis(1, lwd=0, lwd.ticks=lwd.ticks)
+                    my_mapAxis(side=1, lwd=0, lwd.ticks=lwd.ticks, labels=F, cex.axis=cex.axis)
                 }
             }
 
@@ -1639,8 +1722,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             } # if !is.null(znames_method)
            
             # draw box around plot
-            #box(lwd=lwd)
-            if (proj == "") box(lwd=lwd)
+            graphics::box(lwd=lwd) # works also for proj
+
+            if (F) stop("stop for checking stuff in original coordinates in main plot") # check stuff in main plot
 
             ## overlay a subplot
             if (!is.null(subplot_list)) {
@@ -1974,13 +2058,15 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
     } # for i n*m subplots
 
+    if (F) stop("asd") # check stuff in main plot
+
     ## draw legend
 	#savepar <- par(mar=c(4, 0.5, 4, 0.5),
     #               xaxs="i", yaxs="i", lwd=lwd)
     if (!contour_only) { # only if needed
         
         if (verbose) message("\nplot.new() for colorbar plot ...")
-        plot.new()
+        graphics::plot.new()
 
         if (horizontal) {
             stop("not yet")
@@ -2093,13 +2179,13 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
 
             # add colorbar
-            image(ix, iy, iz,
-                  breaks=colorbar_breaks,
-                  col=cols,
-                  axes=F, lwd=lwd, 
-                  xlab=NA, ylab=NA
-                  #, useRaster=T # does not work through iy
-                  )
+            graphics::image(ix, iy, iz,
+                            breaks=colorbar_breaks,
+                            col=cols,
+                            axes=F, lwd=lwd, 
+                            xlab=NA, ylab=NA
+                            #, useRaster=T # does not work through iy
+                            )
             
             # add colorbar axis labels
             axis.args <- c(list(side=ifelse(horizontal, 1, 4),

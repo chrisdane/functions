@@ -401,7 +401,7 @@ difftime_yr <- function(from, to) {
     for (datei in seq_along(ages_yr)) {
         dpm_start <- unname(dpms[fromlt[datei]$mon + 1]) # days per month of start month
         if (fromlt[datei]$mon + 1 == 2 && # if start mon is Feb and start year is leap year
-            (((fromlt[datei]$year+1900) %% 4 == 0) & ((fromlt[datei]$year+1900) %% 100 != 0)) | ((fromlt[datei]$year+1900) %% 400 == 0)) { 
+            (((fromlt[datei]$year+1900) %% 4 == 0) & ((fromlt[datei]$year+1900) %% 100 != 0)) | ((fromlt[datei]$year+1900) %% 400 == 0)) {
             dpm_start <- 29
         }
         # decimal of start date:
@@ -411,7 +411,7 @@ difftime_yr <- function(from, to) {
                 age_a <- 1 - age_a # rest of first year: 1 - 0.3387097 = 0.6612903 yrs
                 dpm_current <- unname(dpms[tolt[datei]$mon + 1]) # days per month of current month
                 if (tolt[datei]$mon + 1 == 2 && # if current mon is Feb and current year is leap year
-                    (((tolt[datei]$year+1900) %% 4 == 0) & ((tolt[datei]$year+1900) %% 100 != 0)) | ((tolt[datei]$year+1900) %% 400 == 0)) { 
+                    (((tolt[datei]$year+1900) %% 4 == 0) & ((tolt[datei]$year+1900) %% 100 != 0)) | ((tolt[datei]$year+1900) %% 400 == 0)) {
                     dpm_current <- 29
                 }
                 # rest of first year + decimal of current date:
@@ -424,7 +424,7 @@ difftime_yr <- function(from, to) {
                 # -> age_a = 0.3413978 - 0.3387097 = 0.0026881 yrs if current date only one day later than start date
             }
         } else if (to[datei] == from[datei]) { # current date and start date are identical
-            if ((((fromlt[datei]$year+1900) %% 4 == 0) & ((fromlt[datei]$year+1900) %% 100 != 0)) | ((fromlt[datei]$year+1900) %% 400 == 0)) { 
+            if ((((fromlt[datei]$year+1900) %% 4 == 0) & ((fromlt[datei]$year+1900) %% 100 != 0)) | ((fromlt[datei]$year+1900) %% 400 == 0)) {
                 age_a <- 1/366 # 0.00273224 yrs 
             } else {
                 age_a <- 1/365 # 0.002739726 yrs
@@ -1653,21 +1653,40 @@ col2rgba <- function(cols, alpha) {
 
 # my colors
 mycols <- function(n) {
-    cols <- "black"
-    if (n > 1) cols <- c(cols, "#E41A1C") # myred
-    if (n > 2) cols <- c(cols, "#377EB8") # myblue
-    if (n > 3) cols <- c(cols, "#E6AB02") # myorange
-    if (n > 4) {
+    # default:
+    cols_default <- c("#000000", "#DF536B", "#61D04F", "#2297E6", "#28E2E5", "#CD0BBC",
+                      "#F5C710", "#9E9E9E")
+    if (F) {
         library(RColorBrewer) # https://www.r-bloggers.com/palettes-in-r/
-        if (F) {
-            bp <- RColorBrewer::brewer.pal(8, "Dark2")
-            # "#1B9E77" "#D95F02" "#7570B3" "#E7298A" "#66A61E" "#E6AB02" "#A6761D" "#666666"
-        }
-        bp <- RColorBrewer::brewer.pal(min(8, max(4, n)), "Dark2")
-        cols <- c(cols, bp)
-        cols <- cols[seq_len(min(length(cols), n))]
+        bp_Dark2 <- RColorBrewer::brewer.pal(8, "Dark2")
     }
-    if (n > 4+8) cols <- c(cols, (4+8+1):n) # add default until end
+    cols_Dark2 <- c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666")
+    known_cols <- c(cols_default, cols_Dark2)
+    # remove shades of green
+    inds <- match(c("#61D04F", "#1B9E77", "#66A61E"), known_cols)
+    if (length(inds) > 0) known_cols <- known_cols[-inds]
+    cols <- c("#000000"
+              # "#FF0000" # red
+              #, "#DF536B" # red default
+              , "#E41A1C"
+              , "#377EB8"
+              , "#E6AB02"
+              , "#CD0BBC"
+              , "#28E2E5"
+              , "#7570B3"
+              , "#A6761D"
+              , "#666666"
+              )
+    # add missing colors
+    inds <- which(!is.na(match(known_cols, cols)))
+    if (length(inds) > 0 && length(inds) < length(known_cols)) cols <- c(cols, known_cols[-inds])
+    # repeat colors if necessary
+    if (n > length(cols)) {
+        nmiss <- n - length(cols)
+        nrepeat <- ceiling(nmiss/length(cols)) + 1
+        cols <- c(cols, rep(cols, t=nrepeat))
+    }
+    if (n != length(cols)) cols <- cols[seq_len(n)]
     return(cols)
 } # mycols
 
@@ -1731,12 +1750,12 @@ cdo_timstatmean <- function(file, varname, timstats="yearmean") {
         for (timstati in seq_along(timstats)) {
             fout <- paste0("/tmp/tmp_cdo_r", Sys.getpid(), "_vari_", vari, "_", names(res)[vari], "_timstati_", timstati, "_", timstats[timstati])
             if (file.exists(fout)) stop("tmp file ", fout, " already exists")
-            cmd <- paste0(cdo, " -s -L -", timstats[timstati], " -select,name=", names(res)[vari], " ", fin, " ", fout)
+            cmd <- paste0(cdo, " -s -L -", timstats[timstati], " -select,name=", names(res)[vari], " ", file, " ", fout)
             message("run `", cmd, "` ...")
             check <- system(cmd)
             if (check != 0) stop("cmd failed")
-            tmp[[timstati]] <- list(time=cdo_showtimestamp(fout),
-                                    y=as.numeric(trimws(system(paste0(cdo, " output ", fout), intern=T))))
+            tmp[[timstati]] <- data.frame(time=cdo_showtimestamp(fout),
+                                          y=as.numeric(trimws(system(paste0(cdo, " -s output ", fout), intern=T))))
             file.remove(fout)
         } # for stati
         res[[vari]] <- tmp
@@ -2364,7 +2383,7 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
         y_all <- y_all[-inds]
     }
     message("myfunctions.r:my_maxempty(): get automatic legend position at largest empty area with `method` = ", 
-            method, "() on ", length(x_all), " points ... ", appendLF=F) 
+            method, "() for ", length(x_all), " (x,y)-points ... ")
     
     if (method == "Hmisc::largest.empty") { # adagio::maxempty works better
         if (!suppressPackageStartupMessages(require(Hmisc))) stop("could not load Hmisc package")
@@ -2379,8 +2398,10 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
         tmp <- adagio::maxempty(x=x_all, y=y_all, ax=par("usr")[1:2], ay=par("usr")[3:4])
         #rect(tmp$rect[1], tmp$rect[2], tmp$rect[3], tmp$rect[4])
         pos <- c(x=tmp$rect[1], y=tmp$rect[4]) # topleft corner if x- and y-coords are both increasing (default)
+    
     } # which method
     
+    message("--> pos = ", paste(pos, collapse=", "))
     return(list(pos=pos))
 
 } # my_maxempty
