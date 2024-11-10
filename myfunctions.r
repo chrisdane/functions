@@ -40,7 +40,7 @@ ymdhms_to_yearsdec <- function(ymdhms) {
 
 } # ymdhms_to_yearsdec
 
-# convert positive or negative decimal year yyyy.f  to (-)YYYY-MM-DD HH:MM:SS 
+# convert positive or negative decimal year (-)yyyy.f  to (-)YYYY-MM-DD HH:MM:SS 
 yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
     # - lubridate::date_decimal() is supposed to do the same thing but has a bug (see below)
     # - zoo::yearmon() works well except a slight difference in HH:MM:SS, and only works for years >= 0
@@ -979,17 +979,23 @@ get_rmsq <- function(actual, predicted) {
 
 # get p-value of linear model; from 3.2.1 of faraways book
 get_pval <- function(model) {
-    ## lm calculation:
-    # https://madrury.github.io/jekyll/update/statistics/2016/07/20/lm-in-R.html
-    # lm() calls lm.fit()
-    # from lm.fit(): z <- .Call(C_Cdqrls, x, y, tol, FALSE)
-    #                coef <- z$coefficients
-    # C_Cdqrls is defined in src/library/stats/src/lm.c:
-    #    F77_CALL(dqrls)(REAL(qr), &n, &p, REAL(y), &ny, &rtol,
-    # fortrans dqrls is defined src/appl/dqrls.f:
-    #    call dqrdc2(x,n,n,p,tol,k,qraux,jpvt,work)
-    # fortrans dqrdc2 is defined src/appl/dqrdc2.f:
-    #
+    
+    # lm calculation: https://madrury.github.io/jekyll/update/statistics/2016/07/20/lm-in-R.html
+    # 1: lm() calls lm.fit()
+    # 2: from lm.fit(): z <- .Call(C_Cdqrls, x, y, tol, FALSE)
+    #                   coef <- z$coefficients
+    # 3: C_Cdqrls is defined in src/library/stats/src/lm.c:
+    #        SEXP Cdqrls(SEXP x, SEXP y, SEXP tol, SEXP chk)
+    #            F77_CALL(dqrls)(REAL(qr), &n, &p, REAL(y), &ny, &rtol,
+    #                            REAL(coefficients), REAL(residuals), REAL(effects),
+    #                            &rank, INTEGER(pivot), REAL(qraux), work);
+    # 4: fortrans dqrls is defined src/appl/dqrls.f:
+    #        subroutine dqrls(x,n,p,y,ny,tol,b,rsd,qty,k,jpvt,qraux,work)
+    #            call dqrdc2(x,n,n,p,tol,k,qraux,jpvt,work)
+    # 5: fortrans dqrdc2 is defined src/appl/dqrdc2.f:
+    #        subroutine dqrdc2(x,ldx,n,p,tol,k,qraux,jpvt,work)
+    #        --> linpack's subroutine dqrdc: https://www.netlib.org/linpack/dqrdc.f
+
     if (F) { # run lm example
         if (F) {
             ctl <- c(4.17,5.58,5.18,6.11,4.50,4.61,5.17,4.53,5.33,5.14)
@@ -1024,21 +1030,35 @@ get_pval <- function(model) {
             }
         }
     } # run lm example
-    # todo: precision is not as high as `summary(model)$coefficients[2,4]`
+    
     if (class(lm) != "lm") stop("input must be of class \"lm\"")
-    lm_summary <- summary(lm)
+    lms <- summary(lm)
+    
     # from ?lm.summary:
     # fstatistic: (for models including non-intercept terms) a 3-vector with
     #             the value of the F-statistic with its numerator and
     #             denominator degrees of freedom.
-    r_lm.summary <- stats::pf(lm_summary$fstatistic[1], lm_summary$fstatistic[2], lm_summary$fstatistic[3], lower.tail=F)
-    # model[[1]] is actual data that was modeled by predictors model[[2..]]
-    a <- sum((lm$model[[1]]-mean(lm$model[[1]]))^2) 
-    b <- sum(lm$res^2)
-    n_predictors <- lm$rank-1
-    n_df <- lm$df.residual
-    c <- (a-b)/n_predictors/(b/n_df)
-    1-pf(c, n_predictors, n_df)
+    
+    # coefficient of determination r2
+    #r_adj_lm.summary <- 1 - (1 - lms$r.squared) * ((n - df.int)/rdf)
+    
+    # correlation r = sqrt(r2)
+    
+    # pval
+    # model[[1]] and model[[2..]] are predictant y and predictor(s) x1, ..., respectively
+    yss <- sum((lm$model[[1]] - mean(lm$model[[1]]))^2) # sum of squares corrected for the mean
+    rss <- sum(lm$res^2) # residual sum of squares
+    n_pred <- lm$rank - 1 # = lms$fstatistic[2] 'numdf' --> numerator dof
+    n_df <- lm$df.residual # = lms$fstatistic[3] 'dendf' --> denumerator dof
+    Fstatistic <- (yss - rss)/n_pred/(rss/n_df) # the larger Fstatistic the more likely the null-hypothesis gets rejected (= significant result)
+                                                # --> gets smaller with increasing n_pred (=1 in the default case `lm(y ~ x)`)
+                                                # --> gets larger with increasing n_df
+                                                # = lms$fstatistic[1]
+    pval <- 1 - stats::pf(q=Fstatistic, df1=n_pred, df2=n_df) # distribution function of F-distribution (q: quantiles; df1, df2: degrees of freedom)
+                                                              # --> pf() gets larger with larger Fstatistic
+                                                              # --> pval = 1 - pf() gets smaller with larger Fstatistic
+                                                              # = stats::pf(lms$fstatistic[1], lms$fstatistic[2], lms$fstatistic[3], lower.tail=F)
+    return(list(yss=yss, rss=rss, n_pred=n_pred, n_df=n_df, Fstatistic=Fstatistic, pval=pval))
 } # get_pval
 
 # test time series for normality
