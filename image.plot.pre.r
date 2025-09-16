@@ -113,7 +113,7 @@ image.plot.pre <- function(zlim=NULL,
             }
 
         } else if (method == "exact") {
-            zlevels <- seq(zlim[1], zlim[2], l=nlevels)
+            zlevels <- seq(zlim[1], zlim[2], length.out=nlevels)
         
         } else if (method == "exp") {
 
@@ -152,24 +152,24 @@ image.plot.pre <- function(zlim=NULL,
                 #  zlevels = c(zlim[1], -1e1, -1e0, -1e-1, -1e-2, 0, 1e-2, 1e-1, 1e0, 1e1, zlim[2])
                 if (min(power_lims) == 0) {
                     powers <- c(0:power_min, 0, power_min:0)
-                    signs <- c(rep(-1, t=floor(length(powers)/2)), 0, rep(1, t=floor(length(powers)/2))) 
+                    signs <- c(rep(-1, times=floor(length(powers)/2)), 0, rep(1, times=floor(length(powers)/2))) 
 
                 } else if (min(power_lims) > 0) { # e.g. zlim=c(-20.34705, 29.78989)
                     powers <- c(power_lims[1]:power_min, 0, power_min:power_lims[2])
-                    signs <- c(rep(-1, t=length(power_lims[1]:power_min)), 0, rep(1, t=length(power_min:power_lims[2])))
+                    signs <- c(rep(-1, times=length(power_lims[1]:power_min)), 0, rep(1, times=length(power_min:power_lims[2])))
                 
                 } else if (min(power_lims) < 0) { # e.g. zlim=c(-0.0002034705, 0.0002978989)
                     #powers <- c((power_lims[1] - 1):power_min, 0, power_min:(power_lims[2] - 1))
-                    #signs <- c(rep(-1, t=length((power_lims[1] - 1):power_min)), 0, rep(1, t=length(power_min:(power_lims[2] - 1))))    
+                    #signs <- c(rep(-1, times=length((power_lims[1] - 1):power_min)), 0, rep(1, times=length(power_min:(power_lims[2] - 1))))    
                     powers <- c(power_lims[1]:power_min, 0, power_min:power_lims[2])
-                    signs <- c(rep(-1, t=length(power_lims[1]:power_min)), 0, rep(1, t=length(power_min:power_lims[2])))    
+                    signs <- c(rep(-1, times=length(power_lims[1]:power_min)), 0, rep(1, times=length(power_min:power_lims[2])))    
                 }
                 
             } else if (!anom_colorbar) {
 
                 if (all(zlim >= 0)) { # both zlim positive
                     powers <- power_min:(power_lims[2] + 1)
-                    signs <- rep(1, t=length(powers)) 
+                    signs <- rep(1, times=length(powers)) 
                 
                 } else if (all(zlim < 0)) { # both zlim negative
                     stop("not yettttt")
@@ -222,17 +222,17 @@ image.plot.pre <- function(zlim=NULL,
             # Fill space between zlim and zoom at beginning and end of colorbar
             nlevplab <- max(zoom.l/max_labels, 1)
             if (zoom[1] > zlim[1] && zoom[2] < zlim[2]) {
-                zlevels <- c(seq(zlim[1], zoom[1], l=nlevplab),
+                zlevels <- c(seq(zlim[1], zoom[1], length.out=nlevplab),
                              zoomlevels[2:(zoom.l - 1)],
-                             seq(zoom[2], zlim[2], l=nlevplab))
+                             seq(zoom[2], zlim[2], length.out=nlevplab))
 
             } else if (zoom[1] > zlim[1] && !(zoom[2] < zlim[2])) {
-                zlevels <- c(seq(zlim[1], zoom[1], l=nlevplab),
+                zlevels <- c(seq(zlim[1], zoom[1], length.out=nlevplab),
                              zoomlevels[2:zoom.l])
 
             } else if (!(zoom[1] > zlim[1]) && zoom[2] < zlim[2]) {
                 zlevels <- c(zoomlevels[1:(zoom.l - 1)],
-                             seq(zoom[2], zlim[2], l=nlevplab))
+                             seq(zoom[2], zlim[2], length.out=nlevplab))
 
             } else if (!(zoom[1] > zlim[1]) && !(zoom[2] < zlim[2])) {
                 zlevels <- zoomlevels
@@ -267,7 +267,7 @@ image.plot.pre <- function(zlim=NULL,
 
             # !!! paste0() not allowed here !!!
             # zlims are added later to axis.labels
-            axis.labels <- vector("list", l=length(powers))
+            axis.labels <- vector("list", length.out=length(powers))
 
             for (i in 1:length(axis.labels)) {
                 if (signs[i] == 0 && powers[i] == 0) {
@@ -372,12 +372,12 @@ image.plot.pre <- function(zlim=NULL,
 
                     if (axis.zoom) {
                         axis.labels <- c(zlim[1], 
-                                         seq(zoom[1], zoom[2], l=max_labels - 2),
+                                         seq(zoom[1], zoom[2], length.out=max_labels - 2),
                                          zlim[2])
                         if (verbose) cat("case exact & with zoom; axis.labels (n=", 
                                          length(axis.labels), ") =", axis.labels, "\n")
                     } else if (!axis.zoom) {
-                        axis.labels <- seq(zlim[1], zlim[2], l=max_labels)
+                        axis.labels <- seq(zlim[1], zlim[2], length.out=max_labels)
                         if (verbose) cat("case exact & without zoom; axis.labels (n=", 
                                          length(axis.labels), ") =", axis.labels, "\n")
                     }
@@ -522,7 +522,7 @@ image.plot.pre <- function(zlim=NULL,
     # further axis.at.ind checks 
     if (method == "exp") { # small ticks between 1, 10, 100, ...
         if (is.null(axis.at.small)) {
-            axis.at.small <- 2:9 * rep(axis.at, e=length(2:9))
+            axis.at.small <- 2:9 * rep(axis.at, each=length(2:9))
         }
     } else { # if method != "exp"
         # no success: some nlevels and max_labels are too close 

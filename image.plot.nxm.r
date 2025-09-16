@@ -38,7 +38,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         message("x,y,z not provided --> run demo ...")
         if (is.null(n)) n <- 3
         if (is.null(m)) m <- 2
-        x <- y <- z <- vector("list", l=n*m)
+        x <- y <- z <- vector("list", length.out=n*m)
         for (i in 1:(n*m)) {
             x[[i]] <- 1:20
             y[[i]] <- 1:20
@@ -66,12 +66,12 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     }
     if (!is.list(z)) z <- list(z)
     if (!is.list(x)) {
-        xl <- vector("list", l=length(z))
+        xl <- vector("list", length.out=length(z))
         for (i in seq_along(z)) xl[[i]] <- x
         x <- xl; rm(xl)
     }
     if (!is.list(y)) {
-        yl <- vector("list", l=length(z))
+        yl <- vector("list", length.out=length(z))
         for (i in seq_along(z)) yl[[i]] <- y
         y <- yl; rm(yl)
     }
@@ -144,16 +144,16 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         if (!horizontal) { # vertical colorbar on the right
 
             # left region for axes in cm; columns for plots in relative units; right region for colorbar in cm  
-            layout_mat2 <- cbind(rep(0, t=n), # left axis row
+            layout_mat2 <- cbind(rep(0, times=n), # left axis row
                                  layout_mat,
-                                 rep(n*m + 1, t=n)) # right legend column
-            layout_widths <- c(lcm(cm_left), rep(1/m, t=m), lcm(cm_right))
+                                 rep(n*m + 1, times=n)) # right legend column
+            layout_widths <- c(lcm(cm_left), rep(1/m, times=m), lcm(cm_right))
             
             # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
-            layout_mat2 <- rbind(rep(0, t=m + 2), # title row
+            layout_mat2 <- rbind(rep(0, times=m + 2), # title row
                                  layout_mat2,
-                                 rep(0, t=m + 2)) # bottom axis row
-            layout_heights <- c(lcm(cm_top), rep(1/n, t=n), lcm(cm_bottom))
+                                 rep(0, times=m + 2)) # bottom axis row
+            layout_heights <- c(lcm(cm_top), rep(1/n, times=n), lcm(cm_bottom))
 
         } else { # horizontal colorbar at the bottom
             stop("not yet") 
@@ -162,15 +162,15 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     } else if (contour_only) { # no colorbar needed
         
         # same as for !contour_only case but with thinner cm_right
-        layout_mat2 <- cbind(rep(0, t=n), # left axis row
+        layout_mat2 <- cbind(rep(0, times=n), # left axis row
                              layout_mat,
-                             rep(n*m + 1, t=n)) # right legend column
-        layout_widths <- c(lcm(cm_left), rep(1/m, t=m), lcm(1)) # 1 cm instead of cm_right
+                             rep(n*m + 1, times=n)) # right legend column
+        layout_widths <- c(lcm(cm_left), rep(1/m, times=m), lcm(1)) # 1 cm instead of cm_right
         # upper region for title in cm; rows for plots in relative units; lower region for axes in cm
-        layout_mat2 <- rbind(rep(0, t=m + 2), # title row
+        layout_mat2 <- rbind(rep(0, times=m + 2), # title row
                              layout_mat2,
-                             rep(0, t=m + 2)) # bottom axis row
-        layout_heights <- c(lcm(cm_top), rep(1/n, t=n), lcm(cm_bottom))
+                             rep(0, times=m + 2)) # bottom axis row
+        layout_heights <- c(lcm(cm_top), rep(1/n, times=n), lcm(cm_bottom))
     
     } # if contour_only or not
     if (verbose) {
@@ -184,7 +184,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
     # decide which axes are drawn to which subplot
     # n=nrow, m=ncol
-    left_axis_inds <- bottom_axis_inds <- title_inds <- rep(F, t=nplots)
+    left_axis_inds <- bottom_axis_inds <- title_inds <- rep(F, times=nplots)
     for (i in seq_len(nplots)) {
         
         # order plots from top to bottom and then from left to right (default: False)
@@ -450,7 +450,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
         }
     } else {
-        point_list <- vector("list", l=nz)
+        point_list <- vector("list", length.out=nz)
     }
     
     if (any(dot_names == "line_list")) {
@@ -499,7 +499,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
         }
     } else {
-        text_list <- vector("list", l=nz)
+        text_list <- vector("list", length.out=nz)
     }
         
     cmd_list <- NULL # default
@@ -648,8 +648,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             for (i in seq_along(z)) {
                 if (check_irregular(x[[i]], y[[i]])) {
                     if (verbose) message("  -> setting ", i, " is irregular -> make regular grid for setting ", i, " ...")
-                    x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), l=length(x[[i]])) # overwrite original coord
-                    y[[i]] <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), l=length(y[[i]]))
+                    x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), length.out=length(x[[i]])) # overwrite original coord
+                    y[[i]] <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), length.out=length(y[[i]]))
                 }
             }
         } # if !contour_only
@@ -691,8 +691,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     yrange <- range(y, na.rm=T)
     if (verbose) { cat("yrange = "); dput(yrange) }
     l <- max(c(sapply(x, length), sapply(y, length)))
-    x_plot <- seq(xrange[1], xrange[2], l=l)
-    y_plot <- seq(yrange[1], yrange[2], l=l)
+    x_plot <- seq(xrange[1], xrange[2], length.out=l)
+    y_plot <- seq(yrange[1], yrange[2], length.out=l)
     
     # project coords if wanted
     if (F) { # test
@@ -750,8 +750,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
     # update unique x and y axes for base::plot wrt zoomfac
     # (not projected)
-    x_plot <- seq(xrange[1], xrange[2], l=l)
-    y_plot <- seq(yrange[1], yrange[2], l=l)
+    x_plot <- seq(xrange[1], xrange[2], length.out=l)
+    y_plot <- seq(yrange[1], yrange[2], length.out=l)
     if (verbose) {
         cat("x_plot = ")
         cat(capture.output(str(x_plot)), sep="\n")
@@ -822,7 +822,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     } else { # if not provided: default: a) 1, b) 2, ...
         znames_labels <- names(z)
         if (is.null(znames_labels)) {
-            znames_labels <- rep("", t=n*m)
+            znames_labels <- rep("", times=n*m)
             for (i in seq_len(n*m)) {
                 znames_labels <- paste0(letters[i], ") ", 1:(n*m))
             }   
@@ -860,7 +860,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     if (verbose) message("run layout() ...")
     layout(layout_mat2, widths=layout_widths, heights=layout_heights)
     #layout.show(n=max(layout_mat2))
-    par(mar=rep(0.5, t=4)) # distance between sub-figures [rows]
+    par(mar=rep(0.5, times=4)) # distance between sub-figures [rows]
 	if (znames_method == "text" && is.character(znames_pos) && grepl("top", znames_pos)) { # increase vertical distance between sub figures
         par(mar=c(0.5, 0.5, 1.5, 0.5)) 
     }
@@ -893,8 +893,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         
         # Open i-th subplot device, also if there is nothing to draw
         if (proj == "") { # default
-            # usage of helper-`x_plot` more flexible than combination of `xlim` and `x=0`
-            base::plot(x_plot, y_plot, t="n",
+            # usage of helper-`x_plot` more flexible than just using combination of `xlim` and `x=0`
+            base::plot(x_plot, y_plot, times="n",
                        xlim=xlim, ylim=ylim,
                        axes=F, xlab=NA, ylab=NA,
                        xaxs="i", yaxs="i")
@@ -1330,11 +1330,11 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                                         " % of all possible quivers in x- and y-direction")
                             }
                             # first try: get rough dx, dy -> dx and dy not necessarily constant
-                            quiver_inds_x <- seq(1, dim(umat)[1], l=quiver_list[[vi]][[i]]$quiver_nxfac*dim(umat)[1])
-                            quiver_inds_y <- seq(1, dim(umat)[2], l=quiver_list[[vi]][[i]]$quiver_nyfac*dim(umat)[2])
+                            quiver_inds_x <- seq(1, dim(umat)[1], length.out=quiver_list[[vi]][[i]]$quiver_nxfac*dim(umat)[1])
+                            quiver_inds_y <- seq(1, dim(umat)[2], length.out=quiver_list[[vi]][[i]]$quiver_nyfac*dim(umat)[2])
                             # second try: use constant dx, dy
-                            quiver_inds_x <- seq(1, dim(umat)[1], b=trunc(mean(diff(quiver_inds_x))))
-                            quiver_inds_y <- seq(1, dim(umat)[2], b=trunc(mean(diff(quiver_inds_y))))
+                            quiver_inds_x <- seq(1, dim(umat)[1], by=trunc(mean(diff(quiver_inds_x))))
+                            quiver_inds_y <- seq(1, dim(umat)[2], by=trunc(mean(diff(quiver_inds_y))))
                             if (verbose) {
                                 message("quiver_inds_x (n=", length(quiver_inds_x), "): ", 
                                         paste(head(quiver_inds_x), collapse=","),
@@ -1510,13 +1510,11 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 }
                 
                 # add land stuff to every plot
-                if (proj == "") {
-                    op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
-                    par(new=T)
-                    base::plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, t="n",
-                               axes=F, xlab=NA, ylab=NA,
-                               xaxs="i", yaxs="i")
-                }
+                op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
+                par(new=T)
+                base::plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, times="n",
+                           axes=F, xlab=NA, ylab=NA,
+                           xaxs="i", yaxs="i")
                 if (addland_list[[i]]$type == "map") {
                     if (proj == "") {
                         maps::map(addland_list[[i]]$data, interior=F, add=T, lwd=lwd)
@@ -1674,11 +1672,11 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                     usr <- par("usr")
                     tn <- 100
                     if (side == 1) {
-                        tx <- seq(usr[1], usr[2], l=tn)
-                        ty <- rep(usr[3], t=tn)
+                        tx <- seq(usr[1], usr[2], length.out=tn)
+                        ty <- rep(usr[3], times=tn)
                     } else if (side == 2) {
-                        tx <- rep(usr[1], t=tn)
-                        ty <- seq(usr[3], usr[4], l=tn)
+                        tx <- rep(usr[1], times=tn)
+                        ty <- seq(usr[3], usr[4], length.out=tn)
                     } else {
                         stop("`side` = ", side, " not implemented")
                     }
@@ -1884,19 +1882,19 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                     # WKB horizontal velocity lm fit
                     if (F && (regexpr("H5 480m", znames_labels[i]) != -1)) {
                         if (znames_labels[i] == "R1 H5 480m") {
-                            abline(a=1950.3939810, b=-0.0913097, lwd=2)
+                            abline(a=1950.3939810, by=-0.0913097, lwd=2)
                             speed_cm_s <- 3.33387291856387
                         } else if (znames_labels[i] == "R2 H5 480m") {
-                            abline(a=1950.31389155, b=-0.09277237, lwd=2)
+                            abline(a=1950.31389155, by=-0.09277237, lwd=2)
                             speed_cm_s <- 3.28031067717784
                         } else if (znames_labels[i] == "R3 H5 480m") {
-                            abline(a=1950.29371255, b=-0.09317323, lwd=2)
+                            abline(a=1950.29371255, by=-0.09317323, lwd=2)
                             speed_cm_s <- 3.26771507361546
                         } else if (znames_labels[i] == "R4 H5 480m") {
-                            abline(a=1950.39046811, b=-0.09156948, lwd=2)
+                            abline(a=1950.39046811, by=-0.09156948, lwd=2)
                             speed_cm_s <- 3.31599787547902
                         } else if (znames_labels[i] == "R5 H5 480m") {
-                            abline(a=1950.8370024, b=-0.0843012, lwd=2)
+                            abline(a=1950.8370024, by=-0.0843012, lwd=2)
                             speed_cm_s <- 3.5091557691597
                         }
                         if (T && exists("speed_cm_s")) {
@@ -1912,7 +1910,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                         
                         # 1st line
                         ab <- c(1952.11144132, -0.06849022)
-                        abline(a=ab[1], b=ab[2], lwd=2)
+                        abline(a=ab[1], by=ab[2], lwd=2)
                         speed_cm_s <- 4.390902
                         if (T) {
                             text <- substitute(paste(u[LR], " = ", speed, " cm ", unit^-1),
@@ -1925,7 +1923,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                         # 2nd line: smooth_theta = c(1, 0.15)
                         if (F) {
                             ab <- c(1943.72485189, -0.09769246)
-                            abline(a=ab[1], b=ab[2], lwd=2)
+                            abline(a=ab[1], by=ab[2], lwd=2)
                             speed_cm_s <- 3.086168
                             if (T) {
                                 text <- substitute(paste(#bold(u)[LM], 
@@ -2253,7 +2251,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 iy <- breaks # use levels as indices in colorbar
                 # constant dy for useRaster=T usage
                 # --> maybe not possible due to unequal zlevels, e.g. c(zlim[1], 2, 3, zlim[2])
-                #iy <- seq(min(iy), max(iy), l=length(iy)) 
+                #iy <- seq(min(iy), max(iy), length.out=length(iy)) 
                 colorbar_breaks <- breaks
                 colorbar_at <- axis.at
             } else if (T) {

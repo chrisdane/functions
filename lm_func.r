@@ -104,7 +104,7 @@
     if (class(inx) == "ncdf4") {
         xdimids <- inx$var[[varx]]$dimids # nc dim order
         if (length(xdimids) == 0) stop("sth wrong here")
-        xdims <- rep(NA, t=length(xdimids))
+        xdims <- rep(NA, times=length(xdimids))
         names(xdims) <- xdimids
         for (di in 1:length(xdims)) {
             xdims[di] <- inx$var[[varx]]$dim[[di]]$len
@@ -119,7 +119,7 @@
     if (class(iny) == "ncdf4") {
         ydimids <- iny$var[[vary]]$dimids # nc dim order
         if (length(ydimids) == 0) stop("sth wrong here")
-        ydims <- rep(NA, t=length(ydimids))
+        ydims <- rep(NA, times=length(ydimids))
         names(ydims) <- ydimids
         for (di in 1:length(ydims)) {
             ydims[di] <- iny$var[[vary]]$dim[[di]]$len
@@ -170,11 +170,11 @@
     }
 
     # start and count indices
-    startx_template <- rep(1, t=length(xdims))
+    startx_template <- rep(1, times=length(xdims))
     startx_template[loop_along_dimids_r[1]] <- "i"
     countx <- xdims
     countx[loop_along_dimids_r[1]] <- 1
-    starty_template <- rep(1, t=length(ydims))
+    starty_template <- rep(1, times=length(ydims))
     starty_template[loop_along_dimids_r[2]] <- "i"
     county <- ydims
     county[loop_along_dimids_r[2]] <- 1
@@ -189,9 +189,9 @@
     # lm along given dimenson
     #n <- 2
     message("calc lm along dims of common length ", n, " ...")
-    intercepts <- intercept_errors <- intercept_pvals <- rep(NA, t=n)
-    slopes <- slope_errors <- slope_pvals <- rep(NA, t=n)
-    rsqs <- rsq_adjs <- rep(NA, t=n)
+    intercepts <- intercept_errors <- intercept_pvals <- rep(NA, times=n)
+    slopes <- slope_errors <- slope_pvals <- rep(NA, times=n)
+    rsqs <- rsq_adjs <- rep(NA, times=n)
     for (i in 1:n) {
 
         message(i, "/", n)
@@ -203,7 +203,7 @@
         if (class(inx) == "ncdf4") {
             xdata <- ncvar_get(inx, varx, start=startx, count=countx, collapse_degen=F)
         } else if (is.list(inx)) {
-            cmd <- rep(",", t=length(xdims))
+            cmd <- rep(",", times=length(xdims))
             cmd[loop_along_dimids[1]] <- "i"
             cmd <- paste(cmd, collapse="")
             cmd <- paste0("xdata <- inx$varx[", cmd, "]")
@@ -217,7 +217,7 @@
         if (class(iny) == "ncdf4") {
             ydata <- ncvar_get(iny, vary, start=starty, count=county, collapse_degen=F)
         } else if (is.list(iny)) {
-            cmd <- rep(",", t=length(ydims))
+            cmd <- rep(",", times=length(ydims))
             cmd[loop_along_dimids[2]] <- "i"
             cmd <- paste(cmd, collapse="")
             cmd <- paste0("ydata <- iny$vary[", cmd, "]")
@@ -232,10 +232,10 @@
 
         # run linear regression on wanted dimensions
         #lm <- lm(as.vector(ydata) ~ as.vector(xdata))
-        cmdx <- rep(",", t=length(xdims))
+        cmdx <- rep(",", times=length(xdims))
         cmdx[seq_len(length(xdims))[-lm_dimids$x]] <- 1
         cmdx <- paste0("as.vector(xdata[", paste(cmdx, collapse=""), "])")
-        cmdy <- rep(",", t=length(ydims))
+        cmdy <- rep(",", times=length(ydims))
         cmdy[seq_len(length(ydims))[-lm_dimids$y]] <- 1
         cmdy <- paste0("as.vector(ydata[", paste(cmdy, collapse=""), "])")
         cmd <- paste0("lm <- lm(", cmdy, " ~ ", cmdx, ")")

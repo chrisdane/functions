@@ -281,7 +281,7 @@ update_check <- function() {
     # -> it works better to update packages with the r version according to the package location
     #libpaths <- libpaths[1] # this only applies to my file structure
     
-    li <- vector("list", l=length(libpaths))
+    li <- vector("list", length.out=length(libpaths))
     # first loop just show packages to upgrade
     for (libpathi in seq_along(libpaths)) {
         message("*************************************************\n",
@@ -426,7 +426,7 @@ load_package <- function(packagename, indent="   ") { # used by rfesom
             message(indent, "Could not load '", packagename, "' package from")
             message(indent, "   .libPaths=", ifelse(length(.libPaths()) > 1, "c('", "'"),
                          paste0(.libPaths(), 
-                                collapse=paste0("',\n", paste0(rep(" ", t=nchar(indent)), collapse=""), paste0(rep(" ", t=15), collapse=""), "'")),
+                                collapse=paste0("',\n", paste0(rep(" ", times=nchar(indent)), collapse=""), paste0(rep(" ", times=15), collapse=""), "'")),
                     ifelse(length(.libPaths()) > 1, "')", "'"), ".")
             message(indent, "If ", packagename, " is installed somewhere else, you can add library paths by providing")
             message(indent, "   rpackagepaths='/path/to/installed/packages'")

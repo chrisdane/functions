@@ -161,35 +161,35 @@ pCO2w_from_alk_dic_tans98 <- function(SALT=34.78, TEMP=16., alk=2311, DIC=2002, 
     nmax <- max(nunique)
     if (length(SALT) != nmax) {
         if (length(SALT) == 1) {
-            SALT <- rep(SALT, t=nmax)
+            SALT <- rep(SALT, times=nmax)
         } else {
             stop("SALT is not of length 1 and not of length nmax = ", nmax)
         }
     }
     if (length(TEMP) != nmax) {
         if (length(TEMP) == 1) {
-            TEMP <- rep(TEMP, t=nmax)
+            TEMP <- rep(TEMP, times=nmax)
         } else {
             stop("TEMP is not of length 1 and not of length nmax = ", nmax)
         }
     }
     if (length(alk) != nmax) {
         if (length(alk) == 1) {
-            alk <- rep(alk, t=nmax)
+            alk <- rep(alk, times=nmax)
         } else {
             stop("alk is not of length 1 and not of length nmax = ", nmax)
         }
     }
     if (length(DIC) != nmax) {
         if (length(DIC) == 1) {
-            DIC <- rep(DIC, t=nmax)
+            DIC <- rep(DIC, times=nmax)
         } else {
         stop("DIC is not of length 1 and not of length nmax = ", nmax)
         }
     }
     if (length(pH) != nmax) {
         if (length(pH) == 1) {
-            pH <- rep(pH, t=nmax)
+            pH <- rep(pH, times=nmax)
         } else {
         stop("pH is not of length 1 and not of length nmax = ", nmax)
         }
@@ -201,7 +201,7 @@ pCO2w_from_alk_dic_tans98 <- function(SALT=34.78, TEMP=16., alk=2311, DIC=2002, 
     DIC <- DIC * 1.e-6    # micromoles to moles
 
     # Set values of prescribed constants
-    S <- rep(34.78, t=nmax)    # Salinity in ppt
+    S <- rep(34.78, times=nmax)    # Salinity in ppt
     Boron <- 1.179e-5 * S      # Total Boron mole/kg as a fraction of salinity
 
     # Carbonate and boric acid equilibrium constants as functions of temp and S
@@ -228,7 +228,7 @@ pCO2w_from_alk_dic_tans98 <- function(SALT=34.78, TEMP=16., alk=2311, DIC=2002, 
     tiny.diff.H <- 1.e-15 
     
     # loop through provided vector
-    CA <- iter_all <- rep(NA, t=nmax)
+    CA <- iter_all <- rep(NA, times=nmax)
     for (i in seq_along(H)) {
 
         iter <- 0

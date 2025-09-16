@@ -24,7 +24,7 @@ plot.nxm <- function(x, y, n, m,
             n <- 3
             m <- 2
         }
-        x <- y <- vector("list", l=nplots)
+        x <- y <- vector("list", length.out=nplots)
         for (i in seq_len(nplots)) {
             x[[i]] <- 1:20
             y[[i]] <- rnorm(20)
@@ -94,9 +94,9 @@ plot.nxm <- function(x, y, n, m,
     }
 
     # columns for plots in relative units
-    layout_widths <- rep(1/m, t=m)
+    layout_widths <- rep(1/m, times=m)
     # rows for plots in relative units
-    layout_heights <- rep(1/n, t=n)
+    layout_heights <- rep(1/n, times=n)
 
     if (verbose) {
         cat("nrow x ncol = n x m = ", n, " x ", m, "\n")
@@ -138,7 +138,7 @@ plot.nxm <- function(x, y, n, m,
     } else { # default: a) 1, b) 2, ...
         ynames <- names(y)
         if (is.null(ynames)) {
-            ynames <- rep("", t=nplots)
+            ynames <- rep("", times=nplots)
             for (i in seq_len(nplots)) {
                 ynames <- paste0(letters[i], ") ", seq_len(nplots))
             }   
@@ -150,14 +150,14 @@ plot.nxm <- function(x, y, n, m,
     if (missing(ltys)) stop("ltys is missing")
     if (missing(lwds)) stop("lwds is missing")
     if (missing(pchs)) stop("pchs is missing")
-    if (missing(types)) types <- rep("l", t=nplots)
-    if (missing(cexs)) cexs <- rep(1, t=nplots)
+    if (missing(types)) types <- rep("l", times=nplots)
+    if (missing(cexs)) cexs <- rep(1, times=nplots)
     if (missing(x_lab)) {
-        x_lab <- vector("list", l=nplots)
+        x_lab <- vector("list", length.out=nplots)
         x_lab[] <- "x_lab"
     }
     if (missing(y_lab)) {
-        y_lab <- vector("list", l=nplots)
+        y_lab <- vector("list", length.out=nplots)
         y_lab[] <- "y_lab"
     }
 
@@ -180,40 +180,40 @@ plot.nxm <- function(x, y, n, m,
     } # if ylim is provided or not
 
     if (!any(dot_names == "x_at")) {
-        x_at <- vector("list", l=nplots)
+        x_at <- vector("list", length.out=nplots)
     } else {
         x_at <- dot_list[["x_at"]]
         if (!is.list(x_at)) stop("x_at needs to be a list")
         if (verbose) cat("provided x_at = "); sapply(x_at, "[")
     }
     if (!any(dot_names == "y_at")) {
-        y_at <- vector("list", l=nplots)
+        y_at <- vector("list", length.out=nplots)
     } else {
         y_at <- dot_list[["y_at"]]
         if (!is.list(y_at)) stop("y_at needs to be a list")
         if (verbose) cat("provided y_at = "); sapply(y_at, "[")
     }
     if (!any(dot_names == "x_labels")) {
-        x_labels <- vector("list", l=nplots)
+        x_labels <- vector("list", length.out=nplots)
     } else {
         x_labels <- dot_list[["x_labels"]]
         if (!is.list(x_labels)) stop("x_labels needs to be a list")
         if (verbose) cat("provided x_labels = "); sapply(x_labels, "[")
     }
     if (!any(dot_names == "y_labels")) {
-        y_labels <- vector("list", l=nplots)
+        y_labels <- vector("list", length.out=nplots)
     } else {
         y_labels <- dot_list[["y_labels"]]
         if (!is.list(y_labels)) stop("y_labels needs to be a list")
         if (verbose) cat("provided y_labels = "); sapply(y_labels, "[")
     }
     
-    x_plot <- y_plot <- vector("list", l=nplots)
+    x_plot <- y_plot <- vector("list", length.out=nplots)
     for (i in seq_len(nplots)) { 
         if (verbose) message("prepare plot ", i, "/", nplots)
         l <- max(length(x[[i]]), length(y[[i]]))
-        x_plot[[i]] <- seq(xlim[[i]][1], xlim[[i]][2], l=l)
-        y_plot[[i]] <- seq(ylim[[i]][1], ylim[[i]][2], l=l)
+        x_plot[[i]] <- seq(xlim[[i]][1], xlim[[i]][2], length.out=l)
+        y_plot[[i]] <- seq(ylim[[i]][1], ylim[[i]][2], length.out=l)
         if (verbose) {
             cat("x_plot[[", i, "]] = ")
             message(str(x_plot[[i]]))
@@ -340,7 +340,7 @@ plot.nxm <- function(x, y, n, m,
         if (one_ylim) ylimi <- ylim_all
         
         # Open plot device
-        plot(x_plot[[i]], y_plot[[i]], t="n",
+        plot(x_plot[[i]], y_plot[[i]], times="n",
 			 xlim=xlimi, ylim=ylimi,
              xaxt="n", yaxt="n", 
              xlab=NA, ylab=NA)
@@ -352,7 +352,7 @@ plot.nxm <- function(x, y, n, m,
         }
 
         # add data
-        points(x[[i]], y[[i]], t=types[i], 
+        points(x[[i]], y[[i]], times=types[i], 
                lty=ltys[i], lwd=lwds[i],
                pch=pchs[i], cex=cexs[i],
                col=cols[i])

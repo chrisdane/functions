@@ -46,7 +46,7 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
     # - zoo::yearmon() works well except a slight difference in HH:MM:SS, and only works for years >= 0
     if (F) { # debug
         library(lubridate); library(zoo)
-        years <- seq(2000, b=1/12, l=12) # positive 
+        years <- seq(2000, by=1/12, length.out=12) # positive 
         data.frame(lubri=lubridate::date_decimal(years), zoo=as.POSIXct(zoo::yearmon(years)), my=yearsdec_to_ymdhms(years)$text)
         #                 lubri                 zoo                  my
         #1  2000-01-01 00:00:00 2000-01-01 01:00:00 2000-01-01 00:00:00
@@ -61,7 +61,7 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
         #10 2000-10-01 12:00:00 2000-10-01 02:00:00 2000-10-01 00:00:00
         #11 2000-10-31 23:59:59 2000-11-01 01:00:00 2000-11-01 00:00:00
         #12 2000-12-01 12:00:00 2000-12-01 01:00:00 2000-12-01 00:00:00
-        years <- seq(-1, b=1/12, l=24) # negative
+        years <- seq(-1, by=1/12, length.out=24) # negative
         data.frame(lubri=lubridate::date_decimal(years), my=yearsdec_to_ymdhms(years)$text)
         #               lubri                my
         #1  -1-01-01 00:00:00 -1-01-01 00:00:00
@@ -138,7 +138,7 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
     text <- paste0(years, "-", sprintf("%02i", months), "-", sprintf("%02i", days), " ", 
                    sprintf("%02i", hours), ":", sprintf("%02i", mins), ":", sprintf("%02i", secs))
     if (length(nonNAinds) != length(yearsdec)) {
-        years2 <- months2 <- days2 <- hours2 <- mins2 <- secs2 <- text2 <- rep(NA, t=length(yearsdec))
+        years2 <- months2 <- days2 <- hours2 <- mins2 <- secs2 <- text2 <- rep(NA, times=length(yearsdec))
         years2[nonNAinds] <- years
         months2[nonNAinds] <- months
         days2[nonNAinds] <- days
@@ -158,7 +158,7 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
                                 allow_sticky=T, verbose=0) {
 
     # simpler: lubridate::date_decimal() but this function has a bug:
-    # as.POSIXlt(lubridate::date_decimal(seq(2000, b=1/12, l=12)))$mon+1 = 
+    # as.POSIXlt(lubridate::date_decimal(seq(2000, by=1/12, length.out=12)))$mon+1 = 
     # 1  1  3  4  5  6  7  8  9 10 10 12
 
     # input: 
@@ -243,7 +243,7 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
             tmp <- seq.POSIXt(from=as.POSIXlt(paste0("0000-",
                                                      months[years_ge_zero_ge_10000][yeari], "-",
                                                      days[years_ge_zero_ge_10000][yeari]), 
-                                              tz="UTC"), l=2, b=by, tz="UTC")[2]
+                                              tz="UTC"), length.out=2, by=by, tz="UTC")[2]
             lt_ge_zero_ge_10000[yeari] <- as.POSIXlt(tmp)
             if (verbose > 1) message("case 2 year ", years[years_ge_zero_ge_10000][yeari], ": from 0 by ", by, " --> ", 
                                      lt_ge_zero_ge_10000[yeari], " since ", origin_in)
@@ -263,7 +263,7 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
             tmp <- seq.POSIXt(from=as.POSIXlt(paste0("0000-",
                                                      months[years_lt_zero][yeari], "-",
                                                      days[years_lt_zero][yeari]), 
-                                              tz="UTC"), l=2, b=by, tz="UTC")[2]
+                                              tz="UTC"), length.out=2, by=by, tz="UTC")[2]
             lt_lt_zero[yeari] <- as.POSIXlt(tmp)
             if (verbose > 1) message("case 3 year ", years[years_lt_zero][yeari], ": from 0 by ", by, " --> ", 
                                      lt_lt_zero[yeari], " since ", origin_in)
@@ -276,7 +276,7 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
     } # if any negative years since origin_in
 
     # combine all cases
-    posixlt <- as.POSIXlt(seq.POSIXt(as.POSIXlt("0-1-1", tz="UTC"), b="1 day", 
+    posixlt <- as.POSIXlt(seq.POSIXt(as.POSIXlt("0-1-1", tz="UTC"), by="1 day", 
                                      l=nyearsin)) # placeholder
     if (length(years_ge_zero_lt_10000) > 0) {
         posixlt[nonNAinds[years_ge_zero_lt_10000]] <- lt_ge_zero_lt_10000
@@ -314,7 +314,7 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
     if (verbose > 0) message("class(posixlt) = ", paste(class(posixlt), collapse=", "))
     
     # fix time zone
-    #posixlt$zone <- rep("UTC", t=length(posixlt)) # todo: this breaks if input `years` is of length 1
+    #posixlt$zone <- rep("UTC", times=length(posixlt)) # todo: this breaks if input `years` is of length 1
     #if (verbose > 0) message("6 class(posixlt) = ", class(posixlt))
 
     # sort
@@ -372,41 +372,47 @@ difftime_yr <- function(from, to) {
     # --> age_a = 0.6612903 + 0.3387097 = 1 --> correct
     if (missing(from)) {
         message("`from` is missing --> use 1970-1-1")
-        from <- as.POSIXct("1970-1-1", tz="UTC")
+        from <- base::as.POSIXct("1970-1-1", tz="UTC")
     }
     if (missing(to)) {
-        to <- as.POSIXct(Sys.time(), tz="UTC")
+        to <- base::as.POSIXct(Sys.time(), tz="UTC")
         message("`to` is missing --> use today: ", format(to, "%Y-%m-%d"))
     }
     for (i in seq_len(2)) {
-        if (i == 1) class <- class(from)
-        if (i == 2) class <- class(to)
+        if (i == 1) arg <- from
+        if (i == 2) arg <- to
+        class <- class(arg)
         if (length(class) == 2 && class[2] == "POSIXt") {
-        } else if (length(class) == 1 && class == "Date") { # add further if needed
+        } else if (length(class) == 1 && class == "Date") {
+            # nothing to do
         } else {
             message("class of `", ifelse(i == 1, "from", "to"), "` (\"",  
                     paste(class, collapse="\", \""), "\") must be \"Date\" or \"POSIX*t\" --> run `base::as.POSIXct()` ...")
-            if (i == 1) from <- as.POSIXct(from)
-            if (i == 2) to <- as.POSIXct(to)
+            if (is.character(arg) && arg == "today" ) arg <- Sys.Date()
+            arg <- base::as.POSIXct(arg)
+            if (i == 1) from <- arg
+            if (i == 2) to <- arg
         }
     }
     if (length(from) != length(to)) {
         if (length(from) == 1 && length(to) != 1) { # repeat from
-            from <- rep(from, t=length(to))
+            from <- rep(from, times=length(to))
         } else if (length(from) != 1 && length(to) == 1) { # repeat to
-            to <- rep(to, t=length(from))
+            to <- rep(to, times=length(from))
         } else {
             stop("`from` and `to` must either be of same length or, if not, one of both must be of length 1")
         }
     }
+    
     # ignore hour, min, sec
-    fromlt <- as.POSIXlt(from); tolt <- as.POSIXlt(to)
+    fromlt <- base::as.POSIXlt(from); tolt <- base::as.POSIXlt(to)
     fromlt$hour <- fromlt$min <- fromlt$sec <- tolt$hour <- tolt$min <- tolt$sec <- 0
-    from <- as.POSIXct(fromlt); to <- as.POSIXct(tolt)
+    from <- base::as.POSIXct(fromlt); to <- base::as.POSIXct(tolt) # update
+    
     dpms <- c("Jan"=31, "Feb"=28, "Mar"=31, "Apr"=30, "May"=31, "Jun"=30, # days per month of non-leap year
               "Jul"=31, "Aug"=31, "Sep"=30, "Oct"=31, "Nov"=30, "Dec"=31)
     mpy <- 12 # 12 months per year
-    ages_yr <- ages_day <- rep(NA, t=length(from)) # todo: ages_day
+    ages_yr <- ages_day <- rep(NA, times=length(from)) # todo: ages_day
     for (datei in seq_along(ages_yr)) {
         dpm_start <- unname(dpms[fromlt[datei]$mon + 1]) # days per month of start month
         if (fromlt[datei]$mon + 1 == 2 && # if start mon is Feb and start year is leap year
@@ -446,26 +452,36 @@ difftime_yr <- function(from, to) {
     return(data.frame(from=from, to=to, dyr=ages_yr, dmon=ages_yr*12))
 } # difftime_yr()
 
-if (F) { # todo: seq(from, to, b=non-integer-month)
+if (F) { # todo: seq(from, to, by=non-integer-month)
     origin <- as.POSIXlt("2015-1-1 00:00:00") # from nc1$dim$time$units = "months since 2015-1-1 00:00:00"
     dts <- nc1$dim$time$vals # 0.5 12 24 ... 984 996 1007 months since 2015-1-1
     # integer months can be understood by `seq`, non-integer months not:
-    time <- rep(origin, t=length(dts)) # placeholder
+    time <- rep(origin, times=length(dts)) # placeholder
     month_of_origin <- origin$mon+1 # e.g. 1 for January
     for (ti in seq_along(time)) {
         if (dts[ti] %% 1 == 0) { # dt in months is integer, e.g. 12 --> `seq` can be used
-            time[ti] <- seq(origin, by=paste0(dts[ti], " months"), l=2)[2]
+            time[ti] <- seq(origin, by=paste0(dts[ti], " months"), length.out=2)[2]
         } else if (F) { # dt in months is not integer, e.g. 0.5 --> `seq` can not be used
             full_month <- floor(dts[i]) # e.g. 0 or 12
             rest <- dts[ti] %% 1 # e.g. 0.5
             if (full_month == 0) { # use only origin + rest 
                 time[ti] <- a
             } else { # full_month is not 0
-               a <- seq(origin, by=paste0(dts[ti], " months"), l=2)[2]
+               a <- seq(origin, by=paste0(dts[ti], " months"), length.out=2)[2]
             }
         }
     }
 }
+
+# radian to degree
+rad2deg <- function(rad) {
+    rad * 180 / base::pi
+} # rad2deg
+
+# degree to radian
+deg2rad <- function(deg) {
+    deg / 180 * base::pi
+} # rad2deg
 
 # minute/second degree to decimal degree longitude/latitude
 deg2dec <- function(deg=0.0, min=0.0, sec=0.0, verbose=F) {
@@ -481,10 +497,30 @@ deg2dec <- function(deg=0.0, min=0.0, sec=0.0, verbose=F) {
 } # deg2dec
 
 m2lon <- function(dm, alat) {
+    # American Practical Navigator, 2002 Bicentennial Edition
+    # Appendix: Tables (p. 557, pdf p. 567)
+    # --> Cartographic tables (p. 558, pdf p. 568)
+    #     --> Table 7 Explanation: Length of a Degree of Lat and Lon (p. 558, pdf p. 568)
+    #     --> Table 7: p. 672, pdf p. 682
+    # > This table gives the length of one degree of lat and lon at intervals of 1° lat.
+    #   In case of lat, the values given are the lengths of the arcs extending half a deg
+    #   on each side of the tabulated lats.
+    #   The values were computed using the World Geodetic System ellipsoid of 1972:
+    #      M = 111,132.92 - 559.82 cos 21L + 1.175 cos 4L - 0.0023 cos 6L + ...
+    #      P = 111,412.84 cos L - 93.5 cos 3L + 0.118 cos 5L - ...
+    #   in which M is the length of 1° of the meridian (latitude), L is the latitude,
+    #   and P is the length of 1° of the parallel (longitude).
+    
+    # http://www.movable-type.co.uk/scripts/latlong.html
+
     # dm = distance in meters
     # alat = average latitude between the two fixes
-    # American Practical Navigator, Vol II, 1975 Edition, p 5
-    # http://www.movable-type.co.uk/scripts/latlong.html
+    
+    semi_major_axis_wgs84_m <- 6378137 # a
+    semi_minor_axis_wgs84_m <- 6356752.3142 # b
+    # flattening of wgs84 ellipsoid = (a-b)/a ~ 0.003352811 ~ 1/298.257223563
+    flattening <- (semi_major_axis_wgs84_m - semi_minor_axis_wgs84_m)/semi_major_axis_wgs84_m
+    
     rlat <- alat * pi/180 # alat in radian
     p <- 111415.13 * cos(rlat) - 94.55 * cos(3 * rlat)
     dlon <- dm / p
@@ -521,15 +557,15 @@ km2deg <- function(dkm=100, lat=45) {
     }
     if (length(dkm) != length(lat)) {
         if (length(dkm) == 1) {
-            dkm <- rep(dkm, t=length(lat))
+            dkm <- rep(dkm, times=length(lat))
         } else if (length(lat) == 1) {
-            lat <- rep(lat, t=length(dkm))
+            lat <- rep(lat, times=length(dkm))
         } else {
             stop("`dkm` and `lat` must either be of same length or one of the two must be of length 1")
         }
     }
     message("convert km to degree at ", length(dkm), " locations ...")
-    deg <- rep(NA, t=length(dkm))
+    deg <- rep(NA, times=length(dkm))
     for (di in seq_along(dkm)) {
         one_deg_km <- fields::rdist.earth(cbind(0, lat[di]),
                                           cbind(1, lat[di]),
@@ -692,6 +728,9 @@ distance_fesom1 <- function(lon1, lat1, lon2, lat2, r_earth_km=6367.5) {
     return(list(dist_km=dist, r_km=r_earth_km))
 } # distance_fesom1
 
+#library(SDMTools) # for grid.info()
+#area_m2 <- grid.info(lats=lat, cellsize=diff(lon)[1])$area
+
 # Calculates the geodesic distance between two points specified by degrees latitude/longitude 
 # using different methods
 dists <- function(lon1=8.38, lat1=45.80, lon2=8.38+1, lat2=45.80+1, pres1=0, pres2=0) {
@@ -757,7 +796,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
             }
 
             # load nc_varname from nc_file
-            data360 <- vector("list", l=length(nc_varname))
+            data360 <- vector("list", length.out=length(nc_varname))
             for (vi in seq_along(nc_varname)) {
                 message("check if `nc_varname[", vi, "]` \"", nc_varname[vi], "\" has lon dim ...")
                 varind <- which(nc_varname[vi] == names(nc$var))
@@ -840,7 +879,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
         if (all(lon180 == lon360)) { # no conversion necessary
             ret$data180 <- data360 
         } else { # conversion necessary
-            data180 <- vector("list", l=length(data360))
+            data180 <- vector("list", length.out=length(data360))
             names(data180) <- names(data360)
             for (vi in seq_along(data180)) {
                 arr360 <- as.array(data360[[vi]]) # any dims
@@ -848,21 +887,21 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
                 cmd1 <- cmd2 <- cmd3 <- NA
                 verbose <- list()
                 if (length(ge180_and_lt360_inds) > 0) {
-                    tmp <- rep(",", t=length(dim(arr360))) 
+                    tmp <- rep(",", times=length(dim(arr360))) 
                     tmp[londimind] <- "ge180_and_lt360_inds"
                     tmp <- paste(tmp, collapse="")
                     cmd1 <- paste0("arr360[", tmp, "]")
                     verbose[[length(verbose)+1]] <- ge180_and_lt360_inds
                 }
                 if (length(ge360_inds) > 0) {
-                    tmp <- rep(",", t=length(dim(arr360))) 
+                    tmp <- rep(",", times=length(dim(arr360))) 
                     tmp[londimind] <- "ge360_inds"
                     tmp <- paste(tmp, collapse="")
                     cmd2 <- paste0("arr360[", tmp, "]")
                     verbose[[length(verbose)+1]] <- ge360_inds
                 }
                 if (length(ge0_and_lt180_inds) > 0) {
-                    tmp <- rep(",", t=length(dim(arr360))) 
+                    tmp <- rep(",", times=length(dim(arr360))) 
                     tmp[londimind] <- "ge0_and_lt180_inds"
                     tmp <- paste(tmp, collapse="")
                     cmd3 <- paste0("arr360[", tmp, "]")
@@ -968,7 +1007,7 @@ myma <- function(x, order, verbose=F, ...) {
                 monthly ts --> order=36 --> 3a ma\n
                 daily   ts --> order=\n")
     }
-    y <- stats::filter(x, filter=rep(1/order, t=order))
+    y <- stats::filter(x, filter=rep(1/order, times=order))
 }
 
 mysd <- function(x) {
@@ -1085,7 +1124,7 @@ is_normal <- function(x, significance=0.05, verbose=T) {
     if (!is.vector(significance)) stop("`significance` must be vector")
     if (length(significance) != 1) stop("length of `significance` must be 1")
 
-    res <- rep(T, t=2) # default: distribution of x is not significantly different from normal distribution
+    res <- rep(T, times=2) # default: distribution of x is not significantly different from normal distribution
     
     # 1. shapiro
     st <- stats::shapiro.test(x)
@@ -1130,7 +1169,7 @@ are_equal <- function(x, y, significance=0.05, verbose=T) {
     if (!is.vector(significance)) stop("`significance` must be vector")
     if (length(significance) != 1) stop("length of `significance` must be 1")
 
-    res <- rep(T, t=2) # default: x and y are equal
+    res <- rep(T, times=2) # default: x and y are equal
     
     # 1. t-test
     ttest <- stats::t.test(x, y)
@@ -1163,21 +1202,39 @@ are_equal <- function(x, y, significance=0.05, verbose=T) {
     return(res)
 } # are_equal
 
-# effective sample size after thiebaux and zwiers 1984
-# --> formulated as in hannachi et al. 2007: `n_eff = n * (1 + 2 * sum_{k=1}^{n-1} (1-k/n) * \rho(k))^{-1}
-neff <- function(ts) {
-    if (missing(ts)) stop("ts missing")
-    if (!is.null(dim(ts))) {
-        if (length(dim(ts)) > 1) stop("ts must be vector")
-        ts <- as.vector(ts)
-    }
-    # autocorrelation rho
-    rho <- stats::acf(ts, lag.max=length(ts)-1, plot=F)
-    rho <- rho$acf[seq_len(length(ts) - 1)]
-    fac <- 1 - seq_len(length(rho))/length(ts)
-    neff <- length(ts)*(1 + 2 * sum(fac * rho))^-1
-    as.integer(neff)
-} # neff function
+# effective sample size 
+# thiebaux and zwiers 1984:
+# > ?
+# zwiers and von storch 1995: (after their eq. 2):
+# > In this example, and in many applications in climate
+#   research, the assumption that the observations are sta-
+#   tistically independent is not satisfied. Consequently,
+#   the Students's t-test tends to reject that null hgypothesis
+#   on weaker evidence than is implied by the significance
+#   level² that is specified for the test. Consequently, the
+#   Student's t-test will reject the null hypothesis more fre-
+#   quently than expected when the null hypothesis is true.
+# hannachi et al. 2007 (after their eq. 18):
+# > The effective sample 
+#   size of a time series of length n involves in general
+#   the autocorrelation structure of the series. For example,
+#   the sum of the autocorrelation function, 1 + 2 k≥1 ρ(k),
+#   provides a measure of the decorrelation time, and an
+#   estimate of n_eff is given by (Thiébaux and Zwiers, 1984);
+# n_eff = thiebaux and zwiers 1984 eq. 2.1 
+#       = zwiers and von storch 1995 eq. 4 
+#       = hannachi et al. 2007 after their eq. 18
+#       = n * ( 1 + 2 * sum_{k=1}^{n-1} (1-k/n) * rho(k) )^{-1}
+n_eff <- function(ts) {
+    if (missing(ts)) ts <- stats::rnorm(n=100, mean=0, sd=1) # random normal distributed
+    if (!is.null(dim(ts))) stop("ts must be vector")
+    n <- length(ts)
+    rho <- stats::acf(ts, lag.max=n-1, plot=F) # autocorrelation rho
+    rho <- rho$acf[seq_len(n - 1)]
+    k <- length(rho)
+    fac <- 1 - seq_len(k)/n
+    n*(1 + 2 * sum(fac*rho))^-1 # n_eff
+} # n_eff function
 
 # eigenvalue and -vector uncertainty after north et al. 1982
 # --> formulated as in hannachi et al. 2007
@@ -1214,11 +1271,11 @@ detrend <- function(y=rnorm(10)) {
     if (length(okinds) < 3) stop("need at least 3 non-NA points")
     x <- seq_along(okinds)
     tr <- stats::lm(y[okinds] ~ x)
-    y[okinds] - tr$fitted.values
+    y[okinds] - tr$fitted.values # todo: mask !okinds
 } # detrend
 
 # model resolutions
-km_from_nx_ny <- function(nx, ny) {
+nx_ny_to_km <- function(nx, ny) {
     # from introduction of boucher et al. 2020: https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2019MS002010
     Rearth <- 6371 # km 
     sqrt(4*pi*Rearth^2/(nx*ny)) # km
@@ -1244,7 +1301,7 @@ speeds <- function(x=1, unit="cm/s") {
 # convert masses with units package
 masses <- function(x=1, unit="g") {
     library(units) # valid_udunits()
-    x <- set_units(x=x, value=unit, mode="standard")
+    x <- units::set_units(x=x, value=unit, mode="standard")
     units <- data.frame(unit=c("g", "kg", "t", "Mt",               "Gt",                                    "Tg",                                     "Pg",      "Tt"),
                         note=c("",  "",   "",  "mega 6 (million)", "giga 9 (billion short, milliard long)", "tera 12 (trillion short, billion long)", "peta 15", "tera 12"))  
     vals <- units$unit
@@ -1261,52 +1318,41 @@ masses <- function(x=1, unit="g") {
 kgFW_m2_s1_to_mFW_s1 <- function(kgFW_m2_s1) {
     kgFW_m2_s1 / 1e3 # kg m-2 --> m-1
 }
-
 kgFW_m2_s1_to_GtFW_yr1 <- function(kgFW_m2_s1) {
     Aearth <- 5.100656e14 # m2
     kgFW_m2_s1 * Aearth / 1e12 * (365.25*86400) # m-2 -> fldint; kg -> Gt; s-1 -> yr-1
 }
-
 kgFW_s1_to_GtFW_yr1 <- function(kgFW_s1) {
     kgFW_s1 / 1e12 * (365.25*86400) # kg -> Gt; s-1 -> yr-1
 }
-
 GtFW_yr1_to_kgFW_m2_s1 <- function(GtFW_yr1=31557.6) { # 1 Sv
     Aearth <- 5.100656e14 # m2
     GtFW_yr1 / Aearth * 1e12 / (365.25*86400) # global -> m-2; Gt -> kg; yr-1 -> s-1
 }
-
 GtFW_yr1_to_kgFW_s1 <- function(GtFW_yr1=31557.6) {
     GtFW_yr1 * 1e12 / (365.25*86400) # Gt -> kg; yr-1 -> s-1
 } # gtFW_yr1_to_kgFW_s1
-
 km3_yr1_to_m3_s1 <- function(km3_yr1) {
     km3_s1 * 1e9 / 365.25 / 86400 # (km)3 -> m3; yr-1 -> s-1
 }
-
 SvFW_to_GtFW_yr1 <- function(SvFW=NULL, GtFW_yr1=NULL, ndpy=365.25, verbose=T) {
     if (is.null(SvFW) && is.null(GtFW_yr1)) stop("one of `SvFW` or `GtFW_yr1` must be numeric")
     fac_m3_s1 <- 1e9*1e3/(ndpy*86400*1e3) # 1e9 from giga; 1e3 from t
-    # 1 yr = 360    days:       31104   m3 s-1
-    # approximation often used: 31500   m3 s-1
-    # 1 yr = 365    days:       31536   m3 s-1
-    # 1 yr = 365.25 days:       31557.6 m3 s-1
-    # 1 yr = 366    days:       31622.4 m3 s-1
+    # 1 yr = 360    days:         31104   m3 s-1
+    # approximation used by some: 31500   m3 s-1
+    # 1 yr = 365    days:         31536   m3 s-1
+    # approximation used by some: 31540   m3 s-1
+    # 1 yr = 365.25 days:         31557.6 m3 s-1
+    # 1 yr = 366    days:         31622.4 m3 s-1
     if (verbose) {
         message("rho_freshwater = 1e3 kg m-3\n",
+                "ndpy = ", ndpy, "\n",
                 "--> volume_freshwater = mass_freshwater/rho_freshwater = 1 kg / (1e3 kg m-3) = 1/1e3 m3\n",
                 "    Gt freshwater   1e9 * 1e3 kg freshwater   1e9 * 1e3        m3\n",
                 "    ------------- = ----------------------- = -------------------- = ", fac_m3_s1, " m3 s-1\n",
                 "    yr              ", ndpy, " * 86400 s          ", ndpy, " * 86400 s 1e3\n",
-                "<=> 1/", fac_m3_s1, " Gt yr-1 = ", 1/fac_m3_s1, " Gt yr-1 = m3 s-1\n",
+                "<=> m3 s-1 = 1/", fac_m3_s1, " Gt yr-1 = ", 1/fac_m3_s1, " Gt yr-1\n",
                 "--> Sv = 1e6 m3 s-1 = 1e6/", fac_m3_s1, " Gt yr-1 = ", 1e6/fac_m3_s1, " Gt yr-1")
-                # rho_freshwater = 1e3 kg m-3
-                # --> volume_freshwater = mass_freshwater/rho_freshwater = 1 kg / (1e3 kg m-3) = 1/1e3 m3
-                #     Gt freshwater   1e9 * 1e3 kg freshwater   1e9 * 1e3        m3
-                #     ------------- = ----------------------- = -------------------- = 31.688087814029 m3 s-1
-                #     yr              365.25 * 86400 s          365.25 * 86400 s 1e3
-                # <=> 1/31.688087814029 Gt yr-1 = 0.0315576 Gt yr-1 = m3 s-1
-                # --> Sv = 1e6 m3 s-1 = 1e6/31.688087814029 Gt yr-1 = 31557.6 Gt yr-1
     }
     if (is.null(GtFW_yr1)) {
         res <- SvFW * 1e6 / fac_m3_s1
@@ -1316,7 +1362,7 @@ SvFW_to_GtFW_yr1 <- function(SvFW=NULL, GtFW_yr1=NULL, ndpy=365.25, verbose=T) {
         attributes(res) <- list("units"="Sv freshwater")
     }
     return(res)
-}
+} # SvFW_to_GtFW_yr1
 
 Pa_to_atm <- function(Pa) {
     Pa / 101325
@@ -1352,6 +1398,56 @@ gC_s1_to_PgC_yr1 <- function(gC_s1) {
 }
 gC_s1_to_PgCO2_yr1 <- function(gC_s1) {
     gC_s1 * 365.25*86400 * 3.664191 / 1e15 # s-1 --> yr-1; gC --> gCO2; g --> Pg
+}
+kgC_m2_s1_to_PgC_yr1 <- function(kgC_m2_s1) {
+    Aearth <- 5.100656e14 # m2
+    kgC_m2_s1 * Aearth * 365.25*86400 / 1e12 # m2 -> fldint; s-1 -> yr-1; kg -> Pg 
+}
+kgC_s1_to_gC_yr1 <- function(kgC_s1) {
+    kgC_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g 
+}
+kgC_s1_to_PgC_yr1 <- function(kgC_s1) {
+    kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg 
+}
+kgCO2_kg_to_CO2ppm <- function(kgCO2_kg) {
+    # mass mixing ratio in kg kg-1 -> volume mixing ratio in ppm
+    molar_mass_co2_g_mol <- 44.0095 # g mol-1
+    molar_mass_dry_air_g_mol <- 28.9652 # g mol-1
+    kgCO2_kg * 1e6 * molar_mass_dry_air_g_mol/molar_mass_co2_g_mol # 0.6581579
+}
+kgCO2_m2_s1_to_PgC_yr1 <- function(kgCO2_m2_s1) {
+    Aearth <- 5.100656e14 # m2
+    kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+}
+kgCO2_m2_to_CO2ppm <- function(kgCO2_m2) {
+    Aearth <- 5.100656e14 # m2
+    kgCO2_m2 * Aearth * 0.272912 / 1e12 / 2.124 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
+}
+kgCO2_s1_to_gC_s1 <- function(kgCO2_s1) {
+    kgCO2_s1 * 365.25*86400 / 3.664191 * 100 # s-1 -> yr-1; kgCO2 -> kgC; kgC -> gC
+}
+kgCO2_to_CO2ppm <- function(kgCO2) {
+    kgCO2 * 0.272912 / 1e12 / 2.124 # kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
+}
+kgCO2_to_PgC <- function(kgCO2) {
+    kgCO2 * 0.272912 / 1e12 # kgCO2 -> kgC; kg -> Pg 
+}
+kgCO2_m2_to_PgC <- function(kgCO2_m2) {
+    Aearth <- 5.100656e14 # m2
+    kgCO2_m2 * Aearth * 0.272912 / 1e12 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg 
+}
+kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
+    kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+}
+kgCO2_to_kgC <- function(kgCO2) {
+    kgC <- kgCO2 * 0.272912
+}
+mmolC_d1_to_gC_yr1 <- function(mmolC_d1) {
+    mmolC_d1 / 1e3 * 12.0107 * 365.25 # mmolC --> molC; molC --> gC; d-1 --> yr-1
+}
+mmolC_d1_to_kgCO2_s1 <- function(mmolC_d1) {
+    mmolC_d1 / 1e3 * 12.0107 * 3.664191 / 1e3 / 86400 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2; d-1 --> yr-1
+    # = 5.0936919957986123898e-10
 }
 gC_to_kgC <- function(gC) {
     gC / 1e3 # g --> kg
@@ -1408,6 +1504,9 @@ mmolC_d1_to_kgCO2_s1 <- function(mmolC_d1) {
 mmolC_d1_to_PgC_yr1 <- function(mmolC_d1) {
     mmolC_d1 / 1e3 * 12.0107 / 1e15 * 365.25 # mmolC --> molC; molC --> gC; gC --> PgC; d-1 --> yr-1
 }
+mmolC_to_kgC <- function(mmolC) {
+    mmolC / 1e3 * 12.0107 / 1e3 # mmolC --> molC; molC --> gC; gC --> kgC
+}
 mmolC_to_kgCO2 <- function(mmolC) {
     mmolC / 1e3 * 12.0107 * 3.664191 / 1e3 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2
 }
@@ -1419,6 +1518,12 @@ mmolCO2_to_kgCO2 <- function(mmolCO2) {
 }
 molC_s1_to_kgC_yr1 <- function(molC_s1) {
     molC_s1 * 12.0107 * 365.25*86400 / 1e3 # molC --> gC; s-1 -> yr-1; g -> kg
+}
+mmolCO2_s1_to_kgCO2_s1 <- function(mmolCO2_s1) {
+    mmolCO2_s1 / 1e3 * 44.0095 / 1e3 # mmolCO2 --> molCO2; molCO2 --> gCO2; gCO2 --> kgCO2
+}
+molC_yr1_to_gC_yr1 <- function(molC_yr1) {
+    molC_yr1 * 12.0107 # molC --> gC
 }
 molC_s1_to_PgC_yr1 <- function(molC_s1) {
     molC_s1 * 12.0107 * 365.25*86400 / 1e15 # molC --> gC; s-1 -> yr-1; g -> Pg
@@ -1445,6 +1550,62 @@ molCO2_to_kgC <- function(molCO2) {
 ppm_to_PgC <- function(ppm) {
     ppm * 2.124 # Tab.1 Friedlingstein et al. 2023; ref: Ballantyne et al. 2012
 }
+
+# check available datasets
+mydata <- function(pkgname) {
+    data <- utils::data()$result
+    pkgs <- sort(unique(data[,"Package"]))
+    message("there are ", nrow(data), " available data sets from ", length(pkgs), " loaded packages (not showing functions):")
+    if (!missing(pkgname)) {
+        ind <- match(pkgname, pkgs)
+        if (is.na(ind)) {
+            stop("provided `pkgname` = ", pkgname, " is not one of ", length(pkgs), " loaded packages that come with datasets:\n",
+                 paste(pkgs, collapse=", "), "\n",
+                 "--> run `library(", pkgname, ")` to load your wanted package")
+        }
+        pkgs <- pkgs[ind]
+    }
+    for (pkgi in seq_along(pkgs)) {
+        pkgname <- pkgs[pkgi]
+        inds <- which(data[,"Package"] == pkgname)
+        if (F) { # problem: _descriptive_ dataset name `data[,"Item"]` = "BJsales.lead (BJsales)" cannot be used
+                 #          --> use _programmatic_ name `ls("package:datasets")` --> "BJsales.lead"
+            dnames <- data[inds,"Item"]
+        } else if (T) { # workaround
+            dnames <- base::ls(paste0("package:", pkgname))
+        }
+        if (length(dnames) == 0) {
+            message("found zero data sets via calling `ls(package:", pkgname, ")`\n",
+                    "--> use alternative bad option `data[,\"Item\"]` ...")
+            dnames <- data[inds,"Item"]
+        }
+        for (di in seq_along(dnames)) {
+            dname <- dnames[di] # problem: data set "processingLog<-" produces error due to "<-" --> escape by ``
+            dtitle <- data[inds[di],"Title"]
+            if (is.na(dtitle)) dtitle <- "<no title>"
+            # check if dataset is already loaded by default when package is loaded or not
+            if (!exists(dname)) {
+                cmd <- paste0("utils::data(", dname, ")")
+                eval(parse(text=cmd))
+            }
+            cmd <- paste0("class <- class(`", dname, "`)") 
+            eval(parse(text=cmd))
+            if (any(!is.na(match(c("function", 
+                                   "standardGeneric", "nonstandardGenericFunction", "groupGenericFunction", 
+                                   "FortranRoutine", "NativeSymbolInfo"), class)))) { # do not print if dataset is a function
+                #message("--> dataset of class ", class)
+            } else {
+                message("***************************************************************************\n",
+                        "pkgi ", pkgi, "/", length(pkgs), ": ", pkgname, 
+                        ", di ", di, "/", length(dnames), ": ", dname, ": ", dtitle)
+                cmd <- paste0("cat(capture.output(str(`", dname, "`)), sep=\"\n\")")
+                #message("run `", cmd, "` ...")
+                eval(parse(text=cmd))
+            }
+        } # for di
+    } # for pkgi
+} # mydata
+
 
 ## section 2/2: r and system stuff
 
@@ -1597,6 +1758,10 @@ get_memory_free <- function(format=T) {
   }
 } # get_memory_free()
 
+get_random_number <- function() {
+    paste0(Sys.getpid(), "_", format(Sys.time(), "%s"))
+}
+
 # base::load cannot give a name for the new loaded data
 # --> usage: `myname <- myload("file.RData")` 
 myload <- function(file_rdata) {
@@ -1675,13 +1840,18 @@ ht <- function(x, n=15, transpose=F, ...) {
     }
 } # ht function
 
+# https://stackoverflow.com/questions/19797954/function-to-find-symmetric-difference-opposite-of-intersection-in-r
+# `base::setdiff` is asymmetric difference
+#symdiff <- function(a, b) base::setdiff(base::union(a, b), base::intersect(a, b))
+symdiff <- function(a, b) base::unique(c(base::setdiff(a, b), base::setdiff(b, a))) # quicker
+
 grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
     # in GRL, 1 paper consists of 12 "publication units" (PU) max.
     pu_max <- 12
     # 1 PU = 500 words = 1 fig = 1 tab
     nwords_per_pu <- 500; nfigs_per_pu <- ntabs_per_pu <- 1
     # -> there is a maximum number of words per paper as a function of the number of figures and tables
-    if (missing(ntabs)) ntabs <- rep(0, t=length(nfigs))
+    if (missing(ntabs)) ntabs <- rep(0, times=length(nfigs))
     if (length(ntabs) != length(nfigs)) stop("nfigs and ntabs are of different length")
     nwords <- pu_max*nwords_per_pu - (nfigs + ntabs)*nwords_per_pu
     df <- data.frame(nfig=nfigs, ntab=ntabs, nwords=nwords)
@@ -1732,7 +1902,7 @@ mycols <- function(n) {
     if (n > length(cols)) {
         nmiss <- n - length(cols)
         nrepeat <- ceiling(nmiss/length(cols)) + 1
-        cols <- c(cols, rep(cols, t=nrepeat))
+        cols <- c(cols, rep(cols, times=nrepeat))
     }
     if (n != length(cols)) cols <- cols[seq_len(n)]
     return(cols)
@@ -1806,14 +1976,14 @@ cdo_timstatmean <- function(file, varname, timstats="yearmean") {
     if (cdo == "") stop("could not find cdo")
     if (getRversion() < "3.2.0") stop("R must be >= 3.2.0 to have base::trimws()")
     if (!missing(varname)) {
-        res <- vector("list", l=1)
+        res <- vector("list", length.out=1)
         names(res) <- varname
     } else {
-        res <- vector("list", l=as.integer(trimws(system(paste0(cdo, " nvar ", file), intern=T))))
+        res <- vector("list", length.out=as.integer(trimws(system(paste0(cdo, " nvar ", file), intern=T))))
         names(res) <- strsplit(trimws(system(paste0(cdo, " showname ", file), intern=T)), " ")[[1]]
     }
     for (vari in seq_along(res)) {
-        tmp <- vector("list", l=length(timstats))
+        tmp <- vector("list", length.out=length(timstats))
         names(tmp) <- timstats
         for (timstati in seq_along(timstats)) {
             fout <- paste0("/tmp/tmp_cdo_r", Sys.getpid(), "_vari_", vari, "_", names(res)[vari], "_timstati_", timstati, "_", timstats[timstati])
@@ -1861,36 +2031,35 @@ ncdump_get_filetype <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
     return(file_type)
 } # ncdump_get_filetype
 
-ncdump_showdate <- function(fin, ncdump=Sys.which("ncdump"), verbose=F) {
-    if (missing(fin)) stop("provide `fin`")
-    if (!file.exists(fin)) stop("provided `fin` = ", fin, " does not exist")
-    if (ncdump == "") stop("could not find ncdump")
-    cmd <- paste0("ncdump -ci ", fin) # i: Output time data as date-time strings with ISO-8601 'T' separator
-    if (verbose) message("run `", cmd, "`")
-    dates <- system(cmd, intern=T)
-    # --> dates is e.g.
-    # " time = "2014-01-02", "2014-01-03", ... "
-    # if ncdump-internal conversion to date-time strings was successful or e.g.
-    # " time = -9.050062e+07 ;"
-    # if not
-    ind <- grep(" time = ", dates)
-    if (length(ind) != 1) stop("this should not happen")
-    dates <- dates[ind:(length(dates)-1)]
-    ind <- grep(";", dates)[1]
-    if (length(ind) != 1) stop("this should not happen")
-    dates <- dates[seq_len(ind)]
-    dates <- trimws(sub(" time = ", "", dates))
-    dates <- gsub("\"", "", dates)
-    dates <- sub(" ;", "", dates)
-    dates <- unlist(strsplit(dates, ", "))
-    if (length(gregexpr("-", dates)[[1]]) >= 2) { # ncdump-internal conversion to date-time was successful
-        if (all(grepl("T", dates))) { # `ncdump -ci` returned complete datetime 
-            dates <- base::strptime(dates, format="%Y-%m-%dT%H:%M:%S", tz="UTC") # = posixlt object
-        } else { # `ncdump -ci` returned only date
-            dates <- base::strptime(dates, format="%Y-%m-%d", tz="UTC") # = posixlt object
-        }
+ncdump_showdate <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
+    if (verbose) message("ncdump_showdate() start with `verbose`=T ...")
+    stop("todo")
+    years <- 1948:2009
+    timevarname <- "time"
+    cnt <- 0
+    dates_all <- vector("list", length.out=length(years))
+    for (yi in years) {
+        message(yi, " ", appendLF=F)
+        cnt <- cnt + 1
+        dates <- system(paste0("ncdump -v ", timevarname, " Low01.", yi, ".oce.nc | sed -e '1,/data:/d' -e '$d'"), intern=T)
+        if (any(dates == "")) dates <- dates[-which(dates == "")]
+        if (regexpr(timevarname, dates[1]) == -1) stop("first line should start with ", timevarname)
+        dates[1] <- sub(paste0(timevarname, " = "), "", dates[1])
+        dates <- gsub(";", "", dates)
+        dates <- trimws(dates)
+        dates <- paste(dates, collapse=",")
+        dates <- gsub(",,", ",", dates)
+        dates <- gsub(" ", "", dates)
+        dates <- strsplit(dates, split=",")
+        if (length(dates) != 1) stop("strsplit should yield list of length 1")
+        dates_all[[cnt]] <- as.numeric(dates[[1]])
+    }
+
+    npf <- sapply(dates_all, length)
+    if (length(unique(npf)) != 1) {
+        stop("different number of time points per file detected: ", paste(unique(npf), collapse=", "))
     } else {
-        dates <- as.numeric(dates)
+        time <- rep(years, each=unique(npf))
     }
     return(dates)
 } # ncdump_showdate
@@ -2261,159 +2430,6 @@ par_px2in <- function(px) {
     }
 } # par_px2in 
 
-# show font info
-font_info <- function(fc_list=NULL) {
-
-    # from ?png:
-    # type: character string, one of '"Xlib"' or '"quartz"' (some macOS
-    #       builds) or '"cairo"'.  The latter will only be available if
-    #       the system was compiled with support for cairo - otherwise
-    #       '"Xlib"' will be used.  The default is set by
-    #       'getOption("bitmapType")' - the 'out of the box' default is
-    #       '"quartz"' or '"cairo"' where available, otherwise '"Xlib"'.
-    type <- getOption("bitmapType")
-    message("\ngetOption(\"bitmapType\"): ", type)
-
-    # from ?png:
-    # For types '"cairo"' and '"quartz"', the 'family' argument can
-    # be supplied.  See the 'Cairo fonts' section in the help for
-    # 'X11'.
-    # For type '"cairo"', the 'symbolfamily' argument can be
-    # supplied.  See 'X11.options'.
-
-    # from grDecives::X11.options():
-    x11_opts <- grDevices::X11.options()
-    message("\nX11.options:")
-    cat(capture.output(str(x11_opts)), sep="\n")
-
-    # from grDevices::X11():
-    fonts <- get(".X11.Fonts", envir=grDevices:::.X11env)
-    fonts <- fonts[sort(tolower(names(fonts)), index.return=T)$ix] # sort alphabetically
-    message("\n.X11.Fonts:")
-    cat(capture.output(str(fonts)), sep="\n")
-
-    # plot x11 fonts
-    message("\nplot ", length(fonts), " x11 fonts ...")
-    plotnames <- rep(NA, t=length(fonts))
-    for (fi in seq_along(fonts)) {
-        plotnames[fi] <- paste0("x11_font_", names(fonts)[fi], "_", gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], ".png")
-        message("plot ", plotnames[fi], " ...")
-        png(plotnames[fi], width=1000, height=1000, res=300, family=names(fonts)[fi])
-        plot(1:10, 1:10, t="n", main=names(fonts)[fi])
-        text(1:10, 1:10, paste0(R.version.string, " ", Sys.info()["nodename"]))
-        dev.off()
-    } # for fi
-
-    nm <- grDevices::n2mfrow(length(fonts))
-    plotname <- paste0(gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], "_", length(fonts), "_x11_fonts.png")
-    cmd <- paste0("magick montage -label %f ", paste(plotnames, collapse=" "),
-                  " -geometry 1500x1500 -frame ", nm[1], " -tile 1x", nm[2],
-                  " miff:- | magick montage - -geometry +0+0 -tile ", nm[1], "x1 ", plotname)
-    if (Sys.which("magick") != "") {
-        message("\nrun `", cmd, "` ...")
-        system(cmd)
-        message("--> check combined plot ", plotname)
-        message("\nremove ", length(plotnames), " single plots ...")
-        invisible(file.remove(plotnames))
-    } else {
-        message("--> imagemagick not installed --> check ", length(plotnames), " single plots")
-    }
-
-    # get all available fonts via fc-list
-    message("\nget all available fc-list fonts ...")
-    # figure out which font lib is used: default or non-default (R compiled against specific systemfonts.so):
-    # # default:
-    # fc-list | grep "Sans" | grep ":style=Regular"
-    # # non-default:
-    # ```
-    # unalias R
-    # which R: /sw/spack-levante/r-4.1.2-eprwea/bin/R
-    # ldd $(dirname $(dirname $(which R)))/rlib/R/library/systemfonts/libs/systemfonts.so | grep font
-    # libfontconfig.so.1 => /sw/spack-levante/fontconfig-2.13.94-vzwyua/lib/libfontconfig.so.1 (0x00007f69ec088000)
-    #                       /sw/spack-levante/fontconfig-2.13.94-vzwyua/bin/fc-list | grep "Sans" | grep ":style=Regular"
-    # ```
-    # todo: https://github.com/r-lib/systemfonts/issues/99: unique(dirname(systemfonts::system_fonts()$path))
-    if (is.null(fc_list)) {
-        systemfonts_so <- paste0(R.home(), "/library/systemfonts/libs/systemfonts.so")
-        if (!file.exists(systemfonts_so)) { # default
-            message("did not find systemfonts.so in `R.home()` --> use default fc-list ...")
-            fc_list <- Sys.which("fc-list")
-        } else { # non-default: R was compiled against specific systemfonts.so
-            message("found systemfonts.so in `R.home()`: ", systemfonts_so, " --> find specific fc-list ...")
-            cmd <- paste0("ldd ", systemfonts_so, " | grep font")
-            ldd <- system(cmd, intern=T) # e.g. "\tlibfontconfig.so.1 => /sw/spack-levante/fontconfig-2.13.94-vzwyua/lib/libfontconfig.so.1 (0x00007f1182051000)"
-            if (length(ldd) != 1) stop("ldd result must be of length 1")
-            fontconfig <- strsplit(ldd, " => ")[[1]][2] # e.g. "/sw/spack-levante/fontconfig-2.13.94-vzwyua/lib/libfontconfig.so.1 (0x00007f1182051000)"
-            fontconfig <- strsplit(fontconfig, " ")[[1]][1]
-            fc_list <- paste0(dirname(dirname(fontconfig)), "/bin/fc-list")
-        }
-    } # if (is.null(fc_list)) {
-    if (!file.exists(fc_list)) stop("could not find ", fc_list)
-    message("run `", fc_list, " ...")
-    fonts <- system(fc_list, intern=T) # e.g. "/sw/spack-levante/font-util-1.3.2-m5qnf5/share/fonts/X11/100dpi/timB18-ISO8859-1.pcf.gz: Times:style=Bold"
-    fonts <- fonts[which(!duplicated(sapply(basename(fonts), "[", 1)))] # remove duplicated .ttf/.gz files from different directories 
-    fonts <- strsplit(fonts, ":") # e.g. "/sw/spack-levante/font-util-1.3.2-m5qnf5/share/fonts/X11/100dpi/timB18-ISO8859-1.pcf.gz" " Times" "style=Bold"
-    fontnames <- trimws(sapply(fonts, "[", 2))
-    inds <- sort(tolower(fontnames), index.return=T)$ix # sort alphabetically
-    fonts <- fonts[inds] 
-    fontnames <- fontnames[inds]
-    fontstyles <- gsub("style=", "", trimws(sapply(fonts, "[", 3)))
-    
-    # plot all "*Sans*" "Regular" fonts
-    message("\ncheck fc-list fonts for \"*Sans*\" and style=\"Regular\" fonts from `fc-list` ...")
-    inds1 <- grep("Sans", fontnames)
-    inds2 <- which(fontstyles == "Regular")
-    inds <- intersect(inds1, inds2)
-    if (length(inds) == 0) {
-        message("\nfound zero \"*Sans*\" and \"Regular\" fonts from `fc-list`. cannot plot any")
-    } else { # found some "*Sans*" and "Regular" fonts
-        fonts <- fonts[inds]; fontnames <- fontnames[inds]; fontstyles <- fontstyles[inds]
-        if (any(duplicated(fontnames))) {
-            inds <- which(duplicated(fontnames))
-            message("found ", length(inds), " duplicated \"*Sans*\" and \"Regular\" fonts from fc-list:")
-            rminds_all <- c()
-            for (fi in seq_along(inds)) {
-                cat(capture.output(str(fonts[which(fontnames == fontnames[inds[fi]])])), sep="\n")
-                message("--> take 1st entry")
-                rminds <- which(fontnames == fontnames[inds[fi]])
-                rminds <- rminds[2:length(rminds)]
-                rminds_all <- c(rminds_all, rminds)
-            } # for fi
-            rminds_all <- sort(unique(rminds_all))
-            fonts[rminds_all] <- NA
-            fontnames <- fontnames[which(!is.na(fonts))]
-            fontstyles <- fontstyles[which(!is.na(fonts))]
-            fonts <- fonts[which(!is.na(fonts))]
-        } # if (any(duplicated(fontnames))) {
-
-        message("\nplot ", length(fonts), " \"*Sans*\" and \"Regular\" fonts from `fc-list` ...")
-        plotnames <- rep(NA, t=length(fonts))
-        for (fi in seq_along(fonts)) {
-            fontname <- gsub(" ", "_", fontnames[fi])
-            plotnames[fi] <- paste0("fc_list_font_", fontname, "_", gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], ".png")
-            message("plot ", plotnames[fi], " ...")
-            png(plotnames[fi], width=1000, height=1000, res=300, family=fontnames[fi])
-            plot(1:10, 1:10, t="n", main=fontnames[fi])
-            text(1:10, 1:10, paste0(R.version.string, " ", Sys.info()["nodename"]))
-            dev.off()
-        } # for fi
-
-        nm <- grDevices::n2mfrow(length(fonts))
-        plotname <- paste0(gsub(" ", "_", gsub("[[:punct:]]", "_", R.version.string)), "_", Sys.info()["nodename"], "_", length(fonts), "_fc_list_fonts.png")
-        cmd <- paste0("magick montage -label %f ", paste(plotnames, collapse=" "),
-                      " -geometry 1500x1500 -frame ", nm[1], " -tile 1x", nm[2],
-                      " miff:- | magick montage - -geometry +0+0 -tile ", nm[1], "x1 ", plotname)
-        message("\nrun `", cmd, "` ...")
-        system(cmd)
-        message("--> check combined plot ", plotname)
-        message("\nremove ", length(plotnames), " single plots ...")
-        invisible(file.remove(plotnames))
-    } # if (length(inds) > 0) {
-
-    message("\nfinished")
-
-} # font_info
-
 # find largest empty region in plot based on all data points
 my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
     
@@ -2430,7 +2446,7 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
         message("myfunctions.r:my_maxempty(): `n_interp` = ", n_interp, " > 0 --> interp to ", 
                 length(x_all), " * ", n_interp, " = ", length(x_all)*n_interp, " points ...")
         for (i in seq_along(x_all)) {
-            tmp <- vector("list", l=length(x_all[[i]])-1)
+            tmp <- vector("list", length.out=length(x_all[[i]])-1)
             for (j in seq_along(tmp)) {
                 tmp[[j]] <- approx(x=x_all[[i]][c(j, j+1)], y=y_all[[i]][c(j, j+1)], n=n_interp)
             } # for j
@@ -2483,7 +2499,7 @@ mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
         stop("mymonth.name(): 'inds' must be in 1:12")
     }
 
-    months <- vector("list", l=length(locales))
+    months <- vector("list", length.out=length(locales))
     names(months) <- locales
 
     # save system locale for later
@@ -2668,10 +2684,11 @@ myErrorFun <- function() {
 
 mynews <- function() {
     current_version <- paste0(R.version$major, ".", R.version$minor)
-    db <- news(Version==current_version)$Text
+    message("run `utils::news(Version == ", current_version, ")` ...")
+    db <- utils::news(Version == current_version)$Text
     db <- gsub("\\\n", " ", db)
     message("R ", current_version, " news:")
-    for (i in seq_along(db)) message(i, "/", length(db), ": ", db[i])
+    for (i in seq_along(db)) message(i, "/", length(db), ": ", db[i], "\n")
 }
 
 # draw secret santa present lists; schrottwichteln
@@ -2691,7 +2708,7 @@ secret_santa_list <- function(persons=c("mat", "mer", "mal", "mec", "vol"), ndra
         }
 
         # sort as in beginning
-        inds <- rep(NA, t=length(persons))
+        inds <- rep(NA, times=length(persons))
         for (i in seq_along(persons)) {
             inds[i] <- which(recipients == persons[i])
         }
@@ -2783,10 +2800,10 @@ work_time <- function(time_come=Sys.time()) {
     dt_0.5h <- difftime(as.POSIXct("2000-1-1 0:30"), as.POSIXct("2000-1-1 0:0"))
     dt_6h <- difftime(as.POSIXct("2000-1-1 6:00"), as.POSIXct("2000-1-1 0:0"))
     dt_7.8h <- difftime(as.POSIXct("2000-1-1 7:48"), as.POSIXct("2000-1-1 0:0"))
-    time_go_6h <- seq.POSIXt(time_come, b=dt_6h, l=2)[2]
-    time_go_6.5h <- seq.POSIXt(time_come, b=dt_6h+dt_0.5h, l=2)[2]
-    time_go_7.8h <- seq.POSIXt(time_come, b=dt_7.8h, l=2)[2]
-    time_go_8.3h <- seq.POSIXt(time_come, b=dt_7.8h+dt_0.5h, l=2)[2]
+    time_go_6h <- seq.POSIXt(time_come, by=dt_6h, length.out=2)[2]
+    time_go_6.5h <- seq.POSIXt(time_come, by=dt_6h+dt_0.5h, length.out=2)[2]
+    time_go_7.8h <- seq.POSIXt(time_come, by=dt_7.8h, length.out=2)[2]
+    time_go_8.3h <- seq.POSIXt(time_come, by=dt_7.8h+dt_0.5h, length.out=2)[2]
     message("come --> ", format(time_come, usetz=T), "\n",
             "--> go after 6h                 --> ", format(time_go_6h, usetz=T), "\n",
             "--> go after 6h + 0.5h          --> ", format(time_go_6.5h, usetz=T), "\n",

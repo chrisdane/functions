@@ -1,4 +1,5 @@
-## R
+# r
+
 # https://stackoverflow.com/questions/25136059/how-to-show-working-directory-in-r-prompt
 
 myRPrompt <- function(...) {
