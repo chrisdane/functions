@@ -1501,6 +1501,9 @@ mmolC_d1_to_gC_yr1 <- function(mmolC_d1) {
 mmolC_d1_to_kgCO2_s1 <- function(mmolC_d1) {
     mmolC_d1 / 1e3 * 12.0107 * 3.664191 / 1e3 * 365.25 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2; d-1 --> yr-1
 }
+mmolC_d1_to_mmol_s1 <- function(mmolC_d1) {
+    mmolC_d1 / 86400 # d-1 --> s-1
+}
 mmolC_d1_to_PgC_yr1 <- function(mmolC_d1) {
     mmolC_d1 / 1e3 * 12.0107 / 1e15 * 365.25 # mmolC --> molC; molC --> gC; gC --> PgC; d-1 --> yr-1
 }
@@ -1509,6 +1512,9 @@ mmolC_to_kgC <- function(mmolC) {
 }
 mmolC_to_kgCO2 <- function(mmolC) {
     mmolC / 1e3 * 12.0107 * 3.664191 / 1e3 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2
+}
+mmolC_m2_d1_to_gC_m2_s1 <- function(mmolC_m2_d1) {
+    mmolC_m2_d1 / 1e3 * 12.0107 / 86400 # mmolC --> molC; molC --> gC; d-1 --> s-1
 }
 mmolC_to_PgC <- function(mmolC) {
     mmolC / 1e3 * 12.0107 / 1e15 # mmolC --> molC; molC --> gC; gC --> PgC
@@ -1524,6 +1530,9 @@ mmolCO2_s1_to_kgCO2_s1 <- function(mmolCO2_s1) {
 }
 molC_yr1_to_gC_yr1 <- function(molC_yr1) {
     molC_yr1 * 12.0107 # molC --> gC
+}
+molC_m2_yr1_to_gC_m2_s1 <- function(molC_m2_yr1) {
+    molC_m2_yr1 * 12.0107 / (365.25*86400) # molC --> gC; yr-1 --> s-1
 }
 molC_s1_to_PgC_yr1 <- function(molC_s1) {
     molC_s1 * 12.0107 * 365.25*86400 / 1e15 # molC --> gC; s-1 -> yr-1; g -> Pg
