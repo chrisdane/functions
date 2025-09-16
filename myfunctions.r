@@ -332,22 +332,31 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
 
 } # make_posixlt_origin
 
-doy <- function(doys) {
-    if (missing(doys)) {
-        doys <- 1:366
-    } else {
-        if (!is.numeric(doys)) stop("provided doy must be numeric")
-        if (any(min(doys) < 1)) stop("provided doys must be larger than 0")
-        if (any(max(doys) > 366)) stop("provided doys must be smaller than 367")
+doy2date <- function(doys=1:366, year=2004) {
+    if (!is.numeric(doys)) stop("provided doy must be numeric")
+    if (any(min(doys) < 1)) stop("provided doys must be >= 1")
+    if (any(max(doys) > 366)) stop("provided doys must be <= 366")
+    if (!is.numeric(year)) stop("provided year must be numeric")
+    if (length(year) != 1) stop("provided year must be of length 1")
+    is.leap <- function(years) {
+        return(((years %% 4 == 0) & (years %% 100 != 0)) | (years %% 400 == 0))
     }
-    dates <- seq.POSIXt(from=as.POSIXct("2004-1-1", "UTC"), # all 366 days of leap year
-                        to=as.POSIXct("2004-12-31", "UTC"),
-                        l=366)
+    if (!is.leap(year)) {
+        if (any(doys > 365)) {
+            stop("provided year ", year, " is not a leap-year but some provided doys are > 365")
+        }
+        ndays_per_year <- 356
+    } else {
+        ndays_per_year <- 366
+    }
+    dates <- seq.POSIXt(from=as.POSIXct(paste0(year, "-1-1"), "UTC"),
+                        to=as.POSIXct(paste0(year, "-12-31"), "UTC"),
+                        l=ndays_per_year)
     doys_all <- as.POSIXlt(dates)$yday + 1
     inds <- match(doys, doys_all)
     if (any(is.na(inds))) stop("this case should be captured in the check above. implement!")
     return(data.frame(date=dates[inds], doy=doys_all[inds]))
-} # doy
+} # doy2date
 
 difftime_yr <- function(from, to) {
     # the first- and current-year-problem:
@@ -945,6 +954,12 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
     }
 } # convert_lon_360_to_180
 
+# cumsum that ignores NA values
+mycumsum <- function(x) {
+    if (F) x <- c(1:5, NA, 1:2)
+    base::cumsum(base::ifelse(base::is.na(x), 0, x)) + x*0
+}
+
 # running mean
 myma <- function(x, order, verbose=F, ...) {
     if (verbose) {
@@ -1303,6 +1318,13 @@ SvFW_to_GtFW_yr1 <- function(SvFW=NULL, GtFW_yr1=NULL, ndpy=365.25, verbose=T) {
     return(res)
 }
 
+Pa_to_atm <- function(Pa) {
+    Pa / 101325
+}
+atm_to_Pa <- function(atm) {
+    atm * 101325
+}
+
 # convert carbon units
 # Gt = Pg
 # 1 mole C = 1 mole CO2; 1 mole = 6.02214076 * 1e23 particles
@@ -1315,39 +1337,6 @@ SvFW_to_GtFW_yr1 <- function(SvFW=NULL, GtFW_yr1=NULL, ndpy=365.25, verbose=T) {
 # <=>       1 g C = 3.664191        g CO2
 # --> convert g C   to g CO2: *3.664191 (or /0.272912)
 # --> convert g CO2 to g C  : /3.664191 (or *0.272912)
-kgC_m2_s1_to_gC_m2_yr1 <- function(kgC_m2_s1) {
-    kgC_m2_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g 
-}
-kgC_m2_s1_to_PgC_yr1 <- function(kgC_m2_s1) {
-    Aearth <- 5.100656e14 # m2
-    kgC_m2_s1 * Aearth * 365.25*86400 / 1e12 # m2 -> fldint; s-1 -> yr-1; kg -> Pg 
-}
-kgC_s1_to_PgC_yr1 <- function(kgC_s1) {
-    kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg 
-}
-kgCO2_PgC <- function(kgCO2) {
-    kgCO2 * 0.272912 / 1e12 # kgCO2 -> kgC; kg -> Pg 
-}
-kgCO2_m2_s1_to_PgC_yr1 <- function(kgCO2_m2_s1) {
-    Aearth <- 5.100656e14 # m2
-    kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
-}
-kgCO2_m2_s1_to_gC_m2_s1 <- function(kgCO2_m2_s1) {
-    kgCO2_m2_s1 * 365.25*86400 / 3.664191 * 100 # s-1 -> yr-1; kgCO2 -> kgC; kgC -> gC
-}
-kgCO2_to_CO2ppm <- function(kgCO2) {
-    kgCO2 * 0.272912 / 1e12 / 2.124 # kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
-}
-kgCO2_m2_to_CO2ppm <- function(kgCO2_m2) {
-    Aearth <- 5.100656e14 # m2
-    kgCO2_m2 * Aearth * 0.272912 / 1e12 / 2.124 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
-}
-kgCO2_kg_to_CO2ppm <- function(kgCO2_kg) {
-    # mass mixing ratio in kg kg-1 -> volume mixing ratio in ppm
-    molar_mass_co2_g_mol <- 44.0095 # g mol-1
-    molar_mass_dry_air_g_mol <- 28.9652 # g mol-1
-    kgCO2_kg * 1e6 * molar_mass_dry_air_g_mol/molar_mass_co2_g_mol # 0.6581579
-}
 CO2ppm_to_kgCO2 <- function(CO2ppm) {
     # 2.124 from Tab. 1 from Friedlingstein et al. 2023
     CO2ppm * 2.124 * 1e12 / 0.272912 # ppm --> PgC; Pg -> kg; kgC -> kgCO2
@@ -1358,42 +1347,84 @@ CO2ppm_to_kgCO2_kg <- function(CO2ppm) {
     molar_mass_dry_air_g_mol <- 28.9652 # g mol-1
     CO2ppm / 1e6 * molar_mass_co2_g_mol/molar_mass_dry_air_g_mol # 1.519392
 }
-kgCO2_m2_to_PgC <- function(kgCO2_m2) {
-    Aearth <- 5.100656e14 # m2
-    kgCO2_m2 * Aearth * 0.272912 / 1e12 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg 
-}
-kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
-    kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
-}
-kgCO2_to_kgC <- function(kgCO2) {
-    kgC <- kgCO2 * 0.272912
-}
 gC_s1_to_PgC_yr1 <- function(gC_s1) {
     gC_s1 * 365.25*86400 / 1e15 # s-1 --> yr-1; g --> Pg
 }
 gC_s1_to_PgCO2_yr1 <- function(gC_s1) {
     gC_s1 * 365.25*86400 * 3.664191 / 1e15 # s-1 --> yr-1; gC --> gCO2; g --> Pg
 }
+gC_to_kgC <- function(gC) {
+    gC / 1e3 # g --> kg
+}
+kgC_m2_s1_to_PgC_yr1 <- function(kgC_m2_s1) {
+    Aearth <- 5.100656e14 # m2
+    kgC_m2_s1 * Aearth * 365.25*86400 / 1e12 # m2 -> fldint; s-1 -> yr-1; kg -> Pg 
+}
+kgC_s1_to_gC_yr1 <- function(kgC_s1) {
+    kgC_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g 
+}
+kgC_s1_to_PgC_yr1 <- function(kgC_s1) {
+    kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg 
+}
+kgCO2_kg_to_CO2ppm <- function(kgCO2_kg) {
+    # mass mixing ratio in kg kg-1 -> volume mixing ratio in ppm
+    molar_mass_co2_g_mol <- 44.0095 # g mol-1
+    molar_mass_dry_air_g_mol <- 28.9652 # g mol-1
+    kgCO2_kg * 1e6 * molar_mass_dry_air_g_mol/molar_mass_co2_g_mol # 1e6 * 0.6581579 = 658157.9
+}
+kgCO2_m2_s1_to_PgC_yr1 <- function(kgCO2_m2_s1) {
+    Aearth <- 5.100656e14 # m2
+    kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+}
+kgCO2_m2_to_CO2ppm <- function(kgCO2_m2) {
+    Aearth <- 5.100656e14 # m2
+    kgCO2_m2 * Aearth * 0.272912 / 1e12 / 2.124 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
+}
+kgCO2_m2_to_PgC <- function(kgCO2_m2) {
+    Aearth <- 5.100656e14 # m2
+    kgCO2_m2 * Aearth * 0.272912 / 1e12 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg 
+}
+kgCO2_PgC <- function(kgCO2) {
+    kgCO2 * 0.272912 / 1e12 # kgCO2 -> kgC; kg -> Pg
+}
+kgCO2_s1_to_gC_yr1 <- function(kgCO2_s1) {
+    kgCO2_s1 * 365.25*86400 / 3.664191 * 1e3 # s-1 -> yr-1; kgCO2 -> kgC; kgC -> gC
+}
+kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
+    kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+}
+kgCO2_to_CO2ppm <- function(kgCO2) {
+    kgCO2 * 0.272912 / 1e12 / 2.124 # kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
+}
+kgCO2_to_kgC <- function(kgCO2) {
+    kgCO2 * 0.272912
+}
+mmolC_d1_to_gC_yr1 <- function(mmolC_d1) {
+    mmolC_d1 / 1e3 * 12.0107 * 365.25 # mmolC --> molC; molC --> gC; d-1 --> yr-1
+}
+mmolC_d1_to_kgCO2_s1 <- function(mmolC_d1) {
+    mmolC_d1 / 1e3 * 12.0107 * 3.664191 / 1e3 * 365.25 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2; d-1 --> yr-1
+}
 mmolC_d1_to_PgC_yr1 <- function(mmolC_d1) {
     mmolC_d1 / 1e3 * 12.0107 / 1e15 * 365.25 # mmolC --> molC; molC --> gC; gC --> PgC; d-1 --> yr-1
-}
-mmolC_m2_d1_to_gC_m2_yr1 <- function(mmolC_m2_d1) {
-    mmolC_m2_d1 / 1e3 * 12.0107 * 365.25 # mmolC --> molC; molC --> gC; d-1 --> yr-1
-}
-mmolC_to_PgC <- function(mmolC) {
-    mmolC / 1e3 * 12.0107 / 1e15 # mmolC --> molC; molC --> gC; gC --> PgC
 }
 mmolC_to_kgCO2 <- function(mmolC) {
     mmolC / 1e3 * 12.0107 * 3.664191 / 1e3 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2
 }
-mmolC_m2_d1_to_kgCO2_m2_s1 <- function(mmolC_m2_d1) {
-    mmolC_m2_d1 / 1e3 * 12.0107 * 3.664191 / 1e3 / 86400 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2; d-1 --> yr-1
+mmolC_to_PgC <- function(mmolC) {
+    mmolC / 1e3 * 12.0107 / 1e15 # mmolC --> molC; molC --> gC; gC --> PgC
 }
-molC_m2_yr1_to_gC_m2_yr1 <- function(molC_m2_yr1) {
-    molC_m2_yr1 * 12.0107 # molC --> gC
+mmolCO2_to_kgCO2 <- function(mmolCO2) {
+    mmolCO2_s1 / 1e3 * 44.0095 / 1e3 # mmolCO2 --> molCO2; molCO2 --> gCO2; gCO2 --> kgCO2
+}
+molC_s1_to_kgC_yr1 <- function(molC_s1) {
+    molC_s1 * 12.0107 * 365.25*86400 / 1e3 # molC --> gC; s-1 -> yr-1; g -> kg
 }
 molC_s1_to_PgC_yr1 <- function(molC_s1) {
     molC_s1 * 12.0107 * 365.25*86400 / 1e15 # molC --> gC; s-1 -> yr-1; g -> Pg
+}
+molC_to_gC <- function(molC) {
+    molC * 12.0107 # molC --> gC
 }
 molC_to_kgCO2 <- function(molC) {
     molC * 12.0107 * 3.664191 / 1e3 # molC --> gC; gC --> gCO2; gCO2 --> kgCO2
@@ -1405,14 +1436,11 @@ molCO2_m2_s1_to_PgC_yr1 <- function(molCO2_m2_s1) {
     Aearth <- 5.100656e14 # m2
     molCO2_m2_s1 * Aearth * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # m2 -> fldint; molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg 
 }
-molCO2_s1_to_kgC_s1 <- function(molCO2_s1) {
-    molCO2_s1 * 44.0095 * 0.272912 / 1e3 # molCO2 -> gCO2; gCO2 -> gC; gC -> kgC
-}
 molCO2_s1_to_PgC_yr1 <- function(molCO2_s1) {
     molCO2_s1 * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg 
 }
-mmolCO2_m2_s1_to_kgCO2_m2_s1 <- function(mmolCO2_m2_s1) {
-    mmolCO2_m2_s1 / 1e3 * 44.0095 / 1e3 # mmolCO2 --> molCO2; molCO2 --> gCO2; gCO2 --> kgCO2
+molCO2_to_kgC <- function(molCO2) {
+    molCO2 * 44.0095 * 0.272912 / 1e3 # molCO2 -> gCO2; gCO2 -> gC; gC -> kgC
 }
 ppm_to_PgC <- function(ppm) {
     ppm * 2.124 # Tab.1 Friedlingstein et al. 2023; ref: Ballantyne et al. 2012
@@ -1678,7 +1706,7 @@ mycols <- function(n) {
                       "#F5C710", "#9E9E9E")
     if (F) {
         library(RColorBrewer) # https://www.r-bloggers.com/palettes-in-r/
-        bp_Dark2 <- RColorBrewer::brewer.pal(8, "Dark2")
+        bp_Dark2 <- RColorBrewer::brewer.pal(8, "Dark2") # "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666"
     }
     cols_Dark2 <- c("#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02", "#A6761D", "#666666")
     known_cols <- c(cols_default, cols_Dark2)
@@ -1691,8 +1719,8 @@ mycols <- function(n) {
               , "#E41A1C"
               , "#377EB8"
               , "#E6AB02"
-              , "#CD0BBC"
               , "#28E2E5"
+              , "#CD0BBC"
               , "#7570B3"
               , "#A6761D"
               , "#666666"
@@ -1739,15 +1767,35 @@ mylocator_list2poly <- function(result_of_mylocator) {
     return(poly)
 } # mylocator_list2df
 
+get_coastline_coords_from_maps <- function(database="world") {
+    library(maps)
+    if (grepl("Hires", database)) library(mapdata)
+    regions <- "."; exact <- F
+    gon <- maps:::mapname(database, regions, exact)
+    as.polygon <- F; xlim <- c(-1e+30, 1e+30); ylim <- c(-1e+30, 1e+30); boundary <- T
+    line <- maps:::mapgetg(database, gon, as.polygon, xlim, ylim)
+    l <- abs(line$number)
+    if (boundary) l <- l[!match(l, l[duplicated(l)], F)]
+    fill <- F
+    coord <- maps:::mapgetl(database, l, xlim, ylim, fill)
+    return(coord)
+} # get_coastline_coords_from_maps
+
 # get times from `cdo showtimestamp` 
-cdo_showtimestamp <- function(file) {
+cdo_showtimestamp <- function(file, verbose=F) {
     if (missing(file)) stop("provide `file`")
     if (!is.character(file)) stop("`file` arg must be character")
     if (!file.exists(file)) stop("provided `file` = ", file, " does not exist")
     cdo <- Sys.which("cdo")
     if (cdo == "") stop("could not find cdo")
     if (getRversion() < "3.2.0") stop("R must be >= 3.2.0 to have base::trimws()")
-    return(as.POSIXct(strsplit(trimws(system(paste0(cdo, " -s showtimestamp ", file), intern=T)), "  ")[[1]], format="%Y-%m-%dT%H:%M:%S", tz="UTC"))
+    cmd <- paste0(cdo, " -s showtimestamp ", file)
+    if (verbose) message("run `", cmd, "` ...")
+    dates <- strsplit(trimws(system(cmd, intern=T)), "  ")[[1]]
+    if (T) { # todo: this does not work with negative years
+        dates <- as.POSIXct(dates, format="%Y-%m-%dT%H:%M:%S", tz="UTC")
+    }
+    return(dates)
 } # cdo_showtimestamp
 
 # get temporal means via `cdo yearmean/monmean/...`
@@ -1813,38 +1861,38 @@ ncdump_get_filetype <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
     return(file_type)
 } # ncdump_get_filetype
 
-ncdump_showdate <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
-    if (verbose) message("ncdump_showdate() start with `verbose`=T ...")
-    stop("todo")
-    years <- 1948:2009
-    timevarname <- "time"
-    cnt <- 0
-    dates_all <- vector("list", l=length(years))
-    for (yi in years) {
-        message(yi, " ", appendLF=F)
-        cnt <- cnt + 1
-        dates <- system(paste0("ncdump -v ", timevarname, " Low01.", yi, ".oce.nc | sed -e '1,/data:/d' -e '$d'"), intern=T)
-        if (any(dates == "")) dates <- dates[-which(dates == "")]
-        if (regexpr(timevarname, dates[1]) == -1) stop("first line should start with ", timevarname)
-        dates[1] <- sub(paste0(timevarname, " = "), "", dates[1])
-        dates <- gsub(";", "", dates)
-        dates <- trimws(dates)
-        dates <- paste(dates, collapse=",")
-        dates <- gsub(",,", ",", dates)
-        dates <- gsub(" ", "", dates)
-        dates <- strsplit(dates, split=",")
-        if (length(dates) != 1) stop("strsplit should yield list of length 1")
-        dates_all[[cnt]] <- as.numeric(dates[[1]])
-    }
-
-    npf <- sapply(dates_all, length)
-    if (length(unique(npf)) != 1) {
-        stop("different number of time points per file detected: ", paste(unique(npf), collapse=", "))
+ncdump_showdate <- function(fin, ncdump=Sys.which("ncdump"), verbose=F) {
+    if (missing(fin)) stop("provide `fin`")
+    if (!file.exists(fin)) stop("provided `fin` = ", fin, " does not exist")
+    if (ncdump == "") stop("could not find ncdump")
+    cmd <- paste0("ncdump -ci ", fin) # i: Output time data as date-time strings with ISO-8601 'T' separator
+    if (verbose) message("run `", cmd, "`")
+    dates <- system(cmd, intern=T)
+    # --> dates is e.g.
+    # " time = "2014-01-02", "2014-01-03", ... "
+    # if ncdump-internal conversion to date-time strings was successful or e.g.
+    # " time = -9.050062e+07 ;"
+    # if not
+    ind <- grep(" time = ", dates)
+    if (length(ind) != 1) stop("this should not happen")
+    dates <- dates[ind:(length(dates)-1)]
+    ind <- grep(";", dates)[1]
+    if (length(ind) != 1) stop("this should not happen")
+    dates <- dates[seq_len(ind)]
+    dates <- trimws(sub(" time = ", "", dates))
+    dates <- gsub("\"", "", dates)
+    dates <- sub(" ;", "", dates)
+    dates <- unlist(strsplit(dates, ", "))
+    if (length(gregexpr("-", dates)[[1]]) >= 2) { # ncdump-internal conversion to date-time was successful
+        if (all(grepl("T", dates))) { # `ncdump -ci` returned complete datetime 
+            dates <- base::strptime(dates, format="%Y-%m-%dT%H:%M:%S", tz="UTC") # = posixlt object
+        } else { # `ncdump -ci` returned only date
+            dates <- base::strptime(dates, format="%Y-%m-%d", tz="UTC") # = posixlt object
+        }
     } else {
-        time <- rep(years, e=unique(npf))
+        dates <- as.numeric(dates)
     }
-
-    timein <- unlist(dates_all)
+    return(dates)
 } # ncdump_showdate
 
 # summarize nc infos lazily
@@ -2487,14 +2535,16 @@ size2byte <- function(string, val, unit) {
         stop("provide either `string=\"2.2T\"` or `val=2.2, unit=\"T\"`")
     }
     if (missing(val) && missing(unit)) {
-        val <- as.numeric(gsub('[[:alpha:]]', "", string))                            # "2.2T" --> 2.2
-        unit <- base::Reduce(base::setdiff, base::strsplit(c(string, val), split="")) # "T"
+        val <- as.numeric(gsub('[[:alpha:]]', "", string))               # "2.2T" --> 2.2
+        unit <- gsub("[[:punct:]]", "", gsub("[[:digit:]]", "", string)) # "2.2T" --> "T"; "440" --> ""
+        inds <- which(unit == "")
+        if (length(inds) > 0) unit[inds] <- "B" # todo: is this correct?!"
     }
     if (any(is.na(match(unit, c("B", "K", "M", "G", "T", "P"))))) {
         stop("`unit` must be one of \"B\", \"K\", \"M\", \"G\", \"T\" or \"P\"")
     }
     mult <- c("B"=1,  "K"=1024,  "M"=1024^2,  "G"=1024^3,  "T"=1024^4,  "P"=1024^5)
-    val * unname(mult[unit])
+    return(val * unname(mult[unit]))
 } # size2byte function
 
 get_encoding <- function(test_symbol="ä", test_ctype="de", verbose=F) {

@@ -59,8 +59,8 @@ ls.objects <- function (pos=1, pattern, order.by,
     } # if there are objects
     
     if (show) {
-        if (show_mem) print(mem, row.names=F)
-        if (exists("out")) print(out)
+        if (show_mem) print(mem, row.names=F, width=300)
+        if (exists("out")) print(out, width=300)
     } else {
         ret <- list()
         if (show_mem) ret <- c(ret, list(mem=mem))

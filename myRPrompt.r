@@ -18,7 +18,7 @@ myRPrompt <- function(...) {
     seps <- gregexpr(.Platform$file.sep, p)[[1]]
     if (length(seps) > 1) {
         if (verbose) message("seps: ", paste0(seps, collapse=", "))
-        ps <- rep(NA, t=length(seps) - 1)
+        ps <- rep(NA, times=length(seps) - 1)
         for (i in 1:(length(seps) - 1)) { # keep the last (top) directory full name
             ps[i] <- substr(p, start=seps[i] + 1, stop=seps[i] + 1)
         }

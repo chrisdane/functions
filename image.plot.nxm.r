@@ -276,9 +276,15 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     if (any(dot_names == "image_list")) {
         image_list <- dot_list$image_list
         if (!is.null(image_list)) {
-            if (is.null(image_list$x)) stop("provided `image_list` but `image_list$x` is missing")
-            if (is.null(image_list$y)) stop("provided `image_list` but `image_list$y` is missing")
-            if (is.null(image_list$z)) stop("provided `image_list` but `image_list$z` is missing")
+            for (vi in seq_along(image_list)) {
+                if (!is.na(image_list[vi])) {
+                    for (i in seq_along(image_list[[vi]])) {
+                        if (is.null(image_list[[vi]][[i]]$x)) stop("provided `image_list` but `image_list[[", vi, "]][[", i, "]]$x` is missing")
+                        if (is.null(image_list[[vi]][[i]]$y)) stop("provided `image_list` but `image_list[[", vi, "]][[", i, "]]$y` is missing")
+                        if (is.null(image_list[[vi]][[i]]$z)) stop("provided `image_list` but `image_list[[", vi, "]][[", i, "]]$z` is missing")
+                    }
+                }
+            }
         }
     } else {
         image_list <- NULL
@@ -445,6 +451,17 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         }
     } else {
         point_list <- vector("list", l=nz)
+    }
+    
+    if (any(dot_names == "line_list")) {
+        line_list <- dot_list$line_list
+        if (!is.null(line_list)) {
+            if (length(line_list) != length(z)) { 
+                stop("provided line_list is of length ", length(line_list), " but nz = ", nz)
+            }
+        }
+    } else {
+        line_list <- vector("list", l=nz)
     }
     
     if (any(dot_names == "segment_list")) {
@@ -639,12 +656,20 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
         if (!is.null(image_list)) {
             if (verbose) message("`useRaster`=T --> check provided `image_list` if x,y are regular for graphics::image(..., useRaster=T) usage ...")
-            for (i in seq_along(image_list$x)) {
-                if (check_irregular(image_list$x[[i]], image_list$y[[i]])) {    
-                    image_list$x[[i]] <- seq(min(image_list$x[[i]], na.rm=T), max(image_list$x[[i]], na.rm=T), 
-                                             l=length(image_list$x[[i]]))
-                    image_list$y[[i]] <- seq(min(image_list$y[[i]], na.rm=T), max(image_list$y[[i]], na.rm=T), 
-                                             l=length(image_list$y[[i]]))
+            for (vi in seq_along(image_list)) {
+                if (!is.na(image_list[vi])) {
+                    if (!is.na(image_list[[vi]][i])) {
+                        for (i in seq_along(image_list[[vi]])) {
+                            if (check_irregular(image_list[[vi]][[i]]$x, image_list[[vi]][[i]]$y)) {    
+                                image_list[[vi]][[i]]$x <- seq(min(image_list[[vi]][[i]]$x, na.rm=T), 
+                                                               max(image_list[[vi]][[i]]$x, na.rm=T), 
+                                                               l=length(image_list[[vi]][[i]]$x))
+                                image_list[[vi]][[i]]$y <- seq(min(image_list[[vi]][[i]]$y, na.rm=T), 
+                                                               max(image_list[[vi]][[i]]$y, na.rm=T), 
+                                                               l=length(image_list[[vi]][[i]]$y))
+                            }
+                        }
+                    }
                 }
             }
         } # if !is.null(image_list)
@@ -684,7 +709,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         })
         if (inherits(xy_proj, "try-error")) {
             warning("provided `proj` = \"", proj, 
-                    "\" not valid for sf::sf_project(). continue without projection ...")
+                    "\" not valid for sf::sf_project(). continue with `proj <- \"\"` ...")
             proj <- ""
         } else { # projection success
             colnames(xy_proj) <- c("lon", "lat")
@@ -866,9 +891,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         if (verbose) message("\n**************************************\n",
                              "subplot ", i, "/", nplots, " (nz = ", nz, ") ...")
         
-        # Open i-th subplot device, even if there is nothing to draw
+        # Open i-th subplot device, also if there is nothing to draw
         if (proj == "") { # default
-            # usage of helper-`x_plot` more flexible than just using combination of `xlim` and `x=0`
+            # usage of helper-`x_plot` more flexible than combination of `xlim` and `x=0`
             base::plot(x_plot, y_plot, t="n",
                        xlim=xlim, ylim=ylim,
                        axes=F, xlab=NA, ylab=NA,
@@ -921,9 +946,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 }
             }
 
-        } else { # if length(x) != nplots - 1 && i != nplots
-
-            # Add data to subplot
+        } else { # if length(x) != nplots - 1 && i != nplots --> add data to subplot
+            
             nx <- length(x[[i]]); ny <- length(y[[i]])
 
             if (!contour_only) {
@@ -943,7 +967,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                             usr <- par("usr")
                             rect(usr[1], usr[3], usr[2], usr[4], col=NAcol, border=NA)
                         }
-                    } # else if proj != "", NA values are handled by `oce::mapImage(missingColor=NAcol, ...)`
+                    } # else if proj != "" --> NA are handled by `oce::mapImage(missingColor=NAcol, ...)`
                 } # if any NA
 
                 # add actual data
@@ -1066,14 +1090,33 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             # add additional data as image if available
             if (!is.null(image_list)) {
                 if (verbose) message("add provided `image_list` to subplot using graphics::image() ...")
-                if (length(image_list[[i]]$levels) == 1) { # special case: only 1 level
-                    graphics::image(x[[i]], y[[i]], image_list[[i]]$data, 
-                                    col=image_list[[i]]$cols,  
-                                    add=T, useRaster=useRaster)
-                } else {
-                    graphics::image(x[[i]], y[[i]], image_list[[i]]$data, 
-                                    col=image_list[[i]]$cols, breaks=image_list[[i]]$levels, 
-                                    add=T, useRaster=useRaster)
+                if (!is.na(image_list[vi])) {
+                    if (!is.na(image_list[[vi]][i])) {
+                        if (proj == "") {
+                            if (length(image_list[[vi]][[i]]$levels) == 1) { # special case: only 1 level
+                                graphics::image(image_list[[vi]][[i]]$x, image_list[[vi]][[i]]$y, image_list[[vi]][[i]]$z, 
+                                                col=image_list[[vi]][[i]]$cols,
+                                                add=T, useRaster=useRaster)
+                            } else {
+                                graphics::image(image_list[[vi]][[i]]$x, image_list[[vi]][[i]]$y, image_list[[vi]][[i]]$z, 
+                                                col=image_list[[vi]][[i]]$cols, breaks=image_list[[vi]][[i]]$levels, 
+                                                add=T, useRaster=useRaster)
+                            }
+                        } else if (proj != "") {
+                            if (length(image_list[[vi]][[i]]$levels) == 1) { # special case: only 1 level
+                                oce::mapImage(image_list[[vi]][[i]]$x, image_list[[vi]][[i]]$y, image_list[[vi]][[i]]$z, 
+                                              col=image_list[[vi]][[i]]$cols,
+                                              #filledContour=T, gridder="interp", # "binMean2D" "interp"
+                                              missingColor=NA, # NA: skip drawing
+                                              debug=1) # 0 1
+                            } else {
+                                oce::mapImage(image_list[[vi]][[i]]$x, image_list[[vi]][[i]]$y, image_list[[vi]][[i]]$z, 
+                                              breaks=image_list[[vi]][[i]]$levels, col=image_list[[vi]][[i]]$cols,
+                                              missingColor=NA,
+                                              debug=1) # 0 1
+                            }
+                        }
+                    }
                 }
             } # if (!is.null(image_list))
 
@@ -1174,14 +1217,24 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                                 
                                 # draw original or smooth contours
                                 if (!contour_list[[vi]][[i]]$contour_smooth) {
-                                    graphics::contour(x=contour_list[[vi]][[i]]$x, y=contour_list[[vi]][[i]]$y, 
-                                                      z=contour_list[[vi]][[i]]$z,
-                                                      add=T, levels=contour_levels,
-                                                      labcex=contour_labcex, 
-                                                      drawlabels=contour_list[[vi]][[i]]$contour_drawlabels, 
-                                                      vfont=contour_vfont,
-                                                      col=col, lty=lty, lwd=contour_lwd,
-                                                      axes=F, xlab="n")
+                                    if (proj == "") {
+                                        graphics::contour(x=contour_list[[vi]][[i]]$x, y=contour_list[[vi]][[i]]$y, 
+                                                          z=contour_list[[vi]][[i]]$z,
+                                                          add=T, levels=contour_levels,
+                                                          labcex=contour_labcex, 
+                                                          drawlabels=contour_list[[vi]][[i]]$contour_drawlabels, 
+                                                          vfont=contour_vfont,
+                                                          col=col, lty=lty, lwd=contour_lwd,
+                                                          axes=F, xlab="n")
+                                    } else if (proj != "") {
+                                        oce::mapContour(longitude=contour_list[[vi]][[i]]$x, latitude=contour_list[[vi]][[i]]$y,
+                                                        z=contour_list[[vi]][[i]]$z, 
+                                                        levels=contour_levels,
+                                                        labcex=contour_labcex,
+                                                        drawlabels=contour_list[[vi]][[i]]$contour_drawlabels, 
+                                                        col=col, lty=lty, lwd=contour_lwd,
+                                                        debug=1)
+                                    }
                                 } else if (contour_list[[vi]][[i]]$contour_smooth) {
                                     if (verbose) {
                                         message("`contour_list[[vi]][[i]]$contour_smooth`=T")
@@ -1457,18 +1510,37 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 }
                 
                 # add land stuff to every plot
-                op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
-                par(new=T)
-                base::plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, t="n",
-                           axes=F, xlab=NA, ylab=NA,
-                           xaxs="i", yaxs="i")
+                if (proj == "") {
+                    op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
+                    par(new=T)
+                    base::plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, t="n",
+                               axes=F, xlab=NA, ylab=NA,
+                               xaxs="i", yaxs="i")
+                }
                 if (addland_list[[i]]$type == "map") {
-                    maps::map(addland_list[[i]]$data, interior=F, add=T, lwd=lwd)
+                    if (proj == "") {
+                        maps::map(addland_list[[i]]$data, interior=F, add=T, lwd=lwd)
+                    } else if (proj != "") {
+                        if (F) {
+                            utils::data(coastlineWorld)
+                            tmpx <- coastlineWorld@data$longitude
+                            tmpy <- coastlineWorld@data$latitude
+                        }
+                        source("~/scripts/r/functions/myfunctions.r") # for get_coastline_coords_from_maps
+                        tmp <- get_coastline_coords_from_maps(addland_list[[i]]$data)
+                        tmpx <- tmp$x
+                        tmpy <- tmp$y
+                        oce::mapLines(tmpx, tmpy)
+                    } # if proj or not
                 } else if (addland_list[[i]]$type == "segments") {
-                    graphics::segments(x0=addland_list[[i]]$data$x0, 
-                                       y0=addland_list[[i]]$data$y0,
-                                       x1=addland_list[[i]]$data$x1, 
-                                       y1=addland_list[[i]]$data$y1, lwd=lwd)
+                    if (proj == "") {
+                        graphics::segments(x0=addland_list[[i]]$data$x0, 
+                                           y0=addland_list[[i]]$data$y0,
+                                           x1=addland_list[[i]]$data$x1, 
+                                           y1=addland_list[[i]]$data$y1, lwd=lwd)
+                    } else {
+                        stop("todo")
+                    }
                 }
                 
                 # special:
@@ -1488,7 +1560,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 } # if !is.null(cmd_list) 
                 
                 #par(op) # switch back to main plot; somehow this breaks layout()'s subplot counting
-                par(usr=op$usr) # only restore coords; todo: is this enough?
+                if (proj == "") par(usr=op$usr) # only restore coords; todo: is this enough?
             } # if !is.null(addland_list) && !is.na(addland_list[i])
             #message("par(\"usr\") = ")
             #dput(par("usr"))
@@ -1510,6 +1582,37 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                                      cex=point_list[[i]]$cex)
                 }
             } # if !is.null(point_list[[i]])
+            
+            # add additional stuff as lines if available
+            if (!is.null(line_list[[i]])) {
+                if (verbose) message("add provided `line_list[[", i, "]]` to subplot using graphics::lines() ...")
+                if (is.null(line_list[[i]]$x) || is.null(line_list[[i]]$y)) {
+                    message("line_list[[", i, "]]$x` or line_list[[", i, "]]$y` are NULL. cannot add lines") 
+                } else if (length(line_list[[i]]$x) <= 1 || length(line_list[[i]]$y) <= 1) {
+                    message("line_list[[", i, "]]$x` or line_list[[", i, "]]$y` are of length <= 1. cannot add lines") 
+                } else {
+                    if (is.null(line_list[[i]]$col)) line_list[[i]]$col <- "black"
+                    if (is.null(line_list[[i]]$lty)) line_list[[i]]$lty <- 1
+                    if (is.null(line_list[[i]]$lwd)) line_list[[i]]$lwd <- lwd
+                    if (proj == "") {
+                        graphics::lines(x=line_list[[i]]$x, y=line_list[[i]]$y,
+                                        col=line_list[[i]]$col, lty=line_list[[i]]$lty, lwd=line_list[[i]]$lwd)
+                    } else if (proj != "") {
+                        if (F) { # problem: mapLines does not take projection into account 
+                            oce::mapLines(longitude=line_list[[i]]$x, latitude=line_list[[i]]$y,
+                                          col=line_list[[i]]$col, lty=line_list[[i]]$lty, lwd=line_list[[i]]$lwd)
+                        } else { # workaround: approx every line with n points
+                            ntmp <- 100
+                            for (linei in seq_len(length(line_list[[i]]$x) - 1)) {
+                                xtmp <- seq(line_list[[i]]$x[linei], line_list[[i]]$x[linei + 1], l=ntmp)
+                                ytmp <- seq(line_list[[i]]$y[linei], line_list[[i]]$y[linei + 1], l=ntmp)
+                                oce::mapLines(longitude=xtmp, latitude=ytmp,
+                                              col=line_list[[i]]$col, lty=line_list[[i]]$lty, lwd=line_list[[i]]$lwd)
+                            } # for linei
+                        }
+                    } # if proj or not
+                }
+            } # if !is.null(line_list[[i]])
            
             # add additional stuff as segments if available
             if (!is.null(segment_list[[i]])) {
@@ -1565,7 +1668,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             # add axes and axes labels
             if (verbose) message("add axes to subplot using graphics::axis() or oce::mapAxis() ...")
             if (proj != "") {
-                # todo: mapaxis does not support lwd, las
+                # todo: oce::mapAxis does not support lwd, las: https://github.com/dankelley/oce/issues/1707
                 my_mapAxis <- function(side, ...) { # from oce::mapAxis:
                     if (missing(side)) stop("provide `side`")
                     usr <- par("usr")
