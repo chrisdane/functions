@@ -796,7 +796,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
             }
 
             # load nc_varname from nc_file
-            data360 <- vector("list", length.out=length(nc_varname))
+            data360 <- vector("list", length=length(nc_varname))
             for (vi in seq_along(nc_varname)) {
                 message("check if `nc_varname[", vi, "]` \"", nc_varname[vi], "\" has lon dim ...")
                 varind <- which(nc_varname[vi] == names(nc$var))
@@ -879,7 +879,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
         if (all(lon180 == lon360)) { # no conversion necessary
             ret$data180 <- data360 
         } else { # conversion necessary
-            data180 <- vector("list", length.out=length(data360))
+            data180 <- vector("list", length=length(data360))
             names(data180) <- names(data360)
             for (vi in seq_along(data180)) {
                 arr360 <- as.array(data360[[vi]]) # any dims
@@ -1985,14 +1985,14 @@ cdo_timstatmean <- function(file, varname, timstats="yearmean") {
     if (cdo == "") stop("could not find cdo")
     if (getRversion() < "3.2.0") stop("R must be >= 3.2.0 to have base::trimws()")
     if (!missing(varname)) {
-        res <- vector("list", length.out=1)
+        res <- vector("list", length=1)
         names(res) <- varname
     } else {
-        res <- vector("list", length.out=as.integer(trimws(system(paste0(cdo, " nvar ", file), intern=T))))
+        res <- vector("list", length=as.integer(trimws(system(paste0(cdo, " nvar ", file), intern=T))))
         names(res) <- strsplit(trimws(system(paste0(cdo, " showname ", file), intern=T)), " ")[[1]]
     }
     for (vari in seq_along(res)) {
-        tmp <- vector("list", length.out=length(timstats))
+        tmp <- vector("list", length=length(timstats))
         names(tmp) <- timstats
         for (timstati in seq_along(timstats)) {
             fout <- paste0("/tmp/tmp_cdo_r", Sys.getpid(), "_vari_", vari, "_", names(res)[vari], "_timstati_", timstati, "_", timstats[timstati])
@@ -2046,7 +2046,7 @@ ncdump_showdate <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
     years <- 1948:2009
     timevarname <- "time"
     cnt <- 0
-    dates_all <- vector("list", length.out=length(years))
+    dates_all <- vector("list", length=length(years))
     for (yi in years) {
         message(yi, " ", appendLF=F)
         cnt <- cnt + 1
@@ -2455,7 +2455,7 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
         message("myfunctions.r:my_maxempty(): `n_interp` = ", n_interp, " > 0 --> interp to ", 
                 length(x_all), " * ", n_interp, " = ", length(x_all)*n_interp, " points ...")
         for (i in seq_along(x_all)) {
-            tmp <- vector("list", length.out=length(x_all[[i]])-1)
+            tmp <- vector("list", length=length(x_all[[i]])-1)
             for (j in seq_along(tmp)) {
                 tmp[[j]] <- approx(x=x_all[[i]][c(j, j+1)], y=y_all[[i]][c(j, j+1)], n=n_interp)
             } # for j
@@ -2508,7 +2508,7 @@ mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
         stop("mymonth.name(): 'inds' must be in 1:12")
     }
 
-    months <- vector("list", length.out=length(locales))
+    months <- vector("list", length=length(locales))
     names(months) <- locales
 
     # save system locale for later
