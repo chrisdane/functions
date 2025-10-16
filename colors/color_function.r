@@ -138,7 +138,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
     ## Prepare 3-column rgb matrix
     if (missing(rgb_mat)) {
 
-        rgb_list <- vector("list", l=nnames) # every item in rgb_list needs to be n x 3
+        rgb_list <- vector("list", length=nnames) # every item in rgb_list needs to be n x 3
         names(rgb_list) <- names
 
         for (i in seq_len(nnames)) {
@@ -286,7 +286,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
     ## Make colorbar
     ncol <- length(rgb_list)
-    cols_list <- vector("list", l=ncol)
+    cols_list <- vector("list", length=ncol)
     names(cols_list) <- names
 
     for (i in 1:ncol) {
@@ -307,8 +307,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
         ## adapted from fields::jet.colors()
         temp <- matrix(NA, ncol = 3, nrow = n)
-        x <- seq(0, maxColorValue, l=dim(rgb)[1])
-        xg <- seq(0, maxColorValue, l=n)
+        x <- seq(0, maxColorValue, length.out=dim(rgb)[1])
+        xg <- seq(0, maxColorValue, length.out=n)
         for (k in 1:3) {
             hold <- fields::splint(x=x, y=rgb[, k], xgrid=xg)
             #hold <- mysplint(x=x, y=rgb[, k], xgrid=xg)
@@ -343,8 +343,8 @@ color_function <- function(palname="demo", n=64, alpha=1,
         x <- 1:n
         y <- 1:ncol
         z <- array(1:(n*ncol), c(n, ncol))
-        xp <- seq(0.5, dim(z)[1] + 0.5, l=100)
-        yp <- seq(0.5, dim(z)[2] + 0.5, l=100)
+        xp <- seq(0.5, dim(z)[1] + 0.5, length.out=100)
+        yp <- seq(0.5, dim(z)[2] + 0.5, length.out=100)
         plot(xp, yp, t="n", axes=F,
              xlab="Number of levels", ylab=NA, 
              xaxs="i", yaxs="i")
@@ -354,7 +354,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
         image(x, y, z, col=unlist(cols_list), breaks=0:max(z),
               add=T, axes=F, useRaster=T,
               xlab=NA, ylab=NA)
-        abline(h=seq(1.5, ncol - 0.5, b=1))
+        abline(h=seq(1.5, ncol - 0.5, by=1))
         lex <- rep(n, t=nnames)
         text(lex, y, names, pos=4, xpd=T)
         box()

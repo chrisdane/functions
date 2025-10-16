@@ -461,7 +461,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
         }
     } else {
-        line_list <- vector("list", l=nz)
+        line_list <- vector("list", length=nz)
     }
     
     if (any(dot_names == "segment_list")) {
@@ -894,7 +894,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         # Open i-th subplot device, also if there is nothing to draw
         if (proj == "") { # default
             # usage of helper-`x_plot` more flexible than just using combination of `xlim` and `x=0`
-            base::plot(x_plot, y_plot, times="n",
+            base::plot(x_plot, y_plot, type="n",
                        xlim=xlim, ylim=ylim,
                        axes=F, xlab=NA, ylab=NA,
                        xaxs="i", yaxs="i")
@@ -931,15 +931,15 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         
         } # if proj == "" or not
     
-        # its possible that there are less data to plot than nrow*ncols (e.g. length(x) = 5, ncol=2, nrow=3)
+        # it's possible that there are less data to plot than nrow*ncols (e.g. length(x) = 5, ncol=2, nrow=3)
         # --> do not plot anything if (length(x) == nplots - 1 && i == nplots)
         #if (length(x) == nplots - 1 && i == nplots) { 
-        if (i > nz || is.null(z[[i]])) {
+        if (i > nz || (i <= nz && is.null(z[[i]]))) {
             # nothing to do
             if (verbose) {
                 #message("length(x) = ", length(x), " == nplots - 1 = ", nplots - 1, 
                 #        " && i == nplots = ", nplots, " --> nothing to draw")
-                if (is.null(z[[i]])) {
+                if (i <= nz && is.null(z[[i]])) {
                     message("z[[", i, "]] is null --> nothind to draw")
                 } else {
                     message("i = ", i, " > nz = ", nz, " --> nothing to draw")
@@ -1512,7 +1512,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 # add land stuff to every plot
                 op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
                 par(new=T)
-                base::plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, times="n",
+                base::plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, type="n",
                            axes=F, xlab=NA, ylab=NA,
                            xaxs="i", yaxs="i")
                 if (addland_list[[i]]$type == "map") {
@@ -1602,8 +1602,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                         } else { # workaround: approx every line with n points
                             ntmp <- 100
                             for (linei in seq_len(length(line_list[[i]]$x) - 1)) {
-                                xtmp <- seq(line_list[[i]]$x[linei], line_list[[i]]$x[linei + 1], l=ntmp)
-                                ytmp <- seq(line_list[[i]]$y[linei], line_list[[i]]$y[linei + 1], l=ntmp)
+                                xtmp <- seq(line_list[[i]]$x[linei], line_list[[i]]$x[linei + 1], length.out=ntmp)
+                                ytmp <- seq(line_list[[i]]$y[linei], line_list[[i]]$y[linei + 1], length.out=ntmp)
                                 oce::mapLines(longitude=xtmp, latitude=ytmp,
                                               col=line_list[[i]]$col, lty=line_list[[i]]$lty, lwd=line_list[[i]]$lwd)
                             } # for linei
