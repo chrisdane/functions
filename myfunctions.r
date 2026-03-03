@@ -1,8 +1,8 @@
 # r
 
-## my collection of  R functions that I need again and again
+# my collection of  R functions that I need again and again
 
-## section 1/2: geo-physical stuff
+# section 1 of 2: geo-physical stuff
 
 # days per month
 dpm <- c(Jan=31, Feb=28, Mar=31, Apr=30, May=31, Jun=30, Jul=31, Aug=31, Sep=30, Oct=31, Nov=30, Dec=31)
@@ -390,6 +390,7 @@ difftime_yr <- function(from, to) {
                     paste(class, collapse="\", \""), "\") must be \"Date\" or \"POSIX*t\" --> run `base::as.POSIXct()` ...")
             if (is.character(arg) && arg == "today" ) arg <- Sys.Date()
             arg <- base::as.POSIXct(arg)
+            message("arg = ", arg)
             if (i == 1) from <- arg
             if (i == 2) to <- arg
         }
@@ -472,6 +473,79 @@ if (F) { # todo: seq(from, to, by=non-integer-month)
         }
     }
 }
+
+# business days
+business_days <- function(where="Germany/BR", weekend_days=c("Saturday", "Sunday"), year=2025) {
+
+    # holiday(Holiday="Germany", year=2024) --> object 'Germany' of mode 'function' was not found
+    # bizdays::bizdays("2013-01-02", "2013-01-31", "Germany") --> Error in check_calendar(cal) : Invalid calendar name: Germany
+    # --> bizdays:::check_calendar::calendars():
+    # Calendars: 
+    # Brazil/ANBIMA, Brazil/B3, Brazil/BMF, actual, weekends
+
+    known_locations <- c("Germany/BR") # notation from `holiday` package
+    if (!any(where == known_locations)) stop("`where` must be one of ", paste(known_locations, collapse=", "))
+    dt_day_seconds <- 86400L
+
+    # get holidays
+    message("define holiday days for location ", where, " of year ", year, " ...")
+    holidays <- c()
+    if (grepl("Germany", where)) {
+        library(timeDate)
+        ostersonntag <- as.character(timeDate::Easter(year))
+        holidays <- c("neujahr"=paste0(year, "-01-01"),
+                      "ostersonntag"=ostersonntag,
+                      "tag_der_arbeit"=paste0(year, "-05-01"),
+                      "tag_der_dt_einheit"=paste0(year, "-10-03"),
+                      "weihnachtstag1"=paste0(year, "-12-25"),
+                      "weihnachtstag2"=paste0(year, "-12-26"))
+        holidays <- as.POSIXct(holidays)
+        holidays <- c(holidays,
+                      "karfreitag"=unname(holidays["ostersonntag"]) - 2L*dt_day_seconds,
+                      "ostermontag"=unname(holidays["ostersonntag"]) + 1L*dt_day_seconds,
+                      "christi_himmelfahrt"=unname(holidays["ostersonntag"]) + 39L*dt_day_seconds,
+                      "pfingstmontag"=unname(holidays["ostersonntag"]) + 50L*dt_day_seconds)
+    }
+    if (where == "Germany/BR") {
+        if (year >= 2018) {
+            holidays <- c(holidays,
+                          "reformationstag"=as.POSIXct(paste0(year, "-10-31")))
+        }
+    }
+    holidays <- sort(holidays)
+    message("--> defined ", length(holidays), " holidays:")
+    print(format(holidays, "%a, %Y-%m-%d"))
+
+    # get all days of year
+    message("\nget all days of year ", year, " ...")
+    week_days <- seq.POSIXt(from=as.POSIXct(paste0(year, "-1-1")), to=as.POSIXct(paste0(year, "-12-31")), by="day")
+    week_days <- as.POSIXlt(week_days)
+    week_days$hour <- 0 # set all %H to zero: "2025-03-30 00:00:00 CET"  "2025-03-31 01:00:00 CEST"
+    week_days <- as.POSIXct(week_days)
+    message("--> ", length(week_days), " days")
+
+    # remove holidays
+    if (length(holidays) > 0) {
+        inds <- match(holidays, week_days)
+        if (anyNA(inds)) stop("this should not happen") # maybe wrong HH:MM:SS?
+        message("\n--> remove ", length(inds), " holidays ...")
+        business_days <- week_days[-inds]
+        if (length(business_days) == 0) stop("removed all possible week_days")
+    }
+
+    # remove weekends
+    message("\nidentify all weekend days based on `weekend_days` = ", paste(weekend_days, collapse=", "), " via base::week_days() ...")
+    inds <- which(!is.na(match(base::weekdays(business_days), weekend_days)))
+    if (length(inds) > 0) {
+        message("--> remove ", length(inds), " weekend days ...")
+        business_days <- business_days[-inds]
+    }
+    if (length(business_days) == 0) stop("removed all possible business_days")
+
+    message("\nreturn ", length(business_days), " business_days")
+    return(business_days)
+
+} # business_days
 
 # radian to degree
 rad2deg <- function(rad) {
@@ -575,7 +649,7 @@ km2deg <- function(dkm=100, lat=45) {
     return(data.frame(dkm=dkm, lat=lat, deg=deg))
 } # km2deg
 
-## spatial distances
+# spatial distances
 # https://www.r-bloggers.com/great-circle-distance-calculations-in-r/
 
 # Calculates the geodesic distance between two points specified by radian latitude/longitude using the
@@ -1067,7 +1141,7 @@ get_pval <- function(model) {
         rss <- sum(model$residuals^2) # residual standard error
         resvar <- rss/model$df.residual # df.residual =? n - npredictors
         se <- summary(model)$coefficients[,2]
-        ## summary of lm:
+        # summary of lm:
         # `summary(model)` calls `summary.lm(model)`
         if (F) { # get "std. error", se, of the parameters:
             if (F) { # from summary.lm:
@@ -1302,12 +1376,15 @@ speeds <- function(x=1, unit="cm/s") {
 masses <- function(x=1, unit="g") {
     library(units) # valid_udunits()
     x <- units::set_units(x=x, value=unit, mode="standard")
-    units <- data.frame(unit=c("g", "kg", "t", "Mt",               "Gt",                                    "Tg",                                     "Pg",      "Tt"),
-                        note=c("",  "",   "",  "mega 6 (million)", "giga 9 (billion short, milliard long)", "tera 12 (trillion short, billion long)", "peta 15", "tera 12"))  
-    vals <- units$unit
-    for (i in seq_along(vals)) vals[i] <- set_units(x, value=units$unit[i], mode="standard")
-    df <- data.frame(value=vals, unit=units$unit, note=units$note, stringsAsFactors=F)
-    print(df)
+    # kiloton -> U.S. short tons -> 907,184.7 kg
+    # kilotonne ->  metric tons -> 1,000,000 kg
+    units <- data.frame(unit=c("g", "kg", "t", "kilotonne", "Mt",               "Gt",                                    "Tg",                                     "Pg",      "Tt"),
+                        note=c("",  "",   "",  "",          "mega 6 (million)", "giga 9 (billion short, milliard long)", "tera 12 (trillion short, billion long)", "peta 15", "tera 12"))  
+    vals_char <- units$unit # result stays character
+    for (i in seq_along(vals_char)) vals_char[i] <- units::set_units(x, value=units$unit[i], mode="standard")
+    vals <- as.numeric(vals_char)
+    df <- data.frame(val=vals, vals_char=vals_char, unit=units$unit, note=units$note, stringsAsFactors=F)
+    print(df, width=300)
     invisible(df)
 } # masses function
 
@@ -1383,6 +1460,12 @@ atm_to_Pa <- function(atm) {
 # <=>       1 g C = 3.664191        g CO2
 # --> convert g C   to g CO2: *3.664191 (or /0.272912)
 # --> convert g CO2 to g C  : /3.664191 (or *0.272912)
+C_to_CO2 <- function(C) {
+    CO2 <- C * 3.664191
+}
+CO2_to_C <- function(CO2) {
+    C <- CO2 * 0.272912
+}
 CO2ppm_to_kgCO2 <- function(CO2ppm) {
     # 2.124 from Tab. 1 from Friedlingstein et al. 2023
     CO2ppm * 2.124 * 1e12 / 0.272912 # ppm --> PgC; Pg -> kg; kgC -> kgCO2
@@ -1405,6 +1488,9 @@ kgC_m2_s1_to_PgC_yr1 <- function(kgC_m2_s1) {
 }
 kgC_s1_to_gC_yr1 <- function(kgC_s1) {
     kgC_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g 
+}
+kgC_day1_to_kgCO2_s1 <- function(kgC_day1) {
+    kgC_day1 * 3.664191 * 86400 # C -> CO2; day-1 -> s-1
 }
 kgC_s1_to_PgC_yr1 <- function(kgC_s1) {
     kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg 
@@ -1451,16 +1537,6 @@ mmolC_d1_to_kgCO2_s1 <- function(mmolC_d1) {
 }
 gC_to_kgC <- function(gC) {
     gC / 1e3 # g --> kg
-}
-kgC_m2_s1_to_PgC_yr1 <- function(kgC_m2_s1) {
-    Aearth <- 5.100656e14 # m2
-    kgC_m2_s1 * Aearth * 365.25*86400 / 1e12 # m2 -> fldint; s-1 -> yr-1; kg -> Pg 
-}
-kgC_s1_to_gC_yr1 <- function(kgC_s1) {
-    kgC_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g 
-}
-kgC_s1_to_PgC_yr1 <- function(kgC_s1) {
-    kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg 
 }
 kgCO2_kg_to_CO2ppm <- function(kgCO2_kg) {
     # mass mixing ratio in kg kg-1 -> volume mixing ratio in ppm
@@ -1560,6 +1636,50 @@ ppm_to_PgC <- function(ppm) {
     ppm * 2.124 # Tab.1 Friedlingstein et al. 2023; ref: Ballantyne et al. 2012
 }
 
+# flux ctrl vs anomaly confusion
+flux_signs <- function(convention="downward_negative") {
+
+    fs <- c(-2, 2)
+    dfs <- c(-1, -3, 1, 3)
+    fs_all <- dfs_all <- fs_new_all <- rep(NA, times=length(fs)*length(dfs))
+    cnt <- 0
+    for (fi in seq_along(fs)) {
+        for (ai in seq_along(dfs)) {
+            cnt <- cnt + 1
+            fs_all[cnt] <- fs[fi]
+            dfs_all[cnt] <- dfs[ai]
+            fs_new_all[cnt] <- fs[fi] + dfs[ai]
+        } # for ai
+    } # for fi
+    fs_all_text <- rep("sink", times=length(fs_all))
+    fs_all_text[which(fs_all >= 0)] <- "source"
+    fs_new_all_text <- rep("sink", times=length(fs_new_all))
+    fs_new_all_text[which(fs_new_all >= 0)] <- "source"
+    dfs_text_all <- rep(NA, times=length(fs_new_all_text))
+    for (i in seq_along(dfs_text_all)) {
+        if (fs_all_text[i] == "sink" && fs_new_all_text[i] == "sink") {
+            if (fs_new_all[i] < fs_all[i]) {
+                dfs_text_all[i] <- "stronger sink"
+            } else {
+                dfs_text_all[i] <- "weaker sink"
+            }
+        } else if (fs_all_text[i] == "sink" && fs_new_all_text[i] == "source") {
+            dfs_text_all[i] <- "from sink to source"
+        } else if (fs_all_text[i] == "source" && fs_new_all_text[i] == "sink") {
+            dfs_text_all[i] <- "from source to sink"
+        } else if (fs_all_text[i] == "source" && fs_new_all_text[i] == "source") {
+            if (fs_new_all[i] < fs_all[i]) {
+                dfs_text_all[i] <- "weaker source"
+            } else {
+                dfs_text_all[i] <- "stronger source"
+            }
+        }
+    } # for i
+    df <- data.frame("F"=fs_all, "Ftext"=fs_all_text, "dF"=dfs_all, "Fnew"=fs_new_all, "Fnew_text"=fs_new_all_text, "dF_text"=dfs_text_all)
+    print(df, width=300)
+
+} # flux_sign
+
 # check available datasets
 mydata <- function(pkgname) {
     data <- utils::data()$result
@@ -1616,20 +1736,22 @@ mydata <- function(pkgname) {
 } # mydata
 
 
-## section 2/2: r and system stuff
+# section 2 of 2: r and system stuff
 
 # return currently running R executable
 Rexe <- function() return(paste0(R.home(), "/bin/exec/R"))
 
 tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
-    # use e.g. like this: `type <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))`
+    # usage:
+    # tc <- tryCatch.W.E(expr=eval(parse(text=paste0("system(cmd, intern=T)"))))
+    # if (!is.null(tc$warning)) ...
     W <- NULL
     w.handler <- function(w) { # warning handler
         W <<- w
-        invokeRestart("muffleWarning")
+        base::invokeRestart("muffleWarning")
     }
-    list(value=withCallingHandlers(tryCatch(expr, error=function(e) e),
-                                   warning=w.handler), 
+    list(value=base::withCallingHandlers(base::tryCatch(expr, error=function(e) e),
+                                         warning=w.handler), 
          warning=W)
 } # tryCatch.W.E
 
@@ -1877,6 +1999,79 @@ col2rgba <- function(cols, alpha) {
         apply(grDevices::col2rgb(cols)/255, 2, function(x) grDevices::rgb(matrix(x, ncol=3), alpha=alpha))
     }
 }
+
+match_color <- function(cols=c("red", "blue"), 
+                        table=grDevices::rainbow(10), 
+                        method="euclidean",
+                        tolower=T) {
+    
+    if (is.character(cols)) {
+        if (!is.vector(cols)) stop("if `cols` is character, it must be vector")
+        cols_hex <- cols
+        cols_rgb <- t(grDevices::col2rgb(cols_hex)) # int (ncols x 3): rgb from 0 to 255
+        if (!is.null(dimnames(cols_hex))) dimnames(cols_rgb)[[1]] <- dimnames(cols_hex)[[1]]
+    } else if (is.integer(cols)) {
+        if (is.vector(cols) || ncol(cols) != 3) stop("if `cols` is integer, it must be (ncol x 3) rgb matrix (0-255)")
+        cols_rgb <- cols
+        cols_hex <- grDevices::rgb(red=cols_rgb[,1], green=cols_rgb[,2], blue=cols_rgb[,3], maxColorValue=255)
+        if (!is.null(dimnames(cols_rgb))) names(cols_hex) <- dimnames(cols_rgb)[[1]]
+    } else {
+        stop("`cols` must be character vector or integer (ncols x 3) rgb matrix (0-255)")
+    }
+    rm(cols)
+
+    if (is.character(table)) {
+        if (!is.vector(table)) stop("if `table` is character, it must be vector")
+        table_hex <- table
+        table_rgb <- t(grDevices::col2rgb(table)) # int (ncols x 3): rgb from 0 to 255
+        if (!is.null(dimnames(table_hex))) dimnames(table_rgb)[[1]] <- dimnames(table_hex)[[1]]
+    } else if (is.integer(table)) {
+        if (is.vector(table) || ncol(table) != 3) stop("if `table` is integer, it must be (ncol x 3) rgb matrix (0-255)")
+        table_rgb <- table
+        table_hex <- grDevices::rgb(red=table_rgb[,1], green=table_rgb[,2], blue=table_rgb[,3], maxColorValue=255) # capital letters
+        if (!is.null(dimnames(table_rgb))) names(table_hex) <- dimnames(table_rgb)[[1]]
+    } else {
+        stop("`table` must be character vector or integer (ncols x 3) rgb matrix (0-255)")
+    }
+    rm(table)
+
+    if (tolower) { # lower capital-letter result from grDevices::rgb() when rgb was provided
+        cols_hex <- base::tolower(cols_hex)
+        table_hex <- base::tolower(table_hex)
+    }
+
+    if (F) { # todo: don't understand why doesn't work
+        cols_hex_match <- mapply(function(r, g, b) {
+                                     #dist <- base::rowSums((table_rgb - c(r, g, b))^2)
+                                     dist <- base::rowSums(abs(table_rgb - c(r, g, b)))
+                                     print(dist)
+                                     table[which.min(dist)]
+                               },
+                               cols_rgb[,"red"], cols_rgb[,"green"], cols_rgb[,"blue"]) # vector (m*n): cols
+    } else if (T) { # loop
+        inds <- rep(NA, times=length(cols_hex))
+        for (coli in seq_along(inds)) {
+            tmp <- t(replicate(cols_rgb[coli,], n=length(table_hex)))
+            if (method == "euclidean") {
+                dist <- apply((table_rgb - tmp)^2, 1, sum) # = farver::compare_colour(from=cols_rgb, to=table_rgb, from_space="rgb", method="euclidean")
+            } else if (method == "mydist") {
+                dist <- apply(abs(table_rgb - tmp), 1, sum)
+            } else {
+                stop("method ", method, " not implemented")
+            }
+            if (F) {
+                message("coli ", coli, ": ", cols_hex[coli], ":\n",
+                        paste(paste0(seq_along(dist), ": ", table_hex[order(dist)], " (", dist[order(dist)], ")"), collapse="\n"))
+            }
+            inds[coli] <- which.min(dist)
+        }
+        cols_hex_match <- table_hex[inds]
+        if (!is.null(table_hex)) names(cols_hex_match) <- names(table_hex)[inds]
+    }
+
+    return(cols_hex_match)
+
+} # match_color
 
 # my colors
 mycols <- function(n) {
@@ -2260,7 +2455,7 @@ myDefaultPlotOptions <- function(plist=list(plot_type="png",
                     plist[[dot_names[i]]] <- dot_list[[i]]
                 }
                 if (verbose && i == length(dot_list)) message("*** myDefaultPlotOptions() finished ***")
-                ## Note: 
+                # Note: 
                 # print(str(dot_list[[i]]))
                 # returns the value AND NULL
                 #str(dot_list[[i]]) 
@@ -2502,7 +2697,7 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
 # Get month names in specific locale
 mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
  
-    ## https://stat.ethz.ch/pipermail/r-help/2004-May/051503.html
+    # https://stat.ethz.ch/pipermail/r-help/2004-May/051503.html
 
     if (any(!(inds %in% 1:12))) {
         stop("mymonth.name(): 'inds' must be in 1:12")
@@ -2571,105 +2766,6 @@ size2byte <- function(string, val, unit) {
     mult <- c("B"=1,  "K"=1024,  "M"=1024^2,  "G"=1024^3,  "T"=1024^4,  "P"=1024^5)
     return(val * unname(mult[unit]))
 } # size2byte function
-
-get_encoding <- function(test_symbol="ä", test_ctype="de", verbose=F) {
-    
-    encoding <- iconvlist()
-    n <- length(encoding)
-    encoding <- sapply(encoding, function(x) iconv(test_symbol, from=x))
-    if (any(is.na(encoding))) encoding <- encoding[!is.na(encoding)]
-    if (any(encoding == test_symbol)) {
-        encoding <- encoding[which(encoding == test_symbol)]
-        if (verbose) {
-            message(length(encoding), "/", n, 
-                    " encodings can print test_symbol \"", test_symbol, "\":")
-            message(paste(names(encoding), collapse=" "))
-        }
-        encoding <- names(encoding[1])
-        message("get_encoding(): first found encoding that matches \"", 
-                test_symbol, "\": ", encoding)
-    } else {
-        message("could not find an encoding to evaluate test_symbol = \"", 
-                test_symbol, "\"")
-    }
-	ctype <- Sys.getlocale("LC_CTYPE")
-
-    # repeat for ctype 
-	if (regexpr(test_ctype, ctype, ignore.case=T) == -1) {
-		
-		# get available langs
-		locs <- system("locale -a", intern=T)
-		# check if german character type is possible
-		if (!any(regexpr(test_ctype, locs, ignore.case=T) != -1)) {
-			message("could not find a locale contaning the pattern \"", 
-                    test_ctype, "\" (case is ignored)")
-		} else {
-			locs <- locs[which(regexpr(test_ctype, locs, ignore.case=T) != -1)]
-			message("Sys.getlocalte(\"LC_CTYPE\"): ", ctype)
-			message("Run Sys.setlocale(\"LC_CTYPE\", \"", locs[1], "\")")
-			Sys.setlocale("LC_CTYPE", locs[1])
-			message("Sys.getlocale(\"LC_CTYPE\"): ", Sys.getlocale("LC_CTYPE"))
-		
-			# get available encodings
-			encoding <- iconvlist()
-            n <- length(encoding)
-			encoding <- sapply(encoding, function(x) iconv(test_symbol, from=x))
-			if (any(encoding == test_symbol)) {
-                if (verbose) {
-                    message(length(encoding), "/", n, 
-                            " encodings can print test_symbol \"", test_symbol, "\":")
-                    message(paste(names(encoding), collapse=" "))
-                }
-                encoding <- names(encoding[1])
-                message("get_encoding(): first found encoding that matches \"", 
-                        test_symbol, "\": ", encoding)
-			} else {
-				message("could not find an encoding to evaluate test_symbol = \"", 
-                        test_symbol, "\"")
-			}
-		} # if pattern test_ctype is contained in locale -a
-	} else {
-        if (verbose) message("test_ctype = \"", test_ctype, 
-                             "\" in `Sys.getlocale(\"LC_CTYPE\")` = ", ctype) 
-    } # if current LC_CTYPE does not contain test_ctype
-    return(encoding)
-} # get_encoding
-
-# check gs command from grDevices::embedFonts()
-myembedFonts <- function (file, format, outfile = file, fontpaths = character(), 
-    options = character()) 
-{
-    if (!is.character(file) || length(file) != 1L || !nzchar(file)) 
-        stop("'file' must be a non-empty character string")
-    gsexe <- tools::find_gs_cmd()
-    if (!nzchar(gsexe)) 
-        stop("GhostScript was not found")
-    if (.Platform$OS.type == "windows") 
-        gsexe <- shortPathName(gsexe)
-    suffix <- gsub(".+[.]", "", file)
-    if (missing(format)) 
-        format <- switch(suffix, ps = , eps = "ps2write", pdf = "pdfwrite")
-    if (!is.character(format)) 
-        stop("invalid output format")
-    grDevices:::check_gs_type(gsexe, format)
-    tmpfile <- tempfile("Rembed")
-    if (length(fontpaths)) 
-        fontpaths <- paste0("-sFONTPATH=", shQuote(paste(fontpaths, 
-            collapse = .Platform$path.sep)))
-    args <- c(paste0("-dNOPAUSE -dBATCH -q -dAutoRotatePages=/None -sDEVICE=", 
-        format), paste0(" -sOutputFile=", shQuote(tmpfile)), 
-        fontpaths, options, shQuote(file))
-    message("run `", gsexe, " ", args, "` ...")
-    ret <- system2(gsexe, args)
-    if (ret != 0) 
-        stop(gettextf("status %d in running command '%s'", ret, 
-            cmd), domain = NA)
-    if (outfile != file) 
-        args[2] <- paste0(" -sOutputFile=", shQuote(outfile))
-    cmd <- paste(c(shQuote(gsexe), args), collapse = " ")
-    file.copy(tmpfile, outfile, overwrite = TRUE)
-    invisible(cmd)
-} # from grDevices::embedFonts()
 
 myErrorFun <- function() {
     # default: getOption("error") = NULL

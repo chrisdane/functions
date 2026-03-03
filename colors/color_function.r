@@ -345,7 +345,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
         z <- array(1:(n*ncol), c(n, ncol))
         xp <- seq(0.5, dim(z)[1] + 0.5, length.out=100)
         yp <- seq(0.5, dim(z)[2] + 0.5, length.out=100)
-        plot(xp, yp, t="n", axes=F,
+        plot(xp, yp, type="n", axes=F,
              xlab="Number of levels", ylab=NA, 
              xaxs="i", yaxs="i")
         axis(1, at=pretty(x, n=10), labels=pretty(x, n=10))
@@ -355,7 +355,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
               add=T, axes=F, useRaster=T,
               xlab=NA, ylab=NA)
         abline(h=seq(1.5, ncol - 0.5, by=1))
-        lex <- rep(n, t=nnames)
+        lex <- rep(n, times=nnames)
         text(lex, y, names, pos=4, xpd=T)
         box()
         if (F) dev.off()

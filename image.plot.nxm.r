@@ -38,7 +38,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         message("x,y,z not provided --> run demo ...")
         if (is.null(n)) n <- 3
         if (is.null(m)) m <- 2
-        x <- y <- z <- vector("list", length.out=n*m)
+        x <- y <- z <- vector("list", length=n*m)
         for (i in 1:(n*m)) {
             x[[i]] <- 1:20
             y[[i]] <- 1:20
@@ -66,12 +66,12 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     }
     if (!is.list(z)) z <- list(z)
     if (!is.list(x)) {
-        xl <- vector("list", length.out=length(z))
+        xl <- vector("list", length=length(z))
         for (i in seq_along(z)) xl[[i]] <- x
         x <- xl; rm(xl)
     }
     if (!is.list(y)) {
-        yl <- vector("list", length.out=length(z))
+        yl <- vector("list", length=length(z))
         for (i in seq_along(z)) yl[[i]] <- y
         y <- yl; rm(yl)
     }
@@ -450,7 +450,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
         }
     } else {
-        point_list <- vector("list", length.out=nz)
+        point_list <- vector("list", length=nz)
     }
     
     if (any(dot_names == "line_list")) {
@@ -499,7 +499,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
         }
     } else {
-        text_list <- vector("list", length.out=nz)
+        text_list <- vector("list", length=nz)
     }
         
     cmd_list <- NULL # default
@@ -862,7 +862,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     #layout.show(n=max(layout_mat2))
     par(mar=rep(0.5, times=4)) # distance between sub-figures [rows]
 	if (znames_method == "text" && is.character(znames_pos) && grepl("top", znames_pos)) { # increase vertical distance between sub figures
-        par(mar=c(0.5, 0.5, 1.5, 0.5)) 
+        par(mar=c(0.5, 0.5, 1.66, 0.5)) 
     }
     if (verbose) {
         cat("fig=")
@@ -1002,7 +1002,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
                 if (contour_only) {
 
-                    if (T && any(is.na(z[[i]]))) {
+                    if (T && any(is.na(z[[i]]))) { # add NA; todo: wtf?
                         if (verbose) message("`z[[", i, "]]` has missing values (NA) --> add missing values ",
                                              "to subplot with color `NAcol`=", NAcol, " using graphics::image() with `useRaster`=", 
                                              useRaster, " ...")
@@ -1020,6 +1020,13 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                     }
 
                 } # if contour_only
+                
+                # get contour levels
+                if (contour_only) {
+                    contour_levels <- breaks
+                } else {
+                    contour_levels <- axis.at
+                }
 
                 # distinguish between positive and negative contours
                 if (contour_posneg_soliddashed || contour_posneg_redblue) {
@@ -1031,37 +1038,37 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                         }
                     }
                     if (any(axis.at < 0)) { # add negative values
-                        contour_levels <- axis.at[axis.at < 0]
+                        tmp <- contour_levels[contour_levels < 0]
                         if (contour_posneg_soliddashed) {
                             graphics::contour(x[[i]], y[[i]], z[[i]],
                                               add=T, 
-                                              levels=contour_levels, col=contour_cols,
+                                              levels=tmp, col=contour_cols,
                                               labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               lty=2, axes=F, xlab="n", lwd=lwd)
                         } else if (contour_posneg_redblue) {
                             graphics::contour(x[[i]], y[[i]], z[[i]],
-                                              add=T, levels=contour_levels, 
+                                              add=T, levels=tmp, 
                                               labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               lty=1, col="blue", axes=F, xlab="n", lwd=lwd)
                         }
                     } # if any neg values
                     if (any(axis.at >= 0)) { # add positive values
-                        contour_levels <- axis.at[axis.at >= 0]
+                        tmp <- contour_levels[contour_levels >= 0]
                         if (!contour_include_zero) {
-                            if (any(contour_levels == 0)) {
+                            if (any(tmp == 0)) {
                                 if (verbose) message("`contour_include_zero`=F --> do not add zero contour line to subplot")
-                                contour_levels <- contour_levels[which(contour_levels == 0)] 
+                                tmp <- tmp[-which(tmp == 0)] 
                             }
                         }
                         if (contour_posneg_soliddashed) {
                             graphics::contour(x[[i]], y[[i]], z[[i]],
                                               add=T, 
-                                              levels=contour_levels, col=contour_cols, 
+                                              levels=tmp, col=contour_cols, 
                                               labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               lty=1, axes=F, xlab="n", lwd=lwd)
                         } else if (contour_posneg_redblue) {
                             graphics::contour(x[[i]], y[[i]], z[[i]],
-                                              add=T, levels=contour_levels, 
+                                              add=T, levels=tmp, 
                                               labcex=contour_labcex, drawlabels=contour_drawlabels, vfont=contour_vfont,
                                               lty=1, col="red", axes=F, xlab="n", lwd=lwd)
                         }
@@ -1070,12 +1077,12 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                 # default: do not distinguish between positive and negative contours
                 } else if (!contour_posneg_soliddashed && !contour_posneg_redblue) {
                     message("both `contour_distinguish_posneg` and `contour_distinguish_redblue` are false",
-                            " --> use solid lines for both pos and neg values ...")
-                    tmp <- axis.at
+                            " --> use mono-colored and solid lines for both pos and neg values ...")
+                    tmp <- contour_levels
                     if (!contour_include_zero) {
                         if (any(tmp == 0)) {
                             if (verbose) message("`contour_include_zero`=F --> do not add zero contour line to subplot")
-                            tmp <- tmp[which(tmp == 0)] 
+                            tmp <- tmp[-which(tmp == 0)] 
                         }
                     }
                     graphics::contour(x[[i]], y[[i]], z[[i]],
