@@ -281,7 +281,7 @@ update_check <- function() {
     # -> it works better to update packages with the r version according to the package location
     #libpaths <- libpaths[1] # this only applies to my file structure
     
-    li <- vector("list", length.out=length(libpaths))
+    li <- vector("list", length=length(libpaths))
     # first loop just show packages to upgrade
     for (libpathi in seq_along(libpaths)) {
         message("*************************************************\n",
@@ -290,7 +290,7 @@ update_check <- function() {
         if (file.access(libpaths[libpathi], mode=2) == -1) { # dir not writeable
             message("--> directory not writeable. skip")
         } else {
-            inst <- packageStatus(lib=libpaths[libpathi])
+            inst <- utils::packageStatus(lib.loc=libpaths[libpathi])
             inds <- which(inst$inst$Status == "upgrade") # ok upgrade unavailable
             if (length(inds) > 0) {
                 df <- inst$inst[inds,c("Package", "Version", "Status")]

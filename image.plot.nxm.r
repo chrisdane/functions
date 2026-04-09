@@ -17,8 +17,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                            quiver_col="black", quiver_lty=1, quiver_lwd=0.5,
                            quiver_legend=NULL,
                            plot_type="active", plotname="testplot",
-                           cm_bottom=2, cm_left=2.5, cm_top=1,
-                           cm_right=4, colorbar_width_cm=0.45, colorbar_dist_cm=0.2,
+                           #cm_bottom=2, cm_left=2.5, cm_top=1, cm_right=4, 
+                           cm_bottom=1.5, cm_left=1.5, cm_top=0.25, cm_right=3, 
+                           colorbar_width_cm=0.45, colorbar_dist_cm=0.2,
                            width_png=2000, height_png=1666, res=300, 
                            width_pdf=7, height_pdf=7,
                            axis.args=NULL, 
@@ -27,6 +28,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                            colorbar.cex=1.25,
                            family="sans", lwd=0.5, lwd.ticks=0.5, 
                            verbose=F, ...) {
+
+    # todo: posix dim
 
     if (verbose) message("\n*********** start image.plot.nxm() with `verbose`=T and `dry`=", 
                          substr(dry, 1, 1), " **************")
@@ -610,8 +613,25 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     #   --> it can be useful to set useRaster explicitly to false, although a vector graphic is wanted.
     #   the resulting file is a vector graphic (e.g. axes, font, etc.) but all objects drawn with
     #   graphics::image are not.
+    
+    # from ?image:
+    # useRaster: logical; if ‘TRUE’ a bitmap raster is used to plot the image
+    #           instead of polygons. The grid must be regular in that case,
+    #           otherwise an error is raised.  For the behaviour when this is
+    #           not specified, see ‘Details’.
+    # Images for large ‘z’ on a regular grid are rendered more
+    # efficiently with ‘useRaster = TRUE’ and can prevent rare
+    # anti-aliasing artifacts, but may not be supported by all graphics
+    # devices.  
+    # The graphics files in PDF and PostScript can be much smaller under
+    # this option.
+    # If ‘useRaster’ is not specified, raster images are used when the
+    # ‘getOption("preferRaster")’ is true, the grid is regular and
+    # either ‘dev.capabilities("rasterImage")$rasterImage’ is ‘"yes"’ or
+    # it is ‘"non-missing"’ and there are no missing values.
+
     check_irregular <- function(x, y) { # defined inside graphics::image.default
-        # problem: does not work for POSIX x,y objects
+        # todo: does not work for POSIX x,y objects
         dx <- diff(x)
         dy <- diff(y)
         # all.equal(target, current, ...) returns
@@ -627,6 +647,11 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         (length(dx) && !isTRUE(all.equal(dx, rep(dx[1], length(dx))))) ||
         (length(dy) && !isTRUE(all.equal(dy, rep(dy[1], length(dy)))))
     } # check_irregular
+    my_check_irregular <- function(vals) {
+        dvals <- diff(vals)
+        (length(dvals) && !isTRUE(all.equal(dvals, rep(dvals[1], length(dvals)))))
+    } # my_check_irregular
+
     is_pdf <- plot_type == "pdf" || # if pdf is wanted
               (plot_type == "active" && (!is.null(dev.list()) && all(names(dev.cur()) == "pdf"))) # or current open device is pdf
     if (is.null(useRaster)) {
@@ -640,18 +665,76 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         }
     }
    
-    # is useRaster=T, the x and y coords of the data matrix must be regular
+    # if useRaster=T, the x and y coords of the data matrix must be regular
     # --> if provided x and y are not regular, make new regular x and y for the plot
-    if (useRaster) {
+    if (!useRaster) {
+        if (verbose) message("`useRaster` = F. continue wout potential interpolation ...")
+    } else if (useRaster) {
         if (!contour_only) {
-            if (verbose) message("`useRaster`=T --> check if x,y are regular for graphics::image(..., useRaster=T) usage ...")
-            for (i in seq_along(z)) {
-                if (check_irregular(x[[i]], y[[i]])) {
-                    if (verbose) message("  -> setting ", i, " is irregular -> make regular grid for setting ", i, " ...")
-                    x[[i]] <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), length.out=length(x[[i]])) # overwrite original coord
-                    y[[i]] <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), length.out=length(y[[i]]))
-                }
+            if (verbose) {
+                message("`useRaster`=T --> check if x,y are regular for graphics::image(..., useRaster=T) usage ...")
+                message("x:")
+                cat(capture.output(str(x)), sep="\n")
+                message("y:")
+                cat(capture.output(str(y)), sep="\n")
             }
+            if (any(dot_names == "interp_x_fac")) {
+                interp_x_fac <- dot_list$interp_x_fac
+                if (!is.null(interp_x_fac)) {
+                    if (length(interp_x_fac) != length(z)) { 
+                        stop("provided interp_x_fac is of length ", length(interp_x_fac), " but nz = ", nz)
+                    }
+                    for (i in seq_along(interp_x_fac)) {
+                        if (!is.na(interp_x_fac[i])) {
+                            if (!is.numeric(interp_x_fac[i])) stop("provided `interp_x_fac[", i, "]` must be numeric")
+                        }
+                    }
+                }
+            } else { # if interp_x_fac given
+                interp_x_fac <- rep(1, times=nz) # do not increase length of x_interp
+            }
+            if (any(dot_names == "interp_y_fac")) {
+                interp_y_fac <- dot_list$interp_y_fac
+                if (!is.null(interp_y_fac)) {
+                    if (length(interp_y_fac) != length(z)) { 
+                        stop("provided interp_y_fac is of length ", length(interp_y_fac), " but nz = ", nz)
+                    }
+                    for (i in seq_along(interp_y_fac)) {
+                        if (!is.na(interp_y_fac[i])) {
+                            if (!is.numeric(interp_y_fac[i])) stop("provided `interp_y_fac[", i, "]` must be numeric")
+                        }
+                    }
+                }
+            } else {# if interp_y_fac given
+                interp_y_fac <- rep(1, times=nz) # do not increase length of y_interp
+            }
+            for (i in seq_along(z)) {
+                interpx <- interpy <- F # default: interpolation not needed
+                x2 <- x[[i]]; y2 <- y[[i]] # will be overwritten if necessary
+                if (my_check_irregular(x[[i]])) {
+                    if (verbose) message("  -> setting ", i, ": x[[i]] is irregular -> interp x to interp_x_fac[", i, "] = ", 
+                                         interp_x_fac[i], " * length(x[[", i, "]]) = ", length(x[[i]]), " = ", interp_x_fac[i]*length(x[[i]]), " vals ...")
+                    x2 <- seq(min(x[[i]], na.rm=T), max(x[[i]], na.rm=T), length.out=interp_x_fac[i]*length(x[[i]]))
+                    if (my_check_irregular(x2)) stop("this should not happen") 
+                    interpx <- T
+                }
+                if (my_check_irregular(y[[i]])) {
+                    if (verbose) message("  -> setting ", i, ": y[[i]] is irregular -> interp y to interp_y_fac[", i, "] = ", 
+                                         interp_y_fac[i], " * length(y[[", i, "]]) = ", length(y[[i]]), " = ", interp_y_fac[i]*length(y[[i]]), " vals ...")
+                    y2 <- seq(min(y[[i]], na.rm=T), max(y[[i]], na.rm=T), length.out=interp_y_fac[i]*length(y[[i]]))
+                    if (my_check_irregular(y2)) stop("this should not happen") 
+                    interpy <- T
+                }
+                if (interpx || interpy) {
+                    if (verbose) message("run `fields::interp.surface.grid` ...")
+                    if (!any(search() == "package:fields")) library(fields)
+                    z2 <- fields::interp.surface.grid(obj=list(x=x[[i]], y=y[[i]], z=z[[i]]),
+                                                      grid.list=list(x=x2, y=y2))$z
+                    z[[i]] <- z2
+                }
+                if (interpx) x[[i]] <- x2
+                if (interpy) y[[i]] <- y2
+            } # for i
         } # if !contour_only
 
         if (!is.null(image_list)) {
@@ -687,8 +770,10 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     # unique x and y axes of same length for base::plot()
     # (not projected)
     xrange <- range(x, na.rm=T)
+    if (any(grepl("posix", class(x[[1]]), ignore.case=T))) xrange <- as.POSIXct(xrange, origin="1970-1-1", tz="UTC")
     if (verbose) { cat("xrange = "); dput(xrange) }
     yrange <- range(y, na.rm=T)
+    if (any(grepl("posix", class(y[[1]]), ignore.case=T))) yrange <- as.POSIXct(yrange, origin="1970-1-1", tz="UTC")
     if (verbose) { cat("yrange = "); dput(yrange) }
     l <- max(c(sapply(x, length), sapply(y, length)))
     x_plot <- seq(xrange[1], xrange[2], length.out=l)
@@ -804,14 +889,14 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     }
 
     if (!any(dot_names == "x_labels")) {
-        x_labels <- format(x_at, trim=T)
+        x_labels <- base::format(x_at, trim=T)
         if (verbose) { cat("automatic x_labels = "); dput(x_labels) }
     } else if (any(dot_names == "x_labels")) {
         x_labels <- dot_list[["x_labels"]]
     }
 
     if (!any(dot_names == "y_labels")) {
-        y_labels <- format(y_at, trim=T)
+        y_labels <- base::format(y_at, trim=T)
         if (verbose) { cat("automatic y_labels = "); dput(y_labels) }
     } else if (any(dot_names == "y_labels")) {
         y_labels <- dot_list[["y_labels"]]
@@ -1731,8 +1816,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                     #my_mapAxis(side=2, lwd=0, lwd.ticks=lwd.ticks, las=2, cex.axis=cex.axis)
                     my_mapAxis(side=2, lwd=0, lwd.ticks=0, las=2, cex.axis=cex.axis)
                 }
-                #mtext(ylab, side=2, line=3, cex=1)
-                mtext(ylab, side=2, line=4, cex=1)
+                mtext(ylab, side=2, line=3, cex=1)
+                #mtext(ylab, side=2, line=4, cex=1)
                 #mtext(ylab, side=2, line=5, cex=1)
             } else { # just ticks
                 if (proj == "") {
@@ -1744,13 +1829,21 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             }
             if (bottom_axis_inds[i]) {
                 if (proj == "") {
-                    graphics::axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
-                                   lwd=0, lwd.ticks=lwd.ticks)
+                    if (any(grepl("posix", class(x_at), ignore.case=T))) {
+                        if (verbose) message("use graphics::axis.POSIXct")
+                        graphics::axis.POSIXct(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
+                                               lwd=0, lwd.ticks=lwd.ticks)
+                    } else {
+                        if (verbose) message("use graphics::axis")
+                        graphics::axis(1, at=x_at, labels=x_labels, cex.axis=cex.axis, 
+                                       lwd=0, lwd.ticks=lwd.ticks)
+                    }
                 } else if (proj != "") {
                     #oce::mapAxis(1, lwd=0, lwd.ticks=lwd.ticks, cex.axis=cex.axis)
                     my_mapAxis(side=1, lwd=0, lwd.ticks=lwd.ticks, cex.axis=cex.axis)
                 }
-                mtext(xlab, side=1, line=3, cex=1)
+                #mtext(xlab, side=1, line=3, cex=1)
+                mtext(xlab, side=1, line=2.5, cex=1)
             } else { # just ticks
                 if (proj == "") {
                     graphics::axis(1, at=x_at, labels=F, lwd=0, lwd.ticks=lwd.ticks)

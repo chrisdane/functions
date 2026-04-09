@@ -1680,6 +1680,41 @@ flux_signs <- function(convention="downward_negative") {
 
 } # flux_sign
 
+# calc enso from monthly anomaly data
+calc_enso_from_mon_anom <- function(temp_anom) { # todo: from any time series
+
+    message("temp anomaly time series:")
+    cat(capture.output(str(temp_anom)), sep="\n")
+    message("\nget enso based on temp anomaly threshold 0.4 °C for at least 6 months or longer ...")
+
+    nino <- base::inverse.rle(base::within.list(rle(temp_anom > 0.4), 
+                                    expr={
+                                        i1 <- values & (lengths >= 6)
+                                        values[i1] <- seq_along(values[i1]) + 1 # +1 for excluding vals>0.4 but less than 6 months in next line
+                                    }))
+    if (any(nino == 1)) nino[nino == 1] <- 0
+    if (any(nino == 0)) nino[nino == 0] <- NA
+    nino <- nino - 1
+    nino_vals <- na.omit(unique(nino))
+    nino <- list(n=length(nino_vals), vals=nino_vals, nino=nino)
+    
+    nina <- inverse.rle(within.list(rle(temp_anom < -0.4), 
+                                    expr={
+                                        i1 <- values & (lengths >= 6)
+                                        values[i1] <- seq_along(values[i1]) + 1 # +1 for excluding vals<-0.4 but less than 6 months in next line
+                                    }))
+    if (any(nina == 1)) nina[nina == 1] <- 0
+    if (any(nina == 0)) nina[nina == 0] <- NA
+    nina <- nina - 1
+    nina_vals <- na.omit(unique(nina))
+    nina <- list(n=length(nina_vals), vals=nina_vals, nina=nina)
+    
+    message("\n--> ", nino$n, " el nino, ", nina$n, " la nina events")
+    enso <- list(temp_anom=temp_anom, nino=nino, nina=nina)
+    return(enso)
+
+} # calc_enso_from_mon_anom
+
 # check available datasets
 mydata <- function(pkgname) {
     data <- utils::data()$result
@@ -2268,6 +2303,57 @@ ncdump_showdate <- function(fin, ncdump=Sys.which("ncdump"), verbose=T) {
     return(dates)
 } # ncdump_showdate
 
+ncks_m <- function(file, verbose=F) {
+    ncks <- Sys.which("ncks")
+    if (ncks == "") stop("could not find ncks")
+    warn <- options()$warn
+    
+    cmd <- paste0(ncks , " -m ", file)
+    if (verbose) message("run `", cmd, "` ...")
+    val <- base::system(cmd, intern=T)
+    if (verbose) {
+        message("-->")
+        print(head(val, n=15))
+    }
+
+    # get ntime
+    # --> search for e.g. "     time = "
+    ncks_known_time_dim_names <- c("time", "Time", "TIME", "time_mon", "T", "t")
+    inds <- sapply(paste0("    ", ncks_known_time_dim_names, " = "), regexpr, val) == 1 # (n_lines_of_ncks_result x n_ncks_known_time_dim_names)
+    if (any(inds)) {
+        if (length(which(inds)) != 1) stop("this should not happen")
+        ind <- which(inds, arr.ind=T)[1,1] # row of ncks result with any of `ncks_known_time_dim_names`
+        tmp <- val[ind] 
+        # 2 cases so far:
+        #    "    time = 12 ;"
+        #    "     time = UNLIMITED ; // (1 currently)"
+        tmp <- strsplit(tmp, " = ")[[1]][2] # "    time" "12 ;", "UNLIMITED ; // (1 currently)"
+        if (verbose) message("\n--> \"", tmp, "\"")
+        if (grepl("UNLIMITED", tmp)) { # "UNLIMITED ; // (1 currently)"
+            tmp <- strsplit(tmp, "//")[[1]][2] # " (1 currently)"
+            tmp <- trimws(gsub("[[:punct:]]", "", tmp)) # "1 currently"
+            tmp <- strsplit(tmp, " ")[[1]][1] # "1"
+        } else { # "    time" "12 ;"
+            tmp <- trimws(gsub("[[:punct:]]", "", tmp)) # "12"
+        }
+        if (verbose) {
+            message("--> \"", tmp, "\"\n",
+                    "--> convert to integer ...")
+        }
+        options(warn=2); tmp <- base::as.integer(tmp); options(warn=warn) # error if as.integer() fails
+    } else { # variable has none of `ncks_known_time_dim_names`
+        if (verbose) message("\n--> found no time dim based on `ncks_known_time_dim_names` = ", paste(ncks_known_time_dim_names, collapse=", "))
+        tmp <- 0
+    } # if variable has any of `ncks_known_time_dim_names` or not
+    ntime <- tmp
+
+    # todo: add further
+
+    # return
+    return(list(ntime=ntime))
+
+} # ncks_m
+
 # summarize nc infos lazily
 # --> actual dim values cannot be retrieved lazily
 nc_infos <- function(ncfile, short=T) {
@@ -2279,11 +2365,16 @@ nc_infos <- function(ncfile, short=T) {
     if (file.access(ncfile, mode=0) == -1) stop("ncfile ", ncfile, " does not exist")
     ncfile <- normalizePath(ncfile)
     if (file.access(ncfile, mode=4) == -1) stop("ncfile ", ncfile, " exists but is not readable")
-    message(utils:::format.object_size(file.info(files[fi])$size, "auto"), " file ", ncfile, ":")
+    message(utils:::format.object_size(file.info(ncfile)$size, "auto"), " file ", ncfile, ":")
     library(RNetCDF)
     nc <- RNetCDF::open.nc(ncfile) # lazy open in contast to ncdf4::nc_open()
     if (short) {
-        RNetCDF::print.nc(nc)
+        ret <- utils::capture.output(RNetCDF::print.nc(nc)) # just string
+        # runs:
+        # nc <- .Call(R_nc_open, con, write, share, prefill, diskless, 
+        #     persist, mpi_comm, mpi_info)
+        # attr(nc, "class") <- "NetCDF"
+        # return(invisible(nc))
     } else {
         infos <- RNetCDF::file.inq.nc(nc)
         dims <- lapply(seq_len(infos$ndims)-1, function(x) RNetCDF::dim.inq.nc(nc, x))
@@ -2324,6 +2415,9 @@ nc_infos <- function(ncfile, short=T) {
             message("(cdo not found to get time info)")
         }
     } # if short or not
+    if (short) { # todo: implement other case
+        return(ret)
+    }
 } # nc_infos
 
 # ncap2 set time
@@ -2636,7 +2730,9 @@ par_px2in <- function(px) {
 
 # find largest empty region in plot based on all data points
 my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
-    
+   
+    # todo: unlist(posixlt) does not work
+
     if (!is.list(x_all)) stop("`x_all` must be list")
     if (!is.list(y_all)) stop("`y_all` must be list")
     if (length(x_all) != length(y_all)) stop("`x_all` and `y_all` must be of same length")
@@ -2658,6 +2754,8 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
             y_all[[i]] <- unlist(lapply(tmp, "[[", "y"))
         } # for i
     } # if n_interp > 0
+
+    # do not use list
     x_all <- unlist(x_all)
     y_all <- unlist(y_all)
     
@@ -2669,10 +2767,12 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
         inds <- unique(inds)
         x_all <- x_all[-inds]
         y_all <- y_all[-inds]
+        if (length(x_all) == 0) stop("all points are NA")
     }
+
+    # run method
     message("myfunctions.r:my_maxempty(): get automatic legend position at largest empty area with `method` = ", 
             method, "() for ", length(x_all), " (x,y)-points ... ")
-    
     if (method == "Hmisc::largest.empty") { # adagio::maxempty works better
         if (!suppressPackageStartupMessages(require(Hmisc))) stop("could not load Hmisc package")
         method <- "area" # "exhaustive" "area" "maxdim"
@@ -2684,15 +2784,39 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
         if (!suppressPackageStartupMessages(require(adagio))) stop("could not load adagio package")
         if (is.null(dev.list())) stop("there is no open plot device. cannot run adagio::maxempty ...")
         tmp <- adagio::maxempty(x=x_all, y=y_all, ax=par("usr")[1:2], ay=par("usr")[3:4])
+        message("adagio solution: ", paste(unname(tmp$rect), collapse=", "))
         #rect(tmp$rect[1], tmp$rect[2], tmp$rect[3], tmp$rect[4])
         pos <- c(x=tmp$rect[1], y=tmp$rect[4]) # topleft corner if x- and y-coords are both increasing (default)
     
     } # which method
     
+    # return as named list to be used via `graphics::legend(pos, ...)`
+    names(pos) <- c("x", "y")
     message("--> pos = ", paste(pos, collapse=", "))
-    return(list(pos=pos))
+    return(list(x=pos[1], y=pos[2]))
 
 } # my_maxempty
+
+# try to embed everything
+my_embedFonts <- function(plotname) {
+    
+    # default grDevices::embedFonts():
+    # gs -dNOPAUSE -dBATCH -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile='/tmp/RtmpkdPC8c/Rembed662c878593840' 'embed_pdf.pdf'
+
+    # -dEmbedAllFonts=true # does not solve symbol issue
+    # -dSubsetFonts=true # does not solve symbol issue
+    # -sFONTPATH='/usr/share/fonts/urw-base35' # path of StandardSymbolsPS.t1; does not solve symbol issue
+    # --> `gs -h`: Search path: ...
+    # -dPDFSETTINGS=/prepress
+    gs <- Sys.which("gs")
+    tmpfile <- tempfile("Rembed")
+    cmd <- paste0(gs, " -dNOPAUSE -dBATCH -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -dPDFSETTINGS=/prepress -sOutputFile='", tmpfile, "' '", plotname, "'")
+    message("run `", cmd, "` ...")
+    check <- system(cmd)
+    if (check != 0) stop("asd")
+    file.copy(tmpfile, plotname, overwrite=T)
+
+} # my_embedFonts
 
 # Get month names in specific locale
 mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
@@ -2780,7 +2904,9 @@ myErrorFun <- function() {
     if (!is.null(tmp) && # if e.g. not ctrl+c
         #regexpr("stop\\(", tmp[[1]]) != -1 && # if stop() was called last
         !is.null(srcref <- attr(tmp[[1]], "srcref"))) { # if attribute exists
-        message("in line ", srcref[1], " in ", basename(attr(srcref, "srcfile")$filename))
+        msg <- paste0("in line ", srcref[1], " in ", basename(attr(srcref, "srcfile")$filename))
+        #message(msg) # not shown in non-interactive mode
+        cat(msg, "\n") # shown in all modes
     } else {
         #message("str(tmp)")
         #print(str(tmp))
@@ -2925,7 +3051,7 @@ myhelp <- function() {
              "      embed: grDevices::embedFonts(plotname, outfile=plotname)",
              "   non-default fonts: package \"extrafont\"",
              "      font_import() (loadfonts()), fonts(), font_install(\"fontcm\"), \"CM *\"",
-             "      embed: embed_fonts(plotname, outfile=plotname)",
+             "      embed: extrafont::embed_fonts(plotname, outfile=plotname)",
              "      evince -> File -> Properties -> Fonts -> \"Embedded subset\"",
              "      library(extrafontdb) (reset)",
              "   available locales ...",
