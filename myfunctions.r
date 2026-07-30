@@ -28,7 +28,7 @@ ymdhms_to_yearsdec <- function(ymdhms) {
     is.leap <- function(years) {
         return(((years %% 4 == 0) & (years %% 100 != 0)) | (years %% 400 == 0))
     }
-    
+
     years <- ymdhms$year + 1900
     yday <- ymdhms$yday # 0 for January 1; 364 for non-leap December 31
     yearsdec <- years + yday/365
@@ -40,13 +40,13 @@ ymdhms_to_yearsdec <- function(ymdhms) {
 
 } # ymdhms_to_yearsdec
 
-# convert positive or negative decimal year (-)yyyy.f  to (-)YYYY-MM-DD HH:MM:SS 
+# convert positive or negative decimal year (-)yyyy.f  to (-)YYYY-MM-DD HH:MM:SS
 yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
     # - lubridate::date_decimal() is supposed to do the same thing but has a bug (see below)
     # - zoo::yearmon() works well except a slight difference in HH:MM:SS, and only works for years >= 0
     if (F) { # debug
         library(lubridate); library(zoo)
-        years <- seq(2000, by=1/12, length.out=12) # positive 
+        years <- seq(2000, by=1/12, length.out=12) # positive
         data.frame(lubri=lubridate::date_decimal(years), zoo=as.POSIXct(zoo::yearmon(years)), my=yearsdec_to_ymdhms(years)$text)
         #                 lubri                 zoo                  my
         #1  2000-01-01 00:00:00 2000-01-01 01:00:00 2000-01-01 00:00:00
@@ -89,7 +89,7 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
         #23  0-11-01 00:00:00  0-11-01 00:00:00
         #24  0-12-01 12:00:00  0-12-01 00:00:00
     } # debug
-    
+
     # check
     if (missing(yearsdec)) stop("yearsdec missing")
     if (!is.numeric(yearsdec)) stop("yearsdec must be numeric")
@@ -101,16 +101,16 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
     round <- 13 # round necessary; todo: somehow possible without round?
     #yearsf <- round(as.numeric(yearsf), 13)
     yearsf <- round(yearsf, round)
-    
+
     # shift negative years by -1 but not e.g. -1.0, -2.0
     inds <- which(yearsf < 0 & yearsf %% 1 != 0)
     if (length(inds) > 0) yearsf[inds] <- yearsf[inds] - 1
-    
+
     years <- trunc(yearsf)
     yearsrel <- yearsf - years
     yearsrel[yearsrel < 0] <- 1 - abs(yearsrel[yearsrel < 0])
     yearsrel <- round(yearsrel, round)
-    monthsrel_lookup <- round((0:11)/12, round) 
+    monthsrel_lookup <- round((0:11)/12, round)
     months <- findInterval(x=yearsrel, vec=monthsrel_lookup)
     monthsrel <- monthsrel_lookup[months]
     dayspm <- c(31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
@@ -130,12 +130,12 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
     minsf <- 60*hoursrel; mins <- trunc(minsf); minsrel <- minsf - mins
     secsf <- 60*minsrel; secs <- trunc(secsf)
     if (verbose) {
-        print(head(data.frame(yearsdec, yearsf, years, yearsrel, 
+        print(head(data.frame(yearsdec, yearsf, years, yearsrel,
                               months, monthsrel, dayspm, dmons,
                               daysf, days, daysrel, hoursf, hours, hoursrel,
                               minsf, mins, minsrel, secsf, secs), n=37))
     }
-    text <- paste0(years, "-", sprintf("%02i", months), "-", sprintf("%02i", days), " ", 
+    text <- paste0(years, "-", sprintf("%02i", months), "-", sprintf("%02i", days), " ",
                    sprintf("%02i", hours), ":", sprintf("%02i", mins), ":", sprintf("%02i", secs))
     if (length(nonNAinds) != length(yearsdec)) {
         years2 <- months2 <- days2 <- hours2 <- mins2 <- secs2 <- text2 <- rep(NA, times=length(yearsdec))
@@ -146,7 +146,7 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
         mins2[nonNAinds] <- mins
         secs2[nonNAinds] <- secs
         text2[nonNAinds] <- text
-        years <- years2; months <- months2; days <- days2 
+        years <- years2; months <- months2; days <- days2
         hours <- hours2; mins <- mins2; secs <- secs2
         text <- text2
     }
@@ -154,39 +154,39 @@ yearsdec_to_ymdhms <- function(yearsdec, verbose=F) {
 } # yearsdec_to_ymdhms
 
 # make POSIX time with negative years
-make_posixlt_origin <- function(years, origin_in=0, origin_out, 
+make_posixlt_origin <- function(years, origin_in=0, origin_out,
                                 allow_sticky=T, verbose=0) {
 
     # simpler: lubridate::date_decimal() but this function has a bug:
-    # as.POSIXlt(lubridate::date_decimal(seq(2000, by=1/12, length.out=12)))$mon+1 = 
+    # as.POSIXlt(lubridate::date_decimal(seq(2000, by=1/12, length.out=12)))$mon+1 =
     # 1  1  3  4  5  6  7  8  9 10 10 12
 
-    # input: 
+    # input:
     #   years (numeric; negative for "before `origin_in`")
     #   origin_in (numeric; origin of input years; default: 0 CE)
     #   origin_out (numeric; origin of output years; default: same as `origin_in`)
     # output:
     #   dates (POSIXlt; date values with respect to `origin_out`)
-  
-    # optional dependency: `sticky::sticky()` keeps the attribute 
+
+    # optional dependency: `sticky::sticky()` keeps the attribute
     # `origin` also after subset of the returned POSIXlt object
 
     # check
     if (missing(years)) stop("must provide years (integer, numeric or POSIX*)")
-    if (!is.integer(years) && 
-        !is.numeric(years) && 
+    if (!is.integer(years) &&
+        !is.numeric(years) &&
         !any(grepl("posix", class(years), ignore.case=T))) {
         stop("years must be integer, numeric or POSIX*")
     }
     if (!is.numeric(origin_in)) stop("origin_in must be numeric")
     if (missing(origin_out)) origin_out <- origin_in
     if (!is.numeric(verbose)) stop("verbose must be numeric")
-    
+
     nyearsin <- length(years)
     nonNAinds <- which(!is.na(years))
     nnonNA <- length(nonNAinds)
     years <- years[nonNAinds]
-    
+
     if (verbose > 0) {
         message(nnonNA, "/", nyearsin, " non-NA years:")
         print(head(years))
@@ -217,17 +217,17 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
     years_ge_zero_lt_10000 <- which(years >= 0 & years < 10000) # case 1
     years_ge_zero_ge_10000 <- which(years >= 0 & years >= 10000) # case 2
     years_lt_zero <- which(years < 0) # case 3
-        
+
     # case 1
     # as.POSIXlt("0-1-1") to as.POSIXlt("9999-12-31") -> ok
-    if (length(years_ge_zero_lt_10000) > 0) { 
+    if (length(years_ge_zero_lt_10000) > 0) {
         if (verbose > 0) {
             message("case 1 years[years_ge_zero_lt_10000]:")
             cat(capture.output(str(years[years_ge_zero_lt_10000])), sep="\n")
         }
         lt_ge_zero_lt_10000 <- as.POSIXlt(paste0(years[years_ge_zero_lt_10000], "-",
                                                  months[years_ge_zero_lt_10000], "-",
-                                                 days[years_ge_zero_lt_10000]), tz="UTC") 
+                                                 days[years_ge_zero_lt_10000]), tz="UTC")
         if (verbose > 0) {
             message("case 1 lt_ge_zero_lt_10000:")
             cat(capture.output(str(lt_ge_zero_lt_10000)), sep="\n")
@@ -236,16 +236,16 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
 
     # case 2
     # as.POSIXlt("10000-1-1") and above -> error "not in a standard unambiguous format"
-    if (length(years_ge_zero_ge_10000) > 0) { 
+    if (length(years_ge_zero_ge_10000) > 0) {
         lt_ge_zero_ge_10000 <- as.POSIXlt(paste0("1337-06-30"), tz="UTC") # placeholder for saving results
         for (yeari in seq_along(years_ge_zero_ge_10000)) {
             by <- paste0(years[years_ge_zero_ge_10000][yeari], " years")
             tmp <- seq.POSIXt(from=as.POSIXlt(paste0("0000-",
                                                      months[years_ge_zero_ge_10000][yeari], "-",
-                                                     days[years_ge_zero_ge_10000][yeari]), 
+                                                     days[years_ge_zero_ge_10000][yeari]),
                                               tz="UTC"), length.out=2, by=by, tz="UTC")[2]
             lt_ge_zero_ge_10000[yeari] <- as.POSIXlt(tmp)
-            if (verbose > 1) message("case 2 year ", years[years_ge_zero_ge_10000][yeari], ": from 0 by ", by, " --> ", 
+            if (verbose > 1) message("case 2 year ", years[years_ge_zero_ge_10000][yeari], ": from 0 by ", by, " --> ",
                                      lt_ge_zero_ge_10000[yeari], " since ", origin_in)
         } # for yeari
         if (verbose > 0) {
@@ -255,17 +255,17 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
     } # case 2
 
     # case 3
-    # below or equal as.POSIXlt("-1-1-1") --> negative year gives error "not in a standard unambiguous format" 
-    if (length(years_lt_zero) > 0) { 
+    # below or equal as.POSIXlt("-1-1-1") --> negative year gives error "not in a standard unambiguous format"
+    if (length(years_lt_zero) > 0) {
         lt_lt_zero <- as.POSIXlt(paste0("1337-06-30"), tz="UTC") # placeholder for saving results
         for (yeari in seq_along(years[years_lt_zero])) {
             by <- paste0(years[years_lt_zero][yeari], " years")
             tmp <- seq.POSIXt(from=as.POSIXlt(paste0("0000-",
                                                      months[years_lt_zero][yeari], "-",
-                                                     days[years_lt_zero][yeari]), 
+                                                     days[years_lt_zero][yeari]),
                                               tz="UTC"), length.out=2, by=by, tz="UTC")[2]
             lt_lt_zero[yeari] <- as.POSIXlt(tmp)
-            if (verbose > 1) message("case 3 year ", years[years_lt_zero][yeari], ": from 0 by ", by, " --> ", 
+            if (verbose > 1) message("case 3 year ", years[years_lt_zero][yeari], ": from 0 by ", by, " --> ",
                                      lt_lt_zero[yeari], " since ", origin_in)
         } # for yeari
         if (verbose > 0) {
@@ -276,7 +276,7 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
     } # if any negative years since origin_in
 
     # combine all cases
-    posixlt <- as.POSIXlt(seq.POSIXt(as.POSIXlt("0-1-1", tz="UTC"), by="1 day", 
+    posixlt <- as.POSIXlt(seq.POSIXt(as.POSIXlt("0-1-1", tz="UTC"), by="1 day",
                                      l=nyearsin)) # placeholder
     if (length(years_ge_zero_lt_10000) > 0) {
         posixlt[nonNAinds[years_ge_zero_lt_10000]] <- lt_ge_zero_lt_10000
@@ -297,9 +297,9 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
 
     # shift to new origin
     if (origin_out != origin_in) {
-        
+
         shift_by <- origin_in - origin_out
-        if (verbose > 0) message("shift\n   ", min(posixlt), " to ", max(posixlt), " since ", origin_in, "\n", 
+        if (verbose > 0) message("shift\n   ", min(posixlt), " to ", max(posixlt), " since ", origin_in, "\n",
                              "by ", shift_by, " years:")
         posixlt$year <- posixlt$year + shift_by
         if (verbose > 0) {
@@ -312,14 +312,14 @@ make_posixlt_origin <- function(years, origin_in=0, origin_out,
     # append origin
     attributes(posixlt)$origin <- origin_out
     if (verbose > 0) message("class(posixlt) = ", paste(class(posixlt), collapse=", "))
-    
+
     # fix time zone
     #posixlt$zone <- rep("UTC", times=length(posixlt)) # todo: this breaks if input `years` is of length 1
     #if (verbose > 0) message("6 class(posixlt) = ", class(posixlt))
 
     # sort
     #posixlt <- sort(posixlt)
-    
+
     # make own `origin` attribute sticky
     if (allow_sticky) {
         if (verbose > 0) message("load sticky package and make `origin` attribute permanent. ",
@@ -386,7 +386,7 @@ difftime_yr <- function(from, to) {
         } else if (length(class) == 1 && class == "Date") {
             # nothing to do
         } else {
-            message("class of `", ifelse(i == 1, "from", "to"), "` (\"",  
+            message("class of `", ifelse(i == 1, "from", "to"), "` (\"",
                     paste(class, collapse="\", \""), "\") must be \"Date\" or \"POSIX*t\" --> run `base::as.POSIXct()` ...")
             if (is.character(arg) && arg == "today" ) arg <- Sys.Date()
             arg <- base::as.POSIXct(arg)
@@ -404,12 +404,12 @@ difftime_yr <- function(from, to) {
             stop("`from` and `to` must either be of same length or, if not, one of both must be of length 1")
         }
     }
-    
+
     # ignore hour, min, sec
     fromlt <- base::as.POSIXlt(from); tolt <- base::as.POSIXlt(to)
     fromlt$hour <- fromlt$min <- fromlt$sec <- tolt$hour <- tolt$min <- tolt$sec <- 0
     from <- base::as.POSIXct(fromlt); to <- base::as.POSIXct(tolt) # update
-    
+
     dpms <- c("Jan"=31, "Feb"=28, "Mar"=31, "Apr"=30, "May"=31, "Jun"=30, # days per month of non-leap year
               "Jul"=31, "Aug"=31, "Sep"=30, "Oct"=31, "Nov"=30, "Dec"=31)
     mpy <- 12 # 12 months per year
@@ -436,12 +436,12 @@ difftime_yr <- function(from, to) {
                 nyears <- tolt[datei]$year - fromlt[datei]$year
                 age_a <- age_a + nyears - 1
             } else { # current date is in the same year as first date
-                age_a <- (tolt[datei]$mon/mpy + tolt[datei]$mday/dpm_start/mpy) - age_a # (0.3413978 <= x <= 1) - 0.3387097 
+                age_a <- (tolt[datei]$mon/mpy + tolt[datei]$mday/dpm_start/mpy) - age_a # (0.3413978 <= x <= 1) - 0.3387097
                 # -> age_a = 0.3413978 - 0.3387097 = 0.0026881 yrs if current date only one day later than start date
             }
         } else if (to[datei] == from[datei]) { # current date and start date are identical
             if ((((fromlt[datei]$year+1900) %% 4 == 0) & ((fromlt[datei]$year+1900) %% 100 != 0)) | ((fromlt[datei]$year+1900) %% 400 == 0)) {
-                age_a <- 1/366 # 0.00273224 yrs 
+                age_a <- 1/366 # 0.00273224 yrs
             } else {
                 age_a <- 1/365 # 0.002739726 yrs
             }
@@ -465,7 +465,7 @@ if (F) { # todo: seq(from, to, by=non-integer-month)
         } else if (F) { # dt in months is not integer, e.g. 0.5 --> `seq` can not be used
             full_month <- floor(dts[i]) # e.g. 0 or 12
             rest <- dts[ti] %% 1 # e.g. 0.5
-            if (full_month == 0) { # use only origin + rest 
+            if (full_month == 0) { # use only origin + rest
                 time[ti] <- a
             } else { # full_month is not 0
                a <- seq(origin, by=paste0(dts[ti], " months"), length.out=2)[2]
@@ -480,7 +480,7 @@ business_days <- function(where="Germany/BR", weekend_days=c("Saturday", "Sunday
     # holiday(Holiday="Germany", year=2024) --> object 'Germany' of mode 'function' was not found
     # bizdays::bizdays("2013-01-02", "2013-01-31", "Germany") --> Error in check_calendar(cal) : Invalid calendar name: Germany
     # --> bizdays:::check_calendar::calendars():
-    # Calendars: 
+    # Calendars:
     # Brazil/ANBIMA, Brazil/B3, Brazil/BMF, actual, weekends
 
     known_locations <- c("Germany/BR") # notation from `holiday` package
@@ -559,7 +559,7 @@ deg2rad <- function(deg) {
 
 # minute/second degree to decimal degree longitude/latitude
 deg2dec <- function(deg=0.0, min=0.0, sec=0.0, verbose=F) {
-    if (verbose) { 
+    if (verbose) {
         if (length(deg) == 1 && length(min) == 1 && length(sec) == 1) {
             message("deg2dec(): dec = deg + min/60 + sec/3600 = ", deg, " + ", min, "/60 + ", sec, "/3600")
         } else {
@@ -584,17 +584,17 @@ m2lon <- function(dm, alat) {
     #      P = 111,412.84 cos L - 93.5 cos 3L + 0.118 cos 5L - ...
     #   in which M is the length of 1° of the meridian (latitude), L is the latitude,
     #   and P is the length of 1° of the parallel (longitude).
-    
+
     # http://www.movable-type.co.uk/scripts/latlong.html
 
     # dm = distance in meters
     # alat = average latitude between the two fixes
-    
+
     semi_major_axis_wgs84_m <- 6378137 # a
     semi_minor_axis_wgs84_m <- 6356752.3142 # b
     # flattening of wgs84 ellipsoid = (a-b)/a ~ 0.003352811 ~ 1/298.257223563
     flattening <- (semi_major_axis_wgs84_m - semi_minor_axis_wgs84_m)/semi_major_axis_wgs84_m
-    
+
     rlat <- alat * pi/180 # alat in radian
     p <- 111415.13 * cos(rlat) - 94.55 * cos(3 * rlat)
     dlon <- dm / p
@@ -608,7 +608,7 @@ m2lat <- function(dm, alat) {
     # http://www.movable-type.co.uk/scripts/latlong.html
     rlat <- alat * pi/180 # alat in radian
     m <- 111132.09 - 566.05 * cos(2 * rlat) + 1.2 * cos(4 * rlat)
-    dlat <- dm / m 
+    dlat <- dm / m
     return(dlat)
 } # m2lat
 
@@ -683,7 +683,7 @@ distance_hf <- function(lon1, lat1, lon2, lat2, r_earth_km=6371) {
 # Calculates the geodesic distance between two points specified by radian latitude/longitude using
 # Vincenty inverse formula for ellipsoids (vif)
 distance_vif <- function(lon1, lat1, lon2, lat2, globe="WGS-84 ellipsoid") {
- 
+
     if (globe == "WGS-84 ellipsoid") { # WGS-84 ellipsoid parameters
         a <- 6378137         # length of major axis of the ellipsoid (radius at equator)
         b <- 6356752.314245  # ength of minor axis of the ellipsoid (radius at the poles)
@@ -747,8 +747,8 @@ distance_vif <- function(lon1, lat1, lon2, lat2, globe="WGS-84 ellipsoid") {
 # distance from fields::rdist.earth
 distance_fields <- function(lon1, lat1, lon2, lat2) {
     library(fields)
-    dist <- fields::rdist.earth(x1=matrix(c(lon1, lat1), ncol=2), 
-                                x2=matrix(c(lon2, lat2), ncol=2), 
+    dist <- fields::rdist.earth(x1=matrix(c(lon1, lat1), ncol=2),
+                                x2=matrix(c(lon2, lat2), ncol=2),
                                 miles=F)
     return(list(dist_km=dist, r_km=6378.388))
 }
@@ -772,7 +772,7 @@ distance_teos10 <- function(lon1, lat1, lon2, lat2, pres1=0, pres2=0, r_earth_m=
     lat1 <- lat1*pi180
     lon2 <- lon2*pi180
     lat2 <- lat2*pi180
-    
+
     dlon <- lon2 - lon1
 	dlat <- lat2 - lat1
 	a <- (sin(0.5*dlat))^2 + cos(lat1)*cos(lat2)*(sin(0.5*dlon))^2
@@ -786,7 +786,7 @@ distance_teos10 <- function(lon1, lat1, lon2, lat2, pres1=0, pres2=0, r_earth_m=
         z <- p_mid # = 0
     }
 	distance <- (r_earth_m + z)*angles
-	
+
     return(list(dist_km=distance/1e3, r_km=r_earth_m/1e3))
 } # distance_teos10
 
@@ -805,7 +805,7 @@ distance_fesom1 <- function(lon1, lat1, lon2, lat2, r_earth_km=6367.5) {
 #library(SDMTools) # for grid.info()
 #area_m2 <- grid.info(lats=lat, cellsize=diff(lon)[1])$area
 
-# Calculates the geodesic distance between two points specified by degrees latitude/longitude 
+# Calculates the geodesic distance between two points specified by degrees latitude/longitude
 # using different methods
 dists <- function(lon1=8.38, lat1=45.80, lon2=8.38+1, lat2=45.80+1, pres1=0, pres2=0) {
 	slc <- distance_slc(lon1, lat1, lon2, lat2)
@@ -875,33 +875,33 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
                 message("check if `nc_varname[", vi, "]` \"", nc_varname[vi], "\" has lon dim ...")
                 varind <- which(nc_varname[vi] == names(nc$var))
                 if (length(varind) != 1) {
-                    stop("this varname was not identified once from available nc varnames \"", 
+                    stop("this varname was not identified once from available nc varnames \"",
                          paste(names(nc$var), collapse="\", \""), "\"")
                 }
                 lonid <- nc$dim[[lonind]]$id
                 dims_of_var <- nc$var[[varind]]$dimids
                 londimind <- which(dims_of_var == lonid)
                 if (length(londimind) == 0) { # not any dim of current var is the lon dim
-                    message("--> did not find lon id ", lonid, " in ", nc_varname[vi], 
+                    message("--> did not find lon id ", lonid, " in ", nc_varname[vi],
                             " dimids ", paste(dims_of_var, collapse=", "), " --> skip this var")
                 } else if (length(londimind) == 1) { # current var has a dim that is the lon dim
-                    message("--> dims(", nc_varname[vi], ") = ", paste(dim(data360), collapse=", "), 
+                    message("--> dims(", nc_varname[vi], ") = ", paste(dim(data360), collapse=", "),
                             " --> londimind = ", londimind)
                     message("--> load ", nc_varname[vi], " from nc file via ncdf4::ncvar_get() ...")
                     data360[[vi]] <- ncdf4::ncvar_get(nc, nc_varname[vi])
                     names(data360)[vi] <- nc_varname[vi]
                     attributes(data360[[vi]]) <- list(varind=varind, dim=dim(data360[[vi]]))
                 } else {
-                    stop("--> found ", length(londimind), " lon dims with id ", lonid, " in ", nc_varname[vi], 
+                    stop("--> found ", length(londimind), " lon dims with id ", lonid, " in ", nc_varname[vi],
                          " dimids ", paste(dims_of_var, collapse=", "), ". should only be one lon dim.")
                 }
             } # for vi in nc_varname
-            
+
             # remove variables without lon dim
             inds <- which(sapply(data360, is.null))
             if (length(inds) > 0) {
                 if (length(inds) == length(data360)) {
-                    stop("non of the variables ", paste(nc_varname, collapse=", "), 
+                    stop("non of the variables ", paste(nc_varname, collapse=", "),
                          " has a lon dim")
                 } else {
                     data360 <- data360[-inds]
@@ -911,7 +911,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
         } else { # provided nc file not readable
             stop("provided `nc_file` = \"", nc_file, "\" does not exist as file or is not readable")
         }
-    
+
     } else { # case 2: user provided lon360 (and data360) data and not nc file
         # check input data
         if (!is.numeric(lon360)) stop("`lon360` must be numeric")
@@ -921,7 +921,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
                 if (!is.numeric(data360[[vi]])) stop("`data360[[", vi, "]]` is not numeric")
                 if (missing(londimind)) { # londimind not provided
                     message("`londimind` not provided --> try to determine from ",
-                            "length(lon360) = ", length(lon360), "; dims(data360) = (", 
+                            "length(lon360) = ", length(lon360), "; dims(data360) = (",
                             paste(dim(data360[[vi]]), collapse=","), ") ... ", appendLF=F)
                     londimind <- which(dim(data360[[vi]]) == length(lon360))
                     if (length(londimind) != 1) {
@@ -937,7 +937,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
             data360 <- NULL
         }
     } # if nc_file or data360 was provided
-                   
+
     # start converting from 0,360 --> -180,180
     ge0_and_lt180_inds <- which(lon360 >= 0 & lon360 < 180)
     ge180_and_lt360_inds <- which(lon360 >= 180 & lon360 < 360)
@@ -951,7 +951,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
     ret <- list(lon180=lon180)
     if (!is.null(data360)) {
         if (all(lon180 == lon360)) { # no conversion necessary
-            ret$data180 <- data360 
+            ret$data180 <- data360
         } else { # conversion necessary
             data180 <- vector("list", length=length(data360))
             names(data180) <- names(data360)
@@ -961,21 +961,21 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
                 cmd1 <- cmd2 <- cmd3 <- NA
                 verbose <- list()
                 if (length(ge180_and_lt360_inds) > 0) {
-                    tmp <- rep(",", times=length(dim(arr360))) 
+                    tmp <- rep(",", times=length(dim(arr360)))
                     tmp[londimind] <- "ge180_and_lt360_inds"
                     tmp <- paste(tmp, collapse="")
                     cmd1 <- paste0("arr360[", tmp, "]")
                     verbose[[length(verbose)+1]] <- ge180_and_lt360_inds
                 }
                 if (length(ge360_inds) > 0) {
-                    tmp <- rep(",", times=length(dim(arr360))) 
+                    tmp <- rep(",", times=length(dim(arr360)))
                     tmp[londimind] <- "ge360_inds"
                     tmp <- paste(tmp, collapse="")
                     cmd2 <- paste0("arr360[", tmp, "]")
                     verbose[[length(verbose)+1]] <- ge360_inds
                 }
                 if (length(ge0_and_lt180_inds) > 0) {
-                    tmp <- rep(",", times=length(dim(arr360))) 
+                    tmp <- rep(",", times=length(dim(arr360)))
                     tmp[londimind] <- "ge0_and_lt180_inds"
                     tmp <- paste(tmp, collapse="")
                     cmd3 <- paste0("arr360[", tmp, "]")
@@ -990,7 +990,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
                     library(abind)
                     for (i in seq_along(verbose)) {
                         if (!is.null(verbose[[i]])) {
-                            message(length(lon360[verbose[[i]]]), " lons ", 
+                            message(length(lon360[verbose[[i]]]), " lons ",
                                     paste(head(lon360[verbose[[i]]]), collapse=","), ",...,",
                                     paste(tail(lon360[verbose[[i]]]), collapse=","),
                                     " (inds ", paste(head(verbose[[i]]), collapse=","), ",...,",
@@ -1004,14 +1004,14 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
             ret$data180 <- data180
         } # if lon180 == lon360 or not
     } # if !is.null(data)
-    
+
     # save converted data180 as nc file
-    if (!missing(nc_file)) { 
+    if (!missing(nc_file)) {
         message("save `nc_out` = \"", nc_out, "\" ...")
         ncdims <- nc$dim
         ncdims[[lonind]]$vals <- lon180
-        ncvars <- nc$var # save at least all input variables 
-        if (!is.null(data360)) { 
+        ncvars <- nc$var # save at least all input variables
+        if (!is.null(data360)) {
             for (vi in seq_along(data360)) { # replace old 360 with new 180 lon vals
                 varind <- attributes(data360[[vi]])$varind
                 ncvars[[varind]]$dim[[londimind]]$vals <- lon180
@@ -1021,7 +1021,7 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
         # put variables to nc
         outnc <- ncdf4::nc_create(filename=nc_out, force_v4=T, vars=ncvars)
         for (vi in seq_along(ncvars)) { # for all vars of input file
-            if (!is.null(data360) && any(names(ncvars)[vi] == names(data360))) { # save converted data 
+            if (!is.null(data360) && any(names(ncvars)[vi] == names(data360))) { # save converted data
                 message("variable ", names(ncvars)[vi], ": save converted values")
                 ind <- which(names(ncvars)[vi] == names(data360))
                 ncdf4::ncvar_put(nc=outnc, varid=ncvars[[vi]], vals=data180[[ind]])
@@ -1053,16 +1053,16 @@ convert_lon_360_to_180 <- function(nc_file, nc_out, nc_varname, lon360, data360,
             }
         }
         ncdf4::nc_close(outnc)
-   
+
         # select correct grid
-        cmd <- paste0("cdo selgrid,2 ", nc_out, " ", 
+        cmd <- paste0("cdo selgrid,2 ", nc_out, " ",
                       dirname(nc_out), "/", basename(nc_out), ".tmp && ",
                       "mv ", dirname(nc_out), "/", basename(nc_out), ".tmp ", nc_out)
         message("run `", cmd, "` ...")
         system(cmd)
 
-    # return converted data180 
-    } else { 
+    # return converted data180
+    } else {
         return(ret)
     }
 } # convert_lon_360_to_180
@@ -1094,9 +1094,9 @@ mysd1 <- function(x) { # = stats::sd
 # Get the proportion variation explained. See this website for more details: http://goo.gl/jte8X
 # http://www.gettinggeneticsdone.com/2011/08/sync-your-rprofile-across-multiple-r.html
 get_rsq <- function(actual, predicted) {
-    # "goodness of fit" = 
-    # "coefficient of determination" = 
-    # "fraction of variance explained by the model" = 
+    # "goodness of fit" =
+    # "coefficient of determination" =
+    # "fraction of variance explained by the model" =
     # "Multiple R-squared:"-result of lm()
     1-sum((predicted-actual)^2)/sum((actual-mean(actual))^2)
 }
@@ -1107,7 +1107,7 @@ get_rmsq <- function(actual, predicted) {
 
 # get p-value of linear model; from 3.2.1 of faraways book
 get_pval <- function(model) {
-    
+
     # lm calculation: https://madrury.github.io/jekyll/update/statistics/2016/07/20/lm-in-R.html
     # 1: lm() calls lm.fit()
     # 2: from lm.fit(): z <- .Call(C_Cdqrls, x, y, tol, FALSE)
@@ -1158,20 +1158,20 @@ get_pval <- function(model) {
             }
         }
     } # run lm example
-    
+
     if (class(lm) != "lm") stop("input must be of class \"lm\"")
     lms <- summary(lm)
-    
+
     # from ?lm.summary:
     # fstatistic: (for models including non-intercept terms) a 3-vector with
     #             the value of the F-statistic with its numerator and
     #             denominator degrees of freedom.
-    
+
     # coefficient of determination r2
     #r_adj_lm.summary <- 1 - (1 - lms$r.squared) * ((n - df.int)/rdf)
-    
+
     # correlation r = sqrt(r2)
-    
+
     # pval
     # model[[1]] and model[[2..]] are predictant y and predictor(s) x1, ..., respectively
     yss <- sum((lm$model[[1]] - mean(lm$model[[1]]))^2) # sum of squares corrected for the mean
@@ -1199,29 +1199,29 @@ is_normal <- function(x, significance=0.05, verbose=T) {
     if (length(significance) != 1) stop("length of `significance` must be 1")
 
     res <- rep(T, times=2) # default: distribution of x is not significantly different from normal distribution
-    
+
     # 1. shapiro
     st <- stats::shapiro.test(x)
     if (verbose) {
         message("p-value of \"", st$method, "\" of time series of length ", length(x), " is ", st$p.value, "\n",
-                "--> ", st$p.value, " ", ifelse(st$p.value > significance, ">", "<="), " ", significance, 
-                " --> x distribution is ", ifelse(st$p.value > significance, "not ", ""), 
+                "--> ", st$p.value, " ", ifelse(st$p.value > significance, ">", "<="), " ", significance,
+                " --> x distribution is ", ifelse(st$p.value > significance, "not ", ""),
                 "significantly different from normal distribution")
     }
     if (st$p.value <= significance) res[1] <- F
     names(res)[1] <- "shapiro"
-    
+
     # 2. Kolmogorov-Smirnov (K-S)
     ks <- stats::ks.test(x=x, y="pnorm", mean=mean(x), sd=sd(x))
     if (verbose) {
         message("p-value of \"", ks$method, "\" of time series of length ", length(x), " is ", ks$p.value, "\n",
-                "--> ", ks$p.value, " ", ifelse(ks$p.value > significance, ">", "<="), " ", significance, 
-                " --> x distribution is ", ifelse(ks$p.value > significance, "not ", ""), 
+                "--> ", ks$p.value, " ", ifelse(ks$p.value > significance, ">", "<="), " ", significance,
+                " --> x distribution is ", ifelse(ks$p.value > significance, "not ", ""),
                 "significantly different from normal distribution")
     }
     if (ks$p.value <= significance) res[2] <- F
     names(res)[1] <- "kolmogorov-smirnov"
-    
+
     crit <- paste0(format(c(st$p.value, ks$p.value), digits=3), " > ", significance)
     inds <- which(!res)
     if (length(inds) > 0) crit[inds] <- paste0(format(c(st$p.value, ks$p.value)[inds], digits=3), " <= ", significance)
@@ -1244,29 +1244,29 @@ are_equal <- function(x, y, significance=0.05, verbose=T) {
     if (length(significance) != 1) stop("length of `significance` must be 1")
 
     res <- rep(T, times=2) # default: x and y are equal
-    
+
     # 1. t-test
     ttest <- stats::t.test(x, y)
     if (verbose) {
         message("p-value of \"", ttest$method, "\" of stats::t.test() is ", ttest$p.value, "\n",
-                "--> ", ttest$p.value, " ", ifelse(ttest$p.value > significance, ">", "<="), " ", significance, 
-                " --> x and y are ", ifelse(ttest$p.value > significance, "not ", ""), 
+                "--> ", ttest$p.value, " ", ifelse(ttest$p.value > significance, ">", "<="), " ", significance,
+                " --> x and y are ", ifelse(ttest$p.value > significance, "not ", ""),
                 "significantly different")
     }
     if (ttest$p.value <= significance) res[1] <- F
     names(res)[1] <- "t-test"
-    
+
     # 2. wilcox
     wilcox <- stats::wilcox.test(x, y)
     if (verbose) {
         message("p-value of \"", wilcox$method, "\" of stats::wilcox.test() is ", wilcox$p.value, "\n",
-                "--> ", wilcox$p.value, " ", ifelse(wilcox$p.value > significance, ">", "<="), " ", significance, 
-                " --> x and y are ", ifelse(wilcox$p.value > significance, "not ", ""), 
+                "--> ", wilcox$p.value, " ", ifelse(wilcox$p.value > significance, ">", "<="), " ", significance,
+                " --> x and y are ", ifelse(wilcox$p.value > significance, "not ", ""),
                 "significantly different")
     }
     if (wilcox$p.value <= significance) res[2] <- F
     names(res)[1] <- "wilcox"
-    
+
     crit <- paste0(format(c(ttest$p.value, wilcox$p.value), digits=3), " > ", significance)
     inds <- which(!res)
     if (length(inds) > 0) crit[inds] <- paste0(format(c(ttest$p.value, wilcox$p.value)[inds], digits=3), " <= ", significance)
@@ -1276,7 +1276,7 @@ are_equal <- function(x, y, significance=0.05, verbose=T) {
     return(res)
 } # are_equal
 
-# effective sample size 
+# effective sample size
 # thiebaux and zwiers 1984:
 # > ?
 # zwiers and von storch 1995: (after their eq. 2):
@@ -1289,14 +1289,14 @@ are_equal <- function(x, y, significance=0.05, verbose=T) {
 #   Student's t-test will reject the null hypothesis more fre-
 #   quently than expected when the null hypothesis is true.
 # hannachi et al. 2007 (after their eq. 18):
-# > The effective sample 
+# > The effective sample
 #   size of a time series of length n involves in general
 #   the autocorrelation structure of the series. For example,
 #   the sum of the autocorrelation function, 1 + 2 k≥1 ρ(k),
 #   provides a measure of the decorrelation time, and an
 #   estimate of n_eff is given by (Thiébaux and Zwiers, 1984);
-# n_eff = thiebaux and zwiers 1984 eq. 2.1 
-#       = zwiers and von storch 1995 eq. 4 
+# n_eff = thiebaux and zwiers 1984 eq. 2.1
+#       = zwiers and von storch 1995 eq. 4
 #       = hannachi et al. 2007 after their eq. 18
 #       = n * ( 1 + 2 * sum_{k=1}^{n-1} (1-k/n) * rho(k) )^{-1}
 n_eff <- function(ts) {
@@ -1322,16 +1322,16 @@ north_etal_1982_rule <- function(eigenval, eigenvec=NULL) {
     sig <- rep(1, length(eigenval))
     for (i in seq(sig)) {
         if ((i - 1) %in% seq(sig)) {
-            if (upper.lim[i] > lower.lim[i - 1]) 
+            if (upper.lim[i] > lower.lim[i - 1])
                 sig[i] <- 0
         }
         if ((i + 1) %in% seq(sig)) {
-            if (lower.lim[i] < upper.lim[i + 1]) 
+            if (lower.lim[i] < upper.lim[i + 1])
                 sig[i] <- 0
         }
     }
-    result <- list(eigenval = eigenval, eigenval.err = eigenval.err, 
-        upper.lim = upper.lim, lower.lim = lower.lim, sig = sig, 
+    result <- list(eigenval = eigenval, eigenval.err = eigenval.err,
+        upper.lim = upper.lim, lower.lim = lower.lim, sig = sig,
         n.sig = min(which(sig == 0)) - 1)
     if (!missing(eigenvec)) { # calc uncerstaintied of eigenvectors
         # todo
@@ -1351,7 +1351,7 @@ detrend <- function(y=rnorm(10)) {
 # model resolutions
 nx_ny_to_km <- function(nx, ny) {
     # from introduction of boucher et al. 2020: https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2019MS002010
-    Rearth <- 6371 # km 
+    Rearth <- 6371 # km
     sqrt(4*pi*Rearth^2/(nx*ny)) # km
 }
 
@@ -1379,7 +1379,7 @@ masses <- function(x=1, unit="g") {
     # kiloton -> U.S. short tons -> 907,184.7 kg
     # kilotonne ->  metric tons -> 1,000,000 kg
     units <- data.frame(unit=c("g", "kg", "t", "kilotonne", "Mt",               "Gt",                                    "Tg",                                     "Pg",      "Tt"),
-                        note=c("",  "",   "",  "",          "mega 6 (million)", "giga 9 (billion short, milliard long)", "tera 12 (trillion short, billion long)", "peta 15", "tera 12"))  
+                        note=c("",  "",   "",  "",          "mega 6 (million)", "giga 9 (billion short, milliard long)", "tera 12 (trillion short, billion long)", "peta 15", "tera 12"))
     vals_char <- units$unit # result stays character
     for (i in seq_along(vals_char)) vals_char[i] <- units::set_units(x, value=units$unit[i], mode="standard")
     vals <- as.numeric(vals_char)
@@ -1452,7 +1452,7 @@ atm_to_Pa <- function(atm) {
 # Gt = Pg
 # 1 mole C = 1 mole CO2; 1 mole = 6.02214076 * 1e23 particles
 # 1 mole C = 12.0107 g C
-# --> convert mole C to g C: *12.0107 
+# --> convert mole C to g C: *12.0107
 # 1 mole CO2 = 44.0095 g CO2
 # --> convert mole CO2 to g CO2: *44.0095
 # --> 12.0107 g C = 44.0095         g CO2
@@ -1484,16 +1484,16 @@ gC_s1_to_PgCO2_yr1 <- function(gC_s1) {
 }
 kgC_m2_s1_to_PgC_yr1 <- function(kgC_m2_s1) {
     Aearth <- 5.100656e14 # m2
-    kgC_m2_s1 * Aearth * 365.25*86400 / 1e12 # m2 -> fldint; s-1 -> yr-1; kg -> Pg 
+    kgC_m2_s1 * Aearth * 365.25*86400 / 1e12 # m2 -> fldint; s-1 -> yr-1; kg -> Pg
 }
 kgC_s1_to_gC_yr1 <- function(kgC_s1) {
-    kgC_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g 
+    kgC_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g
 }
 kgC_day1_to_kgCO2_s1 <- function(kgC_day1) {
     kgC_day1 * 3.664191 * 86400 # C -> CO2; day-1 -> s-1
 }
 kgC_s1_to_PgC_yr1 <- function(kgC_s1) {
-    kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg 
+    kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg
 }
 kgCO2_kg_to_CO2ppm <- function(kgCO2_kg) {
     # mass mixing ratio in kg kg-1 -> volume mixing ratio in ppm
@@ -1503,7 +1503,7 @@ kgCO2_kg_to_CO2ppm <- function(kgCO2_kg) {
 }
 kgCO2_m2_s1_to_PgC_yr1 <- function(kgCO2_m2_s1) {
     Aearth <- 5.100656e14 # m2
-    kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+    kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg
 }
 kgCO2_m2_to_CO2ppm <- function(kgCO2_m2) {
     Aearth <- 5.100656e14 # m2
@@ -1516,14 +1516,14 @@ kgCO2_to_CO2ppm <- function(kgCO2) {
     kgCO2 * 0.272912 / 1e12 / 2.124 # kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
 }
 kgCO2_to_PgC <- function(kgCO2) {
-    kgCO2 * 0.272912 / 1e12 # kgCO2 -> kgC; kg -> Pg 
+    kgCO2 * 0.272912 / 1e12 # kgCO2 -> kgC; kg -> Pg
 }
 kgCO2_m2_to_PgC <- function(kgCO2_m2) {
     Aearth <- 5.100656e14 # m2
-    kgCO2_m2 * Aearth * 0.272912 / 1e12 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg 
+    kgCO2_m2 * Aearth * 0.272912 / 1e12 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg
 }
 kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
-    kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+    kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg
 }
 kgCO2_to_kgC <- function(kgCO2) {
     kgC <- kgCO2 * 0.272912
@@ -1546,7 +1546,7 @@ kgCO2_kg_to_CO2ppm <- function(kgCO2_kg) {
 }
 kgCO2_m2_s1_to_PgC_yr1 <- function(kgCO2_m2_s1) {
     Aearth <- 5.100656e14 # m2
-    kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+    kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg
 }
 kgCO2_m2_to_CO2ppm <- function(kgCO2_m2) {
     Aearth <- 5.100656e14 # m2
@@ -1554,7 +1554,7 @@ kgCO2_m2_to_CO2ppm <- function(kgCO2_m2) {
 }
 kgCO2_m2_to_PgC <- function(kgCO2_m2) {
     Aearth <- 5.100656e14 # m2
-    kgCO2_m2 * Aearth * 0.272912 / 1e12 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg 
+    kgCO2_m2 * Aearth * 0.272912 / 1e12 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg
 }
 kgCO2_PgC <- function(kgCO2) {
     kgCO2 * 0.272912 / 1e12 # kgCO2 -> kgC; kg -> Pg
@@ -1563,7 +1563,7 @@ kgCO2_s1_to_gC_yr1 <- function(kgCO2_s1) {
     kgCO2_s1 * 365.25*86400 / 3.664191 * 1e3 # s-1 -> yr-1; kgCO2 -> kgC; kgC -> gC
 }
 kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
-    kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg 
+    kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg
 }
 kgCO2_to_CO2ppm <- function(kgCO2) {
     kgCO2 * 0.272912 / 1e12 / 2.124 # kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
@@ -1624,10 +1624,10 @@ molC_to_PgC <- function(molC) {
 }
 molCO2_m2_s1_to_PgC_yr1 <- function(molCO2_m2_s1) {
     Aearth <- 5.100656e14 # m2
-    molCO2_m2_s1 * Aearth * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # m2 -> fldint; molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg 
+    molCO2_m2_s1 * Aearth * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # m2 -> fldint; molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg
 }
 molCO2_s1_to_PgC_yr1 <- function(molCO2_s1) {
-    molCO2_s1 * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg 
+    molCO2_s1 * 44.0095 * 0.272912 * 365.25*86400 / 1e15 # molCO2 -> gCO2; gCO2 -> gC; s-1 -> yr-1; g -> Pg
 }
 molCO2_to_kgC <- function(molCO2) {
     molCO2 * 44.0095 * 0.272912 / 1e3 # molCO2 -> gCO2; gCO2 -> gC; gC -> kgC
@@ -1687,7 +1687,7 @@ calc_enso_from_mon_anom <- function(temp_anom) { # todo: from any time series
     cat(capture.output(str(temp_anom)), sep="\n")
     message("\nget enso based on temp anomaly threshold 0.4 °C for at least 6 months or longer ...")
 
-    nino <- base::inverse.rle(base::within.list(rle(temp_anom > 0.4), 
+    nino <- base::inverse.rle(base::within.list(rle(temp_anom > 0.4),
                                     expr={
                                         i1 <- values & (lengths >= 6)
                                         values[i1] <- seq_along(values[i1]) + 1 # +1 for excluding vals>0.4 but less than 6 months in next line
@@ -1697,8 +1697,8 @@ calc_enso_from_mon_anom <- function(temp_anom) { # todo: from any time series
     nino <- nino - 1
     nino_vals <- na.omit(unique(nino))
     nino <- list(n=length(nino_vals), vals=nino_vals, nino=nino)
-    
-    nina <- inverse.rle(within.list(rle(temp_anom < -0.4), 
+
+    nina <- inverse.rle(within.list(rle(temp_anom < -0.4),
                                     expr={
                                         i1 <- values & (lengths >= 6)
                                         values[i1] <- seq_along(values[i1]) + 1 # +1 for excluding vals<-0.4 but less than 6 months in next line
@@ -1708,7 +1708,7 @@ calc_enso_from_mon_anom <- function(temp_anom) { # todo: from any time series
     nina <- nina - 1
     nina_vals <- na.omit(unique(nina))
     nina <- list(n=length(nina_vals), vals=nina_vals, nina=nina)
-    
+
     message("\n--> ", nino$n, " el nino, ", nina$n, " la nina events")
     enso <- list(temp_anom=temp_anom, nino=nino, nina=nina)
     return(enso)
@@ -1752,15 +1752,15 @@ mydata <- function(pkgname) {
                 cmd <- paste0("utils::data(", dname, ")")
                 eval(parse(text=cmd))
             }
-            cmd <- paste0("class <- class(`", dname, "`)") 
+            cmd <- paste0("class <- class(`", dname, "`)")
             eval(parse(text=cmd))
-            if (any(!is.na(match(c("function", 
-                                   "standardGeneric", "nonstandardGenericFunction", "groupGenericFunction", 
+            if (any(!is.na(match(c("function",
+                                   "standardGeneric", "nonstandardGenericFunction", "groupGenericFunction",
                                    "FortranRoutine", "NativeSymbolInfo"), class)))) { # do not print if dataset is a function
                 #message("--> dataset of class ", class)
             } else {
                 message("***************************************************************************\n",
-                        "pkgi ", pkgi, "/", length(pkgs), ": ", pkgname, 
+                        "pkgi ", pkgi, "/", length(pkgs), ": ", pkgname,
                         ", di ", di, "/", length(dnames), ": ", dname, ": ", dtitle)
                 cmd <- paste0("cat(capture.output(str(`", dname, "`)), sep=\"\n\")")
                 #message("run `", cmd, "` ...")
@@ -1786,7 +1786,7 @@ tryCatch.W.E <- function(expr) { # from `demo(error.catching)`
         base::invokeRestart("muffleWarning")
     }
     list(value=base::withCallingHandlers(base::tryCatch(expr, error=function(e) e),
-                                         warning=w.handler), 
+                                         warning=w.handler),
          warning=W)
 } # tryCatch.W.E
 
@@ -1802,14 +1802,14 @@ find_open_brackets <- function(file) {
     status <- tryCatch(parse(text=text, srcfile=src),
                        error=function(e) e,
                        warning=function(w) w)
-    if (typeof(status) != "expression") { # some warning/error 
+    if (typeof(status) != "expression") { # some warning/error
         d <- getParseData(src)
         tokens_to_check <- c("'{'", "'}'", "'['", "']'", "'('", "')'")
-        message("found some warning/error --> check ", length(tokens_to_check), 
+        message("found some warning/error --> check ", length(tokens_to_check),
                 " tokens for missing parents ...")
         for (i in seq_along(tokens_to_check)) {
             message("*****************************************************\n",
-                    "token ", i, "/", length(tokens_to_check), ": \"", 
+                    "token ", i, "/", length(tokens_to_check), ": \"",
                     tokens_to_check[i], "\" ... ", appendLF=F)
             inds <- which(d$token == tokens_to_check[i] & d$parent == 0)
             if (length(inds) > 0) {
@@ -1826,10 +1826,10 @@ find_open_brackets <- function(file) {
 
 # will never understand this
 checkfun <- function() {
-    message("myfunctions.r: sys.parent() = ", sys.parent(), 
+    message("myfunctions.r: sys.parent() = ", sys.parent(),
             ", current frame sys.nframe() = ", sys.nframe())
     # copypaste/Rscript: pa0,fr0; checkfun(): pa0,fr1; source("file.r") = pa3,fr4
-    f1 <- function() message("f1(): sys.parent() = ", sys.parent(), 
+    f1 <- function() message("f1(): sys.parent() = ", sys.parent(),
                              ", current frame sys.nframe() = ", sys.nframe())
     f2 <- function() f1(); f3 <- function() f2()
     message("run f1"); f1() # copypaste/Rscript: pa0,fr1; checkfun() = pa1,fr2; source("file.r") = pa0,fr5
@@ -1900,7 +1900,7 @@ get_memory_used <- function(method="ps", verbose=F) {
             class(x) <- "object_size"
             format(x, units = "auto")
         })
-        mem <- data.frame(c("RSS physical", "VSZ virtual"), mem, 
+        mem <- data.frame(c("RSS physical", "VSZ virtual"), mem,
             prettyMem)
         names(mem) <- c(paste0("`", cmd, "`"), "Mem [B]", "PrettyMem")
         message("pid ", pid, " ", paste(paste0(mem[,1], ": ", mem[,3]), collapse=", "))
@@ -1929,7 +1929,7 @@ get_random_number <- function() {
 }
 
 # base::load cannot give a name for the new loaded data
-# --> usage: `myname <- myload("file.RData")` 
+# --> usage: `myname <- myload("file.RData")`
 myload <- function(file_rdata) {
     if (missing(file_rdata)) stop("provide `file_rdata`")
     base::load(file_rdata)
@@ -1951,7 +1951,7 @@ identical_list <- function(x) {
     }
 }
 
-# irregular check from graphics::image()'s argument `useRaster` from graphics::image.default 
+# irregular check from graphics::image()'s argument `useRaster` from graphics::image.default
 check_irregular <- function(x, y) {
     dx <- diff(x)
     dy <- diff(y)
@@ -1959,8 +1959,8 @@ check_irregular <- function(x, y) {
     #   TRUE            if d <= tolereance with
     #                       tolerance <- sqrt(.Machine$double.eps)
     #                       d <- (sum(abs(target - current))/length(target))
-    #   a character     otherwise, giving the mean relative difference, 
-    #                   e.g. "Mean relative difference: 0.2"; or other 
+    #   a character     otherwise, giving the mean relative difference,
+    #                   e.g. "Mean relative difference: 0.2"; or other
     #                   information like "Numeric: lengths (18, 1) differ"
     #                   if the lengths of target and current differ
     # isTRUE(x) returns
@@ -1985,16 +1985,16 @@ reorder_legend <- function(le) {
 # headtail
 ht <- function(x, n=15, transpose=F, ...) {
     # small changes based on FSA::headtail
-    if (!(is.matrix(x) | is.data.frame(x))) 
+    if (!(is.matrix(x) | is.data.frame(x)))
         x <- as.data.frame(x)
-    if ("tbl_df" %in% class(x)) 
+    if ("tbl_df" %in% class(x))
         x <- as.data.frame(x)
     N <- nrow(x)
     if (n >= N)
         tmp <- x
     else {
         h <- utils::head(x, n=min(N/2, n), ...)
-        if (is.null(rownames(x))) 
+        if (is.null(rownames(x)))
             rownames(h) <- paste0("[", seq_len(n), ",]")
         t <- utils::tail(x, n=min(N/2, n), keepnums=T, ...)
         tmp <- rbind(h, t)
@@ -2035,11 +2035,11 @@ col2rgba <- function(cols, alpha) {
     }
 }
 
-match_color <- function(cols=c("red", "blue"), 
-                        table=grDevices::rainbow(10), 
+match_color <- function(cols=c("red", "blue"),
+                        table=grDevices::rainbow(10),
                         method="euclidean",
                         tolower=T) {
-    
+
     if (is.character(cols)) {
         if (!is.vector(cols)) stop("if `cols` is character, it must be vector")
         cols_hex <- cols
@@ -2149,14 +2149,14 @@ mycols <- function(n) {
 
 # get coords of clicked points in active plot
 mylocator <- function(...) {
-    # open plot with world map if no plot is already open 
+    # open plot with world map if no plot is already open
     if (is.null(dev.list())) {
         library(maps)
         message("run maps::map(\"world\", interior=F) ...")
         map("world", interior=F)
         message("par(\"usr\") = ", appendLF=F)
         dput(par("usr"))
-    } 
+    }
     options(locatorBell=F) # turn off system beep
     message("********* mylocator() start *********\n",
             "1. Resize plot window to the size you want.\n",
@@ -2190,7 +2190,7 @@ get_coastline_coords_from_maps <- function(database="world") {
     return(coord)
 } # get_coastline_coords_from_maps
 
-# get times from `cdo showtimestamp` 
+# get times from `cdo showtimestamp`
 cdo_showtimestamp <- function(file, verbose=F) {
     if (missing(file)) stop("provide `file`")
     if (!is.character(file)) stop("`file` arg must be character")
@@ -2307,7 +2307,7 @@ ncks_m <- function(file, verbose=F) {
     ncks <- Sys.which("ncks")
     if (ncks == "") stop("could not find ncks")
     warn <- options()$warn
-    
+
     cmd <- paste0(ncks , " -m ", file)
     if (verbose) message("run `", cmd, "` ...")
     val <- base::system(cmd, intern=T)
@@ -2323,7 +2323,7 @@ ncks_m <- function(file, verbose=F) {
     if (any(inds)) {
         if (length(which(inds)) != 1) stop("this should not happen")
         ind <- which(inds, arr.ind=T)[1,1] # row of ncks result with any of `ncks_known_time_dim_names`
-        tmp <- val[ind] 
+        tmp <- val[ind]
         # 2 cases so far:
         #    "    time = 12 ;"
         #    "     time = UNLIMITED ; // (1 currently)"
@@ -2371,7 +2371,7 @@ nc_infos <- function(ncfile, short=T) {
     if (short) {
         ret <- utils::capture.output(RNetCDF::print.nc(nc)) # just string
         # runs:
-        # nc <- .Call(R_nc_open, con, write, share, prefill, diskless, 
+        # nc <- .Call(R_nc_open, con, write, share, prefill, diskless,
         #     persist, mpi_comm, mpi_info)
         # attr(nc, "class") <- "NetCDF"
         # return(invisible(nc))
@@ -2391,7 +2391,7 @@ nc_infos <- function(ncfile, short=T) {
             atts <- as.list(att_vals)
             names(atts) <- att_names
             message("*********************************************************************\n",
-                    "varname ", vari, ": \"", varnames[vari], "\" (", 
+                    "varname ", vari, ": \"", varnames[vari], "\" (",
                     paste(paste0("dim", seq_along(dimids), ":", dimnames, ",id=", dimids, ",len=", dimlens), collapse=";"), ")")
             if (length(atts) > 0) cat(capture.output(str(atts)), sep="\n")
         } # for vari
@@ -2403,7 +2403,7 @@ nc_infos <- function(ncfile, short=T) {
                     time <- as.POSIXct(strsplit(trimws(time), "  ")[[1]], tz="UTC")
                     dt <- diff(time)
                     message("*********************************************************************\n",
-                            length(time), " time points from ", min(time), " to ", max(time), 
+                            length(time), " time points from ", min(time), " to ", max(time),
                             " (mean/median dt = ", round(mean(dt), 3), "/", median(dt), " ", attributes(dt)$units, ")")
                 } else {
                     message("(`cdo showtimestamp` on this file yields nothing)")
@@ -2449,16 +2449,16 @@ ncap2_settime <- function(fin, fout, timedimname="time", newtimevals, newtimeuni
     ncap2 <- Sys.which("ncap2")
     if (ncap2 == "") stop("could not find ncap2")
     cmd <- paste0(ncap2, " ", ncap2_history, " -O -s '", timedimname, "(:)={<newtimevals>}; ",
-                  timedimname, "@units=\"", newtimeunits, "\"; ", 
-                  timedimname, "@calendar=\"", newtimecalendar, "\"' ", 
+                  timedimname, "@units=\"", newtimeunits, "\"; ",
+                  timedimname, "@calendar=\"", newtimecalendar, "\"' ",
                   fout, " ", fout)
     message("run `", cmd, "` ...")
     cmd <- sub("<newtimevals>", paste(newtimevals, collapse=","), cmd)
     check <- system(cmd)
     if (check != 0) stop("error")
     # 3/3: make new time bnds
-    cmd <- paste0(ncap2, " ", ncap2_history, " -O -s 'defdim(\"bnds\",2); time_bnds=make_bounds(", 
-                  timedimname, ",$bnds,\"time_bnds\")' ", 
+    cmd <- paste0(ncap2, " ", ncap2_history, " -O -s 'defdim(\"bnds\",2); time_bnds=make_bounds(",
+                  timedimname, ",$bnds,\"time_bnds\")' ",
                   fout, " ", fout)
     message("run `", cmd, "` ...")
     check <- system(cmd)
@@ -2466,21 +2466,21 @@ ncap2_settime <- function(fin, fout, timedimname="time", newtimevals, newtimeuni
 } # ncap_settime
 
 # set my default plot options
-myDefaultPlotOptions <- function(plist=list(plot_type="png", 
+myDefaultPlotOptions <- function(plist=list(plot_type="png",
                                             ts_width_in=7, ts_asp=4/3,
                                             ts_mon_width_in=7, ts_mon_asp=1,
                                             depth_width_in=7, depth_asp=0.5,
                                             map_width_in=7, map_asp=4/3,
                                             scatter_width_in=7, scatter_asp=1,
-                                            #ts_width=2666, ts_height=1333, 
+                                            #ts_width=2666, ts_height=1333,
                                             #ts_width_m=2100, ts_height_m=1600,
                                             #depth_width=2666, depth_weight=1600,
                                             #map_width=2666, map_height=2000,
                                             #scatter_width=2666, scatter_height=2666,
                                             pdf_family="sans",
                                             pdf_embed_fun="grDevices::embedFonts",
-                                            png_family="sans" 
-                                            ), 
+                                            png_family="sans"
+                                            ),
                                  verbose=F, ...) {
     dot_list <- list(...)
     dot_names <- names(dot_list)
@@ -2490,7 +2490,7 @@ myDefaultPlotOptions <- function(plist=list(plot_type="png",
             if (!is.null(dot_list[[i]])) {
                 if (dot_names[i] == "plot_type") {
                     if (!any(dot_list[[i]] == c("png", "pdf", "active"))) {
-                        stop("myDefaultPlotOptions(): given plot_type ", 
+                        stop("myDefaultPlotOptions(): given plot_type ",
                              dot_list[[i]], " must be one of \"png\", \"pdf\" or \"active\"")
                     }
                     if (dot_list[[i]] == plist$plot_type) { # if wanted is already default
@@ -2504,7 +2504,7 @@ myDefaultPlotOptions <- function(plist=list(plot_type="png",
                     # check if wanted font is one of system defaults
                     fonts <- names(grDevices::pdfFonts())
                     if (!any(fonts == dot_list[[i]])) { # if wanted font is not any system default
-                        message("wanted pdf_family = \"", dot_list[[i]], "\" is not included in ", 
+                        message("wanted pdf_family = \"", dot_list[[i]], "\" is not included in ",
                                 length(fonts), " currently loaded grDevices::pdfFonts()")
                         if (!any(search() == "package:extrafont")) { # try to load extrafont package
                             message("run `require(extrafont)`")
@@ -2514,7 +2514,7 @@ myDefaultPlotOptions <- function(plist=list(plot_type="png",
                             fonts <- extrafont::fonts()
                             message("wanted pdf_family = \"", dot_list[[i]], "\" ", appendLF=F)
                             if (!any(fonts == dot_list[[i]])) { # wanted font not avilable
-                                message("is also not included in ", length(fonts), 
+                                message("is also not included in ", length(fonts),
                                         " currently loaded extrafont::fonts(). use default \"",
                                         plist$pdf_family, "\" ...")
                                 dot_list[[i]] <- plist$pdf_family
@@ -2527,16 +2527,16 @@ myDefaultPlotOptions <- function(plist=list(plot_type="png",
                         }
                     }
                     # check if embed command needs to be adjusted
-                    # -> font provided by `extrafont` package must be imbedded with `extrafont::embed_fonts()` 
+                    # -> font provided by `extrafont` package must be imbedded with `extrafont::embed_fonts()`
                     #    instead with default grDevices::embedFonts()`
                     if (dot_list[[i]] != plist$pdf_family) { # if change is applied
                         if (any(search() == "package:extrafont")) { # check if wanted front comes from grDevices or extrafont
                             extrafont_fonts <- fonts()
                             default_fonts <- names(pdfFonts()) # includes default and extrafont-fonts
-                            # strange workaround: once extrafont is loaded, one cannot infer the default fonts anymore 
-                            default_fonts <- setdiff(default_fonts, extrafont_fonts) 
+                            # strange workaround: once extrafont is loaded, one cannot infer the default fonts anymore
+                            default_fonts <- setdiff(default_fonts, extrafont_fonts)
                             if (!(dot_list[[i]] %in% default_fonts)) {
-                                message("change `pdf_embed_fun` from default \"", plist$pdf_embed_fun, 
+                                message("change `pdf_embed_fun` from default \"", plist$pdf_embed_fun,
                                         "\" to \"extrafont::embed_fonts\" ...")
                                 plist$pdf_embed_fun <- "extrafont::embed_fonts"
                             }
@@ -2544,15 +2544,15 @@ myDefaultPlotOptions <- function(plist=list(plot_type="png",
                     }
                 } # if argument is `pdf_family`
                 if (dot_list[[i]] != plist[[dot_names[i]]]) { # if change from default
-                    message("argument \"", dot_names[i], "\" provided -> overwrite default \"", 
+                    message("argument \"", dot_names[i], "\" provided -> overwrite default \"",
                             plist[[dot_names[i]]], "\" with \"", dot_list[[i]], "\"")
                     plist[[dot_names[i]]] <- dot_list[[i]]
                 }
                 if (verbose && i == length(dot_list)) message("*** myDefaultPlotOptions() finished ***")
-                # Note: 
+                # Note:
                 # print(str(dot_list[[i]]))
                 # returns the value AND NULL
-                #str(dot_list[[i]]) 
+                #str(dot_list[[i]])
             } # if !is.null(dot_list[[i]])
         } # for all arguments in dots `...`
     } # if any dots arguments given
@@ -2560,8 +2560,8 @@ myDefaultPlotOptions <- function(plist=list(plot_type="png",
 } # myDefaultPlotOptions
 
 # determine plot width, height and pointsize based on wanted ppi and asp.
-# main source of confusion: pixel is not a length unit since it 
-# depends on pixels per inch (ppi), which can be specified for 
+# main source of confusion: pixel is not a length unit since it
+# depends on pixels per inch (ppi), which can be specified for
 # png plots:
 # 1 inch = 96 pixel if ppi = 96
 # 1 inch = 300 pixel if ppi = 300
@@ -2569,7 +2569,7 @@ myDefaultPlotOptions <- function(plist=list(plot_type="png",
 plot_sizes <- function(width_in=7, height_in=NULL,
                        width_cm=NULL, height_cm=NULL,
                        png_ppi=300, asp=4/3, verbose=F) {
-    
+
     if (!is.numeric(width_in) && !is.numeric(height_in) &&
         !is.numeric(width_cm) && !is.numeric(height_cm)) {
         stop("at least one of `width_in`, `height_in`, `width_cm`, `height_cm` must be numeric")
@@ -2578,7 +2578,10 @@ plot_sizes <- function(width_in=7, height_in=NULL,
     } else if (is.numeric(height_in) && is.numeric(height_cm)) {
         stop("provide either `height_in` or `height_cm`")
     }
+    if (!is.finite(png_ppi)) stop("`png_ppi` must be finite")
     if (!is.finite(asp)) stop("`asp` must be finite")
+
+    # get plot dims
     if (is.numeric(width_in) && !is.numeric(height_in)) height_in <- width_in/asp
     if (!is.numeric(width_in) && is.numeric(height_in)) width_in <- height_in*asp
     if (is.numeric(width_cm) && !is.numeric(height_cm)) height_cm <- width_cm/asp
@@ -2587,12 +2590,18 @@ plot_sizes <- function(width_in=7, height_in=NULL,
     if (!is.numeric(height_in)) height_in <- height_cm/2.54
     if (!is.numeric(width_cm)) width_cm <- width_in*2.54
     if (!is.numeric(height_cm)) height_cm <- height_in*2.54
-    asp <- width_in/height_in # udate asp; same for width_cm/height_cm
-
-    # for png
     width_px <- width_in*png_ppi
     height_px <- height_in*png_ppi
-    pointsize <- 12 # default
+
+    # for pdf
+    # sizes in inch with respect to default pdf width 7 inch used as maximum pdf width
+    pdf_width_in <- 7
+    pdf_height_in <- pdf_width_in/asp
+
+    # update asp
+    asp <- width_in/height_in
+
+    # default pointsize
     # png pointsize: the default pointsize of plotted text, interpreted as big
     #                points (1/72 inch) at ‘res’ ppi.
     # pdf pointsize: the default point size to be used.  Strictly speaking, in
@@ -2600,52 +2609,48 @@ plot_sizes <- function(width_in=7, height_in=NULL,
     #                Defaults to ‘12’.
     # 1 pb = 1/72 inch = 0.01388889 inch = 0.35277780599999997 mm (1 inch = 2.54 cm)
     # 12/72 inch = 0.1666667 inch = 4.233333 mm (1 inch = 2.54 cm)
-    #                  300 pixel   1  inch   
-    # --> 1 point uses --------- x ------- = 4.166667 pixel at 300 ppi resolution
-    #                  1 inch      72
-    
-    # increase png pointsize (default = 12) if 1 < asp < 2
-    # ragg package: res_mod(scaling * res / 72.0),
-    #               lwd_mod(scaling * res / 96.0),
-    if (asp > 1 && asp < 2) {
-        if (T) {
-            asp_interp <- approx(x=c(1, 2), y=c(1, 1.7), n=100) # linearly interp asp 1 to 2 --> fac 1 to 1.5
-            asp_fac_ind <- which.min(abs(asp_interp$x - asp))
-            asp_fac <- asp_interp$y[asp_fac_ind]
-        } else if (F) {
-            asp_fac <- asp
-        }
-        message("asp = ", round(asp, 3), " --> multiply pointsize ", 
-                pointsize, " * asp_fac ", round(asp_fac, 3), " = ", 
-                round(pointsize*asp_fac, 3))
-        pointsize <- pointsize*asp_fac
-    }
-    
-    # for pdf
-    # sizes in inch with respect to default pdf width 7 inch used as maximum pdf width
-    pdf_width_in <- 7
-    pdf_height_in <- pdf_width_in/asp
-    #pdf_pointsize <- 12
-    pdf_pointsize <- pointsize
-    # pdf pointsize: the default point size to be used.  Strictly speaking, in
-    #      bp, that is 1/72 of an inch, but approximately in points.
-    #      Defaults to ‘12’.
-    
+    #                              300 pixel   1  inch
+    # --> at 300 ppi, 1 point uses --------- x ------- = 4.166667 pixel
+    #                              1 inch      72
+    pointsize <- 12
+
+    # scale pointsize by plot dims
+    #base_size_in <- 7 # from grDevices::pdf
+    base_size_in <- 5.25 # i find the default font size too small --> decrease base_size_in
+    ref <- sqrt(width_in * height_in) # geomean
+    pointsize_geomean <- pointsize * ref / base_size_in
+    ref <- width_in # width
+    pointsize_width <- pointsize * ref / base_size_in
+    ref <- height_in # height
+    pointsize_height <- pointsize * ref / base_size_in
+    ref <- min(width_in, height_in) # min
+    pointsize_min <- pointsize * ref / base_size_in
+    ref <- max(width_in, height_in) # max
+    pointsize_max <- pointsize * ref / base_size_in
+
     if (verbose) {
         message("png_ppi=", png_ppi, ",\n",
-                "png_width_in=", width_in, ", png_height_in=", height_in, ",\n",
-                "png_width_cm=", width_cm, ", png_height_cm=", height_cm, ",\n",
-                "png_width_px=", width_px, ", png_height_px=", height_px, ",\n",
-                "png_pointsize=", round(pointsize, 3), ", asp=", round(asp, 3), ",\n",
-                "pdf_width_in=", pdf_width_in, ", pdf_height_in=", pdf_height_in, ", ",
-                "pdf_pointsize=", round(pdf_pointsize, 3))
+                "png_width_in=", width_in, ", png_height_in=", height_in, "\n",
+                "png_width_cm=", width_cm, ", png_height_cm=", height_cm, "\n",
+                "png_width_px=", width_px, ", png_height_px=", height_px, "\n",
+                "pdf_width_in=", pdf_width_in, ", pdf_height_in=", pdf_height_in, "\n",
+                ", asp=", round(asp, 3), "\n",
+                "pointsize_geomean=", round(pointsize_geomean, 3), "\n",
+                "pointsize_width=", round(pointsize_width, 3), "\n",
+                "pointsize_height=", round(pointsize_height, 3), "\n",
+                "pointsize_min=", round(pointsize_min, 3), "\n",
+                "pointsize_max=", round(pointsize_max, 3))
     }
     return(list(png_ppi=png_ppi,
                 png_width_in=width_in, png_height_in=height_in,
                 png_width_px=width_px, png_height_px=height_px,
-                png_pointsize=pointsize, asp=asp,
                 pdf_width_in=pdf_width_in, pdf_height_in=pdf_height_in,
-                pdf_pointsize=pdf_pointsize))
+                asp=asp,
+                pointsize_geomean=pointsize_geomean,
+                pointsize_width=pointsize_width,
+                pointsize_height=pointsize_height,
+                pointsize_min=pointsize_min,
+                pointsize_max=pointsize_max))
 } # plot_sizes
 
 # nicer default pars
@@ -2654,22 +2659,71 @@ plot_sizes <- function(width_in=7, height_in=NULL,
 #    graphics::par(las=las, ..., no.readonly = FALSE)
 #} # usage: par(); plot(...)
 
+# auto-crop and embed fonts
+mydev.off <- function(plotname, which=dev.cur()) {
+    type <- names(which) # "null device", "x11", "X11cairo", "png", "pdf"
+    if (any(type == c("png", "pdf"))) {
+        if (missing(plotname)) stop("type = ", type, " --> provide `plotname`")
+        # close
+        grDevices::dev.off(which=which)
+        # auto-crop
+        cmd <- NULL
+        if (type == "png") {
+            if (F) { # convert
+                convert <- Sys.which("convert")
+                if (convert == "") {
+                    message("could not find convert --> cannot auto-crop")
+                } else {
+                    cmd <- paste0(convert, " ", plotname, , "-trim +repage ", plotname)
+                }
+            } else if (T) { # mogrify
+                mogrify <- Sys.which("mogrify")
+                if (mogrify == "") {
+                    message("could not find mogrify --> cannot auto-crop")
+                } else {
+                    cmd <- paste0(mogrify, " -trim +repage ", plotname)
+                }
+            }
+        } else if (type == "pdf") {
+            pdfcrop <- Sys.which("mogrify")
+            if (pdfcrop == "") {
+                message("could not find pdfcrop --> cannot auto-crop")
+            } else {
+                cmd <- paste0(pdfcrop, " ", plotname, " ", plotname)
+            }
+        }
+        if (!is.null(cmd)) {
+            message("run `", cmd, "` ...")
+            check <- system(cmd)
+            if (check != 0) stop("error")
+        }
+        # embed fonts
+        if (type == "pdf") {
+            message("run `my_embedFonts(", plotname, ")` ...")
+            my_embedFonts(plotname)
+        }
+    } else { # if not png or pdf
+        grDevices::dev.off(which=which) # only close
+    } # which type
+
+} # mydev.off()
+
 # paste my relevant plot options
 mypar <- function() {
     if (is.null(dev.list())) {
-        y <- askYesNo("mypar(): no plot open. would you like to run 'dev.new()'?", 
+        y <- askYesNo("mypar(): no plot open. would you like to run 'dev.new()'?",
                       default=F, prompts=c("Yes", "No", "Cancel"))
-        if (y) {    
+        if (y) {
             dev.new()
         }
     }
     if (!is.null(dev.list())) {
         op <- par()
-        message("current device no. ", dev.cur(), " is of type ", 
+        message("current device no. ", dev.cur(), " is of type ",
                 names(dev.cur()), " with family='", op$family, "'")
         message("character width, height")
         message("   par(\"cin\") = c(", paste0(op$cin, collapse=", "), ") # inch")
-        message("   par(\"cra\") = c(", paste0(op$cra, collapse=", "), ") # px; default = 1/72 = 0.01388889 inch") 
+        message("   par(\"cra\") = c(", paste0(op$cra, collapse=", "), ") # px; default = 1/72 = 0.01388889 inch")
         message("   --> par(\"cra\")/par(\"cin\") = c(", paste0(op$cra/op$cin, collapse=", "), ") # ppi if device is png")
         message("device width, height (whole plot):")
         message("   par(\"fin\") = c(", paste0(par("fin"), collapse=", "), ") # inch")
@@ -2678,9 +2732,9 @@ mypar <- function() {
         message("   dev.size(\"cm\") = c(", paste0(dev.size("cm"), collapse=", "), ")")
         message("plot width, height (where data is shown):")
         message("   par(\"pin\") = c(", paste0(op$pin, collapse=", "), ") # inch")
-        message("   --> par(\"pin\")*par(\"cra\")/par(\"cin\") = c(", 
+        message("   --> par(\"pin\")*par(\"cra\")/par(\"cin\") = c(",
                 paste0(op$pin*op$cra/op$cin, collapse=", "), ") # px")
-        message("   --> par(\"pin\")*2.54 = c(", 
+        message("   --> par(\"pin\")*2.54 = c(",
                 paste0(op$pin*2.54, collapse=", "), ") # cm")
         message("plot coordinates:")
         message("   par(\"usr\") = c(", paste0(op$usr, collapse=", "), ") # l r b t")
@@ -2688,14 +2742,14 @@ mypar <- function() {
         message("   par(\"plt\") = c(", paste0(op$plt, collapse=", "), ") # l r b t")
         message("margin size:")
         message("   par(\"omi\") = c(", paste0(op$omi, collapse=", "), ") # inch; b l t r")
-        message("   --> par(\"omi\")*par(\"cra\")/par(\"cin\") = c(", 
+        message("   --> par(\"omi\")*par(\"cra\")/par(\"cin\") = c(",
                 paste0(op$omi*op$cra/op$cin, collapse=", "), ") # px; b l t r")
-        message("   --> par(\"omi\")*2.54 = c(", 
+        message("   --> par(\"omi\")*2.54 = c(",
                 paste0(op$omi*2.54, collapse=", "), ") # cm; b l t r")
         message("   par(\"mai\") = c(", paste0(op$mai, collapse=", "), ") # inch; b l t r (default: c(1.02, 0.82, 0.82, 0.42))")
-        message("   --> par(\"mai\")*par(\"cra\")/par(\"cin\") = c(", 
+        message("   --> par(\"mai\")*par(\"cra\")/par(\"cin\") = c(",
                 paste0(op$mai*op$cra/op$cin, collapse=", "), ") # px; b l t r")
-        message("   --> par(\"mai\")*2.54 = c(", 
+        message("   --> par(\"mai\")*2.54 = c(",
                 paste0(op$mai*2.54, collapse=", "), ") # cm; b l t r")
         if (!all(op$oma == 0)) {
             message("sum outer and inner margin sizes")
@@ -2718,7 +2772,7 @@ mypar <- function() {
 par_px2in <- function(px) {
     if (is.null(dev.list())) {
         stop("par_px2in(): no plot open.")
-    } else { 
+    } else {
         op <- par()
         inch <- px*op$cin/op$cra
         message("in the current device ", dev.cur(), " (", names(dev.cur()), ")")
@@ -2726,11 +2780,11 @@ par_px2in <- function(px) {
         message("   1 px*", op$cin[2], "/", op$cra[2], " = ", op$cin[2]/op$cra[2], " inch high")
         inch
     }
-} # par_px2in 
+} # par_px2in
 
 # find largest empty region in plot based on all data points
 my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
-   
+
     # todo: unlist(posixlt) does not work
 
     if (!is.list(x_all)) stop("`x_all` must be list")
@@ -2743,7 +2797,7 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
 
     # interp all data points to get better result, i.e. artifcially increase the resolution
     if (n_interp > 0) {
-        message("myfunctions.r:my_maxempty(): `n_interp` = ", n_interp, " > 0 --> interp to ", 
+        message("myfunctions.r:my_maxempty(): `n_interp` = ", n_interp, " > 0 --> interp to ",
                 length(x_all), " * ", n_interp, " = ", length(x_all)*n_interp, " points ...")
         for (i in seq_along(x_all)) {
             tmp <- vector("list", length=length(x_all[[i]])-1)
@@ -2758,7 +2812,7 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
     # do not use list
     x_all <- unlist(x_all)
     y_all <- unlist(y_all)
-    
+
     # exclude NA
     inds <- c()
     if (anyNA(x_all)) inds <- c(inds, which(is.na(x_all)))
@@ -2771,7 +2825,7 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
     }
 
     # run method
-    message("myfunctions.r:my_maxempty(): get automatic legend position at largest empty area with `method` = ", 
+    message("myfunctions.r:my_maxempty(): get automatic legend position at largest empty area with `method` = ",
             method, "() for ", length(x_all), " (x,y)-points ... ")
     if (method == "Hmisc::largest.empty") { # adagio::maxempty works better
         if (!suppressPackageStartupMessages(require(Hmisc))) stop("could not load Hmisc package")
@@ -2787,9 +2841,9 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
         message("adagio solution: ", paste(unname(tmp$rect), collapse=", "))
         #rect(tmp$rect[1], tmp$rect[2], tmp$rect[3], tmp$rect[4])
         pos <- c(x=tmp$rect[1], y=tmp$rect[4]) # topleft corner if x- and y-coords are both increasing (default)
-    
+
     } # which method
-    
+
     # return as named list to be used via `graphics::legend(pos, ...)`
     names(pos) <- c("x", "y")
     message("--> pos = ", paste(pos, collapse=", "))
@@ -2799,7 +2853,7 @@ my_maxempty <- function(x_all, y_all, method="adagio::maxempty", n_interp=0) {
 
 # try to embed everything
 my_embedFonts <- function(plotname) {
-    
+
     # default grDevices::embedFonts():
     # gs -dNOPAUSE -dBATCH -q -dAutoRotatePages=/None -sDEVICE=pdfwrite -sOutputFile='/tmp/RtmpkdPC8c/Rembed662c878593840' 'embed_pdf.pdf'
 
@@ -2820,7 +2874,7 @@ my_embedFonts <- function(plotname) {
 
 # Get month names in specific locale
 mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
- 
+
     # https://stat.ethz.ch/pipermail/r-help/2004-May/051503.html
 
     if (any(!(inds %in% 1:12))) {
@@ -2837,7 +2891,7 @@ mymonth.name <- function(inds, locales=Sys.getlocale("LC_TIME")) {
 
         # change locale is needed
         if (Sys.getlocale("LC_TIME") != locales[i]) {
-            
+
             # check if locale can be changed; returns the locale (success) or "" (no success)
             status <- tryCatch(suppressWarnings(Sys.setlocale("LC_TIME", locales[i])),
                                error=function(e) e,
@@ -2924,7 +2978,7 @@ mynews <- function() {
 
 # draw secret santa present lists; schrottwichteln
 secret_santa_list <- function(persons=c("mat", "mer", "mal", "mec", "vol"), ndraw=1, verbose=F) {
-    
+
     if (!is.character(persons)) stop("`persons` must be character")
     if (!is.finite(ndraw)) stop("`ndraw` must be finite")
 
@@ -2947,7 +3001,7 @@ secret_santa_list <- function(persons=c("mat", "mer", "mal", "mec", "vol"), ndra
         senders <- senders[inds]
 
         # show result
-        res <- paste0(recipients, ": ", senders) 
+        res <- paste0(recipients, ": ", senders)
         if (verbose) message(paste(res, collapse="\n"))
 
         # save result
@@ -2966,7 +3020,7 @@ secret_santa_list <- function(persons=c("mat", "mer", "mal", "mec", "vol"), ndra
 
 check_mailhost <- function(mails="bla@example.com") {
     if (!is.character(mails)) stop("`mails` must be character")
-    if (!is.vector(mails)) stop("`mails` must be vector") 
+    if (!is.vector(mails)) stop("`mails` must be vector")
     nslookup <- Sys.which("nslookup")
     if (nslookup == "") stop("could not find nsloopkup")
     mails <- as.list(mails)
@@ -2981,8 +3035,8 @@ check_mailhost <- function(mails="bla@example.com") {
     for (mi in seq_along(mails)) {
         cmd <- paste0(nslookup, " -q=mx ", mails[[mi]]$host)
         message("******************************************************\n",
-                "mail ", mi, "/", length(mails), ": ", 
-                mails[[mi]]$user, "@", mails[[mi]]$host, 
+                "mail ", mi, "/", length(mails), ": ",
+                mails[[mi]]$user, "@", mails[[mi]]$host,
                 " --> run `", cmd, "` ...")
         nsl <- suppressWarnings(system(cmd, intern=T))
         inds <- c(which(nsl == "Non-authoritative answer:"),
@@ -3114,7 +3168,7 @@ myhelp <- function() {
              "      help:    https://cran.r-project.org/doc/FAQ/R-FAQ.html",
              "      data:    data(package=\"pkg\")",
              "   Functions ...",
-             "      C-object infos: e.g. \"graphics:::C_image\"", 
+             "      C-object infos: e.g. \"graphics:::C_image\"",
              "      S3: getAnywhere(fun or \"fun\"); methods(fun or \"fun\")",
              "      S4: showMethods(fun or \"fun\"); getMethods(fun or \"fun\")",
              "      .Internal/.Primitive: pryr::show_c_source, e.g. `show_c_source(.Internal(mean(x)))`",
@@ -3131,7 +3185,7 @@ myhelp <- function() {
 # works in combi with
 #export LD_LIBRARY_PATH=/sw/rhel6-x64/gdal-2.1.3-gcc48/lib/:$LD_LIBRARY_PATH
 #export LD_LIBRARY_PATH=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/lib/:$LD_LIBRARY_PATH
-#install.packages("rgdal", configure.args=c("--with-gdal-config=/sw/rhel6-x64/gdal-2.1.3-gcc48/bin/gdal-config" 
+#install.packages("rgdal", configure.args=c("--with-gdal-config=/sw/rhel6-x64/gdal-2.1.3-gcc48/bin/gdal-config"
 #                                           ,"--with-proj-lib=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/lib"
 #                                           ,"--with-proj-include=/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/include"
 #                                           ))
@@ -3141,7 +3195,7 @@ myhelp <- function() {
 #                                           ,"PKG_CPPFLAGS=-I/sw/rhel6-x64/graphics/proj4-4.9.3-gcc48/include"
 #                                           ))
 
-# works in combi with export LD_LIBRARY_PATH=/sw/rhel6-x64/util/udunits-2.2.26-gcc64/lib:$LD_LIBRARY_PATH: 
+# works in combi with export LD_LIBRARY_PATH=/sw/rhel6-x64/util/udunits-2.2.26-gcc64/lib:$LD_LIBRARY_PATH:
 #install.packages("units", configure.args=c("--with-udunits2-lib=/sw/rhel6-x64/util/udunits-2.2.26-gcc64/lib"
 #                                           ,"--with-udunits2-include=/sw/rhel6-x64/util/udunits-2.2.26-gcc64/include"
 #                                           ))
