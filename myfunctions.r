@@ -446,7 +446,7 @@ difftime_yr <- function(from, to) {
                 age_a <- 1/365 # 0.002739726 yrs
             }
         } else { # current date is before start date
-            stop("datei ", datei, ": from ", from[datei], " to ", to[datei], " --> start date is in future")
+            stop("datei ", datei, ": from ", from[datei], " to ", to[datei], " --> `from` > `to`")
         }
         ages_yr[datei] <- age_a
     } # for datei
@@ -534,7 +534,7 @@ business_days <- function(where="Germany/BR", weekend_days=c("Saturday", "Sunday
     }
 
     # remove weekends
-    message("\nidentify all weekend days based on `weekend_days` = ", paste(weekend_days, collapse=", "), " via base::week_days() ...")
+    message("\nidentify all weekend days based on `weekend_days` = ", paste(weekend_days, collapse=", "), " via base::weekdays() ...")
     inds <- which(!is.na(match(base::weekdays(business_days), weekend_days)))
     if (length(inds) > 0) {
         message("--> remove ", length(inds), " weekend days ...")
@@ -1084,6 +1084,8 @@ myma <- function(x, order, verbose=F, ...) {
     y <- stats::filter(x, filter=rep(1/order, times=order))
 }
 
+# standard deviation = sqrt(variance)
+# variance = standard deviation^2
 mysd <- function(x) {
     sqrt(sum((x - mean(x))^2) / length(x))
 }
@@ -1615,6 +1617,9 @@ molC_s1_to_PgC_yr1 <- function(molC_s1) {
 }
 molC_to_gC <- function(molC) {
     molC * 12.0107 # molC --> gC
+}
+molC_to_kgC <- function(molC) {
+    molC * 12.0107 / 1e3 # molC --> gC; gC --> kgC
 }
 molC_to_kgCO2 <- function(molC) {
     molC * 12.0107 * 3.664191 / 1e3 # molC --> gC; gC --> gCO2; gCO2 --> kgCO2
@@ -2594,9 +2599,10 @@ plot_sizes <- function(width_in=7, height_in=NULL,
     height_px <- height_in*png_ppi
 
     # for pdf
-    # sizes in inch with respect to default pdf width 7 inch used as maximum pdf width
-    pdf_width_in <- 7
-    pdf_height_in <- pdf_width_in/asp
+    # use same physical size as png so that a given pointsize_* yields the
+    # same visual proportions in both png and pdf
+    pdf_width_in <- width_in
+    pdf_height_in <- height_in
 
     # update asp
     asp <- width_in/height_in
@@ -2975,6 +2981,17 @@ mynews <- function() {
     message("R ", current_version, " news:")
     for (i in seq_along(db)) message(i, "/", length(db), ": ", db[i], "\n")
 }
+
+get_triangle_height <- function(a=1, b=2, c=3) {
+    s <- 1/2*(a+b+c)
+    h_a <- 2/a * sqrt(s*(s-a)*(s-b)*(s-c))
+    h_b <- 2/b * sqrt(s*(s-a)*(s-b)*(s-c))
+    h_c <- 2/c * sqrt(s*(s-a)*(s-b)*(s-c))
+    message("a=", a, ",b=", b, ",c=", c, "\n",
+            "h_a = ", h_a, "\n",
+            "h_b = ", h_b, "\n",
+            "h_c = ", h_c)
+} # get_triangle_height
 
 # draw secret santa present lists; schrottwichteln
 secret_santa_list <- function(persons=c("mat", "mer", "mal", "mec", "vol"), ndraw=1, verbose=F) {

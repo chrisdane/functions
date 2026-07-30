@@ -1,9 +1,11 @@
 # r
 
+# yt red to pink colorbar: ff0033 to ff258c
+
 # fields::splint without the print(x) and print(y) lines
 # mysplint() not needed anymore: fields::splint issue https://github.com/NCAR/fields/issues/6 is solved
-mysplint <- function (x, y, xgrid, wt = NULL, derivative = 0, lam = 0, df = NA, 
-    lambda = NULL, nx = NULL, digits = 8) 
+mysplint <- function (x, y, xgrid, wt = NULL, derivative = 0, lam = 0, df = NA,
+    lambda = NULL, nx = NULL, digits = 8)
 {
     if (is.matrix(x)) {
         if (ncol(x) > 1) {
@@ -27,15 +29,15 @@ mysplint <- function (x, y, xgrid, wt = NULL, derivative = 0, lam = 0, df = NA,
         N <- length(x)
         print(x)
         print(y)
-        out <- Krig.replicates(list(x = x, y = y, weights = wt, 
+        out <- Krig.replicates(list(x = x, y = y, weights = wt,
             N = N, Z = NULL), verbose = TRUE)
         x <- out$xM
         y <- out$yM
         wt <- out$weightsM
     }
-    if ((derivative > 2) | (derivative < 0)) 
+    if ((derivative > 2) | (derivative < 0))
         stop("derivative must be 0,1,2")
-    if (length(x) != length(y)) 
+    if (length(x) != length(y))
         stop("Lengths of x and y must match")
     n <- length(x)
     if (n > 50000) {
@@ -57,12 +59,12 @@ mysplint <- function (x, y, xgrid, wt = NULL, derivative = 0, lam = 0, df = NA,
     if (!is.null(nx)) {
         xgrid <- seq(min(x), max(x), , nx)
     }
-    ygrid <- .Fortran("css", PACKAGE = "fields", h = as.double(ifelse(igcv == 
-        2, 1, log(lam))), as.integer(n), as.double(x), as.double(y), 
-        wt = as.double(1/sqrt(wt)), sy = as.double(rep(0, n)), 
-        as.double(1), as.double(1), as.double(1), as.integer(length(xgrid)), 
-        as.double(xgrid), ygrid = as.double(rep(0, length(xgrid))), 
-        job = as.integer(c(igcv, 3, 0)), as.integer(derivative), 
+    ygrid <- .Fortran("css", PACKAGE = "fields", h = as.double(ifelse(igcv ==
+        2, 1, log(lam))), as.integer(n), as.double(x), as.double(y),
+        wt = as.double(1/sqrt(wt)), sy = as.double(rep(0, n)),
+        as.double(1), as.double(1), as.double(1), as.integer(length(xgrid)),
+        as.double(xgrid), ygrid = as.double(rep(0, length(xgrid))),
+        job = as.integer(c(igcv, 3, 0)), as.integer(derivative),
         as.integer(0))$ygrid
     if (!is.null(nx)) {
         return(list(x = xgrid, y = ygrid))
@@ -72,9 +74,9 @@ mysplint <- function (x, y, xgrid, wt = NULL, derivative = 0, lam = 0, df = NA,
     }
 } # fields::splint
 
-color_function <- function(palname="demo", n=64, alpha=1, 
+color_function <- function(palname="demo", n=64, alpha=1,
                            rgb_path, rgb_mat=NULL, rev=F, verbose=F) {
-    
+
     # rgb: 3 column matrix (R, G, B)
     if (F) {
         message("getwd(): ", getwd())
@@ -96,32 +98,32 @@ color_function <- function(palname="demo", n=64, alpha=1,
     # R built-in colormaps
     rs <- c("heat", "rainbow", "topo", "cm", "terrain")
     # todo: "Rocket" and "Mako" for hcl.colors()
-    
+
     # matlabs
     matlabs <- c("jet")#, "parula")
 
     # python
     pythons <- c("viridis", "magma", "plasma", "inferno") # needs package viridis
 
-    # ncview (they are defined in the .h files in the source code of ncview) 
+    # ncview (they are defined in the .h files in the source code of ncview)
     ncviews <- tools::file_path_sans_ext(list.files(rgb_path, pattern=glob2rx("colormaps*.h"), full.names=F))
 
-    # grads 
+    # grads
     grads <- "grads_anomaly"
 
     # colorbrewer
-    colorbrewers_seq <- c("Blues", "BuGn", "BuPu", "GnBu", "Greens", "Greys", 
-                          "Oranges", "OrRd", "PuBu", "PuBuGn", "PuRd", "Purples", 
+    colorbrewers_seq <- c("Blues", "BuGn", "BuPu", "GnBu", "Greens", "Greys",
+                          "Oranges", "OrRd", "PuBu", "PuBuGn", "PuRd", "Purples",
                           "RdPu", "Reds", "YlGn", "YlGnBu", "YlOrBr", "YlOrRd")
-    colorbrewers_div <- c("BrBG", "PiYG", "PRGn", "PuOr", "RdBu", "RdGy", 
+    colorbrewers_div <- c("BrBG", "PiYG", "PRGn", "PuOr", "RdBu", "RdGy",
                           "RdYlBu", "RdYlGn", "Spectral")
-    colorbrewers_qual <- c("Accent", "Dark2", "Paired", "Pastel1", "Pastel2", 
+    colorbrewers_qual <- c("Accent", "Dark2", "Paired", "Pastel1", "Pastel2",
                            "Set1", "Set2", "Set3")
     colorbrewers <- c(colorbrewers_seq, colorbrewers_div, colorbrewers_qual)
 
     # add further names here for demo:
     all <- c(rs, matlabs, pythons,
-             "mpl_gist_ncar", 
+             "mpl_gist_ncar",
              ncviews,
              grads,
              colorbrewers)
@@ -153,7 +155,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
                     if (T) { # white -> red
                         rgb <- rgb[n:1,]
                     }
-                
+
                 } else if (names[i] == "rainbow") {
                     rgb <- t(col2rgb(rainbow(n)))
 
@@ -162,7 +164,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
 
                 } else if (names[i] == "cm") {
                     rgb <- t(col2rgb(cm.colors(n)))
-                
+
                 } else if (names[i] == "terrain") {
                     rgb <- t(col2rgb(terrain.colors(n)))
                 }
@@ -184,23 +186,23 @@ color_function <- function(palname="demo", n=64, alpha=1,
                               "#FF5000", "#FF4000", "#FF3000", "#FF2000", "#FF1000",
                               "#FF0000", "#EF0000", "#DF0000", "#CF0000", "#BF0000",
                               "#AF0000", "#9F0000", "#8F0000", "#800000")
-                    #if (n == 64 & alpha == 1) 
+                    #if (n == 64 & alpha == 1)
                     #    return(orig)
                     rgb <- t(col2rgb(orig))
 
                 } else if (names[i] == "parula") {
                     print("not implemented")
-                } 
+                }
 
             } else if (names[i] %in% pythons) {
-                
+
                 library(viridis)
 
                 if (names[i] == "viridis") {
                     rgb <- t(col2rgb(viridis(n=n, alpha=alpha)))
 
                 } else if (names[i] == "magma") {
-                    rgb <- t(col2rgb(magma(n=n, alpha=alpha))) 
+                    rgb <- t(col2rgb(magma(n=n, alpha=alpha)))
 
                 } else if (names[i] == "inferno") {
                     rgb <- t(col2rgb(inferno(n=n, alpha=alpha)))
@@ -210,7 +212,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
                 }
 
             } else if (names[i] %in% ncviews) {
-               
+
                 if (!exists("trimws")) {
                     # from R > 3.2 in case used R version is <= 3.2
                     trimws <- function (x, which = c("both", "left", "right"), whitespace = "[ \t\r\n]")
@@ -258,7 +260,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
             }
 
             if (length(class(rgb)) == 1 && class(rgb) == "function") { # built-in function was not overwritten
-                stop("palette name '", names[i], "' not known. choose one of\n", 
+                stop("palette name '", names[i], "' not known. choose one of\n",
                      paste(all, collapse=","))
             }
 
@@ -322,7 +324,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
         }
         #print(str(temp))
 
-        if (alpha == 1) {    
+        if (alpha == 1) {
             cols <- rgb(temp, maxColorValue=maxColorValue)
         } else {
             cols <- rgb(temp, maxColorValue=maxColorValue, alpha=alpha)
@@ -346,7 +348,7 @@ color_function <- function(palname="demo", n=64, alpha=1,
         xp <- seq(0.5, dim(z)[1] + 0.5, length.out=100)
         yp <- seq(0.5, dim(z)[2] + 0.5, length.out=100)
         plot(xp, yp, type="n", axes=F,
-             xlab="Number of levels", ylab=NA, 
+             xlab="Number of levels", ylab=NA,
              xaxs="i", yaxs="i")
         axis(1, at=pretty(x, n=10), labels=pretty(x, n=10))
         axis(2, at=y, labels=y, las=2)
