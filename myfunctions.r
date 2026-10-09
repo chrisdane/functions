@@ -474,6 +474,34 @@ if (F) { # todo: seq(from, to, by=non-integer-month)
     }
 }
 
+# get dt from file
+get_dt_from_file <- function(files, year_from, year_to) {
+    steps_per_year <- NA_real_
+
+    ts <- suppressWarnings(system(paste0(cdo, " -s showtimestamp ", files[1]), intern=T))
+    ts <- trimws(strsplit(paste(ts, collapse=" "), "[[:space:]]+")[[1]])
+    ts <- ts[nzchar(ts)]
+    ts <- tryCatch(as.POSIXct(ts, tz="UTC"), error=function(e) NULL)
+    if (!is.null(ts) && length(ts) >= 2 && !anyNA(ts)) {
+        step_days <- stats::median(diff(as.numeric(ts)))/86400
+        if (step_days > 0) steps_per_year <- 365.25/step_days
+    }
+
+    if (is.na(steps_per_year)) { # tier 2: 1st file's ntime * nfiles, over the requested years
+        ntime1 <- suppressWarnings(as.integer(system(paste0(cdo, " -s ntime ", files[1]), intern=T)))
+        n_years <- year_to - year_from + 1
+        if (length(ntime1) == 1 && !is.na(ntime1) && ntime1 > 0 && n_years > 0) {
+            steps_per_year <- ntime1*length(files)/n_years
+        }
+    }
+    if (is.na(steps_per_year) || steps_per_year <= 0) return("unknown")
+
+    known <- c(year=1, mon=12, day=365.25, "6hr"=4*365.25, "3hr"=8*365.25, hr=24*365.25)
+    ratios <- abs(log(steps_per_year/known))
+    besti <- which.min(ratios)
+    if (ratios[besti] <= log(1.15)) names(known)[besti] else paste0(round(steps_per_year), "ts_yr-1")
+} # get_dt_from_file
+
 # business days
 business_days <- function(where="Germany/BR", weekend_days=c("Saturday", "Sunday"), year=2025) {
 
@@ -2637,52 +2665,59 @@ myplot <- function(...) {
 #} # usage: par(); plot(...)
 
 # auto-crop and embed fonts
-mydev.off <- function(plotname, which=dev.cur()) {
-    type <- names(which) # "null device", "x11", "X11cairo", "png", "pdf"
-    if (any(type == c("png", "pdf"))) {
+mydev.off <- function(plotname, which=dev.cur(), crop=T) {
+    type <- names(which) # "null device", "x11", "X11cairo", "png", "pdf", "cairo_pdf"
+    if (F) message("mydev.off(): which = ", which, ", type = ", type)
+    if (any(type == c("png", "pdf", "cairo_pdf"))) {
         if (missing(plotname)) stop("type = ", type, " --> provide `plotname`")
+
         # close
         grDevices::dev.off(which=which)
-        # auto-crop
-        cmd <- NULL
-        if (type == "png") {
-            if (F) { # convert
-                convert <- Sys.which("convert")
-                if (convert == "") {
-                    message("could not find convert --> cannot auto-crop")
-                } else {
-                    cmd <- paste0(convert, " ", plotname, , "-trim +repage ", plotname)
-                }
-            } else if (T) { # mogrify
-                mogrify <- Sys.which("mogrify")
-                if (mogrify == "") {
-                    message("could not find mogrify --> cannot auto-crop")
-                } else {
-                    cmd <- paste0(mogrify, " -trim +repage ", plotname)
-                }
-            }
-        } else if (type == "pdf") {
-            pdfcrop <- Sys.which("mogrify")
-            if (pdfcrop == "") {
-                message("could not find pdfcrop --> cannot auto-crop")
-            } else {
-                cmd <- paste0(pdfcrop, " ", plotname, " ", plotname)
-            }
-        }
-        if (!is.null(cmd)) {
-            message("run `", cmd, "` ...")
-            check <- system(cmd)
-            if (check != 0) stop("error")
-        }
-        # embed fonts
-        if (type == "pdf") {
+
+        # embed fonts to pdf
+        if (any(type == c("pdf", "cairo_pdf"))) {
             message("run `my_embedFonts(", plotname, ")` ...")
             my_embedFonts(plotname)
         }
-    } else { # if not png or pdf
-        grDevices::dev.off(which=which) # only close
-    } # which type
 
+        # crop
+        if (crop) {
+            cmd <- NULL
+            if (type == "png") {
+                if (F) { # auto-crop with convert
+                    convert <- Sys.which("convert")
+                    if (convert == "") {
+                        message("could not find convert --> cannot auto-crop")
+                    } else {
+                        cmd <- paste0(convert, " ", plotname, , "-trim +repage ", plotname)
+                    }
+                } else if (T) { # auto-crop with mogrify
+                    mogrify <- Sys.which("mogrify")
+                    if (mogrify == "") {
+                        message("could not find mogrify --> cannot auto-crop")
+                    } else {
+                        cmd <- paste0(mogrify, " -trim +repage ", plotname)
+                    }
+                }
+            } else if (any(type == c("pdf", "cairo_pdf"))) {
+                pdfcrop <- Sys.which("pdfcrop") # auto-crop with pdfcrop
+                if (pdfcrop == "") {
+                    message("could not find pdfcrop --> cannot auto-crop")
+                } else {
+                    cmd <- paste0(pdfcrop, " --quiet ", plotname, " ", plotname)
+                }
+            }
+            if (!is.null(cmd)) {
+                message("run `", cmd, "` ...")
+                check <- system(cmd)
+                if (check != 0) stop("error")
+            }
+        } # if crop
+
+    } else { # if not png or pdf; likely x11
+        grDevices::dev.off(which=which) # default close
+
+    } # which type
 } # mydev.off()
 
 # paste my relevant plot options
