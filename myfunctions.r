@@ -1463,10 +1463,10 @@ atm_to_Pa <- function(atm) {
 # --> convert g C   to g CO2: *3.664191 (or /0.272912)
 # --> convert g CO2 to g C  : /3.664191 (or *0.272912)
 C_to_CO2 <- function(C) {
-    CO2 <- C * 3.664191
+    C * 3.664191
 }
 CO2_to_C <- function(CO2) {
-    C <- CO2 * 0.272912
+    CO2 * 0.272912
 }
 CO2ppm_to_kgCO2 <- function(CO2ppm) {
     # 2.124 from Tab. 1 from Friedlingstein et al. 2023
@@ -1484,6 +1484,12 @@ gC_s1_to_PgC_yr1 <- function(gC_s1) {
 gC_s1_to_PgCO2_yr1 <- function(gC_s1) {
     gC_s1 * 365.25*86400 * 3.664191 / 1e15 # s-1 --> yr-1; gC --> gCO2; g --> Pg
 }
+gC_to_kgC <- function(gC) {
+    gC / 1e3 # g --> kg
+}
+kgC_d1_to_kgCO2_s1 <- function(kgC_d1) {
+    kgC_d1 * 3.664191 / 86400 # C -> CO2; day-1 -> s-1
+}
 kgC_m2_s1_to_PgC_yr1 <- function(kgC_m2_s1) {
     Aearth <- 5.100656e14 # m2
     kgC_m2_s1 * Aearth * 365.25*86400 / 1e12 # m2 -> fldint; s-1 -> yr-1; kg -> Pg
@@ -1491,54 +1497,8 @@ kgC_m2_s1_to_PgC_yr1 <- function(kgC_m2_s1) {
 kgC_s1_to_gC_yr1 <- function(kgC_s1) {
     kgC_s1 * 365.25*86400 * 1e3 # s-1 -> yr-1; kg -> g
 }
-kgC_day1_to_kgCO2_s1 <- function(kgC_day1) {
-    kgC_day1 * 3.664191 * 86400 # C -> CO2; day-1 -> s-1
-}
 kgC_s1_to_PgC_yr1 <- function(kgC_s1) {
     kgC_s1 * 365.25*86400 / 1e12 # s-1 -> yr-1; kg -> Pg
-}
-kgCO2_kg_to_CO2ppm <- function(kgCO2_kg) {
-    # mass mixing ratio in kg kg-1 -> volume mixing ratio in ppm
-    molar_mass_co2_g_mol <- 44.0095 # g mol-1
-    molar_mass_dry_air_g_mol <- 28.9652 # g mol-1
-    kgCO2_kg * 1e6 * molar_mass_dry_air_g_mol/molar_mass_co2_g_mol # 0.6581579
-}
-kgCO2_m2_s1_to_PgC_yr1 <- function(kgCO2_m2_s1) {
-    Aearth <- 5.100656e14 # m2
-    kgCO2_m2_s1 * Aearth * 0.272912 * 365.25*86400 / 1e12 # m2 -> fldint; kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg
-}
-kgCO2_m2_to_CO2ppm <- function(kgCO2_m2) {
-    Aearth <- 5.100656e14 # m2
-    kgCO2_m2 * Aearth * 0.272912 / 1e12 / 2.124 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
-}
-kgCO2_s1_to_gC_s1 <- function(kgCO2_s1) {
-    kgCO2_s1 * 365.25*86400 / 3.664191 * 100 # s-1 -> yr-1; kgCO2 -> kgC; kgC -> gC
-}
-kgCO2_to_CO2ppm <- function(kgCO2) {
-    kgCO2 * 0.272912 / 1e12 / 2.124 # kgCO2 -> kgC; kg -> Pg ; PgC --> ppm
-}
-kgCO2_to_PgC <- function(kgCO2) {
-    kgCO2 * 0.272912 / 1e12 # kgCO2 -> kgC; kg -> Pg
-}
-kgCO2_m2_to_PgC <- function(kgCO2_m2) {
-    Aearth <- 5.100656e14 # m2
-    kgCO2_m2 * Aearth * 0.272912 / 1e12 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg
-}
-kgCO2_s1_to_PgC_yr1 <- function(kgCO2_s1) {
-    kgCO2_s1 * 0.272912 * 365.25*86400 / 1e12 # kgCO2 -> kgC; s-1 -> yr-1; kg -> Pg
-}
-kgCO2_to_kgC <- function(kgCO2) {
-    kgC <- kgCO2 * 0.272912
-}
-mmolC_d1_to_gC_yr1 <- function(mmolC_d1) {
-    mmolC_d1 / 1e3 * 12.0107 * 365.25 # mmolC --> molC; molC --> gC; d-1 --> yr-1
-}
-mmolC_d1_to_kgCO2_s1 <- function(mmolC_d1) {
-    mmolC_d1 / 1e3 * 12.0107 * 3.664191 / 1e3 / 86400 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2; d-1 --> yr-1
-    # = 5.0936919957986123898e-10
-}
-gC_to_kgC <- function(gC) {
-    gC / 1e3 # g --> kg
 }
 kgCO2_kg_to_CO2ppm <- function(kgCO2_kg) {
     # mass mixing ratio in kg kg-1 -> volume mixing ratio in ppm
@@ -1558,9 +1518,6 @@ kgCO2_m2_to_PgC <- function(kgCO2_m2) {
     Aearth <- 5.100656e14 # m2
     kgCO2_m2 * Aearth * 0.272912 / 1e12 # m2 -> fldint; kgCO2 -> kgC; kg -> Pg
 }
-kgCO2_PgC <- function(kgCO2) {
-    kgCO2 * 0.272912 / 1e12 # kgCO2 -> kgC; kg -> Pg
-}
 kgCO2_s1_to_gC_yr1 <- function(kgCO2_s1) {
     kgCO2_s1 * 365.25*86400 / 3.664191 * 1e3 # s-1 -> yr-1; kgCO2 -> kgC; kgC -> gC
 }
@@ -1573,11 +1530,15 @@ kgCO2_to_CO2ppm <- function(kgCO2) {
 kgCO2_to_kgC <- function(kgCO2) {
     kgCO2 * 0.272912
 }
+kgCO2_to_PgC <- function(kgCO2) {
+    kgCO2 * 0.272912 / 1e12 # kgCO2 -> kgC; kg -> Pg
+}
 mmolC_d1_to_gC_yr1 <- function(mmolC_d1) {
     mmolC_d1 / 1e3 * 12.0107 * 365.25 # mmolC --> molC; molC --> gC; d-1 --> yr-1
 }
 mmolC_d1_to_kgCO2_s1 <- function(mmolC_d1) {
-    mmolC_d1 / 1e3 * 12.0107 * 3.664191 / 1e3 * 365.25 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2; d-1 --> yr-1
+    mmolC_d1 / 1e3 * 12.0107 * 3.664191 / 1e3 / 86400 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2; d-1 --> s-1
+    # = 5.0936919957986123898e-10
 }
 mmolC_d1_to_mmol_s1 <- function(mmolC_d1) {
     mmolC_d1 / 86400 # d-1 --> s-1
@@ -1585,32 +1546,29 @@ mmolC_d1_to_mmol_s1 <- function(mmolC_d1) {
 mmolC_d1_to_PgC_yr1 <- function(mmolC_d1) {
     mmolC_d1 / 1e3 * 12.0107 / 1e15 * 365.25 # mmolC --> molC; molC --> gC; gC --> PgC; d-1 --> yr-1
 }
+mmolC_m2_d1_to_gC_m2_s1 <- function(mmolC_m2_d1) {
+    mmolC_m2_d1 / 1e3 * 12.0107 / 86400 # mmolC --> molC; molC --> gC; d-1 --> s-1
+}
 mmolC_to_kgC <- function(mmolC) {
     mmolC / 1e3 * 12.0107 / 1e3 # mmolC --> molC; molC --> gC; gC --> kgC
 }
 mmolC_to_kgCO2 <- function(mmolC) {
     mmolC / 1e3 * 12.0107 * 3.664191 / 1e3 # mmolC --> molC; molC --> gC; gC --> gCO2; gCO2 --> kgCO2
 }
-mmolC_m2_d1_to_gC_m2_s1 <- function(mmolC_m2_d1) {
-    mmolC_m2_d1 / 1e3 * 12.0107 / 86400 # mmolC --> molC; molC --> gC; d-1 --> s-1
-}
 mmolC_to_PgC <- function(mmolC) {
     mmolC / 1e3 * 12.0107 / 1e15 # mmolC --> molC; molC --> gC; gC --> PgC
-}
-mmolCO2_to_kgCO2 <- function(mmolCO2) {
-    mmolCO2_s1 / 1e3 * 44.0095 / 1e3 # mmolCO2 --> molCO2; molCO2 --> gCO2; gCO2 --> kgCO2
-}
-molC_s1_to_kgC_yr1 <- function(molC_s1) {
-    molC_s1 * 12.0107 * 365.25*86400 / 1e3 # molC --> gC; s-1 -> yr-1; g -> kg
 }
 mmolCO2_s1_to_kgCO2_s1 <- function(mmolCO2_s1) {
     mmolCO2_s1 / 1e3 * 44.0095 / 1e3 # mmolCO2 --> molCO2; molCO2 --> gCO2; gCO2 --> kgCO2
 }
-molC_yr1_to_gC_yr1 <- function(molC_yr1) {
-    molC_yr1 * 12.0107 # molC --> gC
+mmolCO2_to_kgCO2 <- function(mmolCO2) {
+    mmolCO2 / 1e3 * 44.0095 / 1e3 # mmolCO2 --> molCO2; molCO2 --> gCO2; gCO2 --> kgCO2
 }
 molC_m2_yr1_to_gC_m2_s1 <- function(molC_m2_yr1) {
     molC_m2_yr1 * 12.0107 / (365.25*86400) # molC --> gC; yr-1 --> s-1
+}
+molC_s1_to_kgC_yr1 <- function(molC_s1) {
+    molC_s1 * 12.0107 * 365.25*86400 / 1e3 # molC --> gC; s-1 -> yr-1; g -> kg
 }
 molC_s1_to_PgC_yr1 <- function(molC_s1) {
     molC_s1 * 12.0107 * 365.25*86400 / 1e15 # molC --> gC; s-1 -> yr-1; g -> Pg
@@ -1626,6 +1584,9 @@ molC_to_kgCO2 <- function(molC) {
 }
 molC_to_PgC <- function(molC) {
     molC * 12.0107 / 1e15 # molC --> gC; g -> Pg
+}
+molC_yr1_to_gC_yr1 <- function(molC_yr1) {
+    molC_yr1 * 12.0107 # molC --> gC
 }
 molCO2_m2_s1_to_PgC_yr1 <- function(molCO2_m2_s1) {
     Aearth <- 5.100656e14 # m2
@@ -2659,6 +2620,16 @@ plot_sizes <- function(width_in=7, height_in=NULL,
                 pointsize_max=pointsize_max))
 } # plot_sizes
 
+# apply my par() defaults, then call plot(). use instead of plot() directly.
+myplot <- function(...) {
+    graphics::par(mgp=c(3, 0.5, 0), # mgp 2nd value: distance of labels to ticks (default: 1)
+                  tcl=-0.3, # tcl: tick length (default: 0.5)
+                  #family="Droid Sans"
+                  family="Graphik Regular Trial"
+                  )
+    graphics::plot(...)
+} # myplot
+
 # nicer default pars
 # attention: this overwrites the default par()
 #par <- function(las=1, ...) {
@@ -2973,14 +2944,32 @@ myErrorFun <- function() {
     }
 }
 
-mynews <- function() {
-    current_version <- paste0(R.version$major, ".", R.version$minor)
-    message("run `utils::news(Version == ", current_version, ")` ...")
-    db <- utils::news(Version == current_version)$Text
-    db <- gsub("\\\n", " ", db)
-    message("R ", current_version, " news:")
-    for (i in seq_along(db)) message(i, "/", length(db), ": ", db[i], "\n")
-}
+mynews <- function(version=NULL) {
+    if (is.null(version)) { # get current version
+        versions <- paste0(R.version$major, ".", R.version$minor) # "4.6.1"
+    } else { # version was provided
+        if (!is.character(version)) stop("`version` must be character, e.g. \"4.6.1\"")
+        message("`version` is null --> run `rversions::r_versions()` ...")
+        versions <- rversions::r_versions()$version # "0.0" "0.1" ... "4.6.0" "4.6.1"
+        if (version == "all") {
+            # use all
+        } else {
+            ind <- grep(version, versions)
+            if (length(ind) == 0) stop("provided `version` ", version, " not one of all available version:\n",
+                                       paste(head(versions), collapse=", "), " ... ",
+                                       paste(tail(versions), collapse=", "))
+        }
+    }
+    for (vi in seq_along(versions)) {
+        message("***********************************************************************\n",
+                " version ", vi, "/", length(versions), "\n",
+                "run `db <- utils::news(Version == \"", versions[vi], "\")$Text` ...")
+        db <- utils::news(Version == versions[vi])$Text
+        db <- gsub("\\\n", " ", db)
+        message("R ", versions[vi], " news:")
+        for (i in seq_along(db)) message(i, "/", length(db), ": ", db[i], "\n")
+    } # for vi
+} # mynews
 
 get_triangle_height <- function(a=1, b=2, c=3) {
     s <- 1/2*(a+b+c)
