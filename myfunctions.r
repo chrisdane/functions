@@ -1572,7 +1572,7 @@ mmolC_d1_to_mmol_s1 <- function(mmolC_d1) {
     mmolC_d1 / 86400 # d-1 --> s-1
 }
 mmolC_d1_to_PgC_yr1 <- function(mmolC_d1) {
-    mmolC_d1 / 1e3 * 12.0107 / 1e15 * 365.25 # mmolC --> molC; molC --> gC; gC --> PgC; d-1 --> yr-1
+    mmolC_d1 / 1e3 * 12.0107 / 1e15 * 365.25 # mmolC --> molC; molC --> gC; gC --> PgC; d-1 --> yr-1; -setunit,'PgC yr-1' -divc,1e3 -mulc,12.0107 -divc,1e15 -mulc,365.25
 }
 mmolC_m2_d1_to_gC_m2_s1 <- function(mmolC_m2_d1) {
     mmolC_m2_d1 / 1e3 * 12.0107 / 86400 # mmolC --> molC; molC --> gC; d-1 --> s-1
