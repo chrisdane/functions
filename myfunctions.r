@@ -2665,7 +2665,7 @@ myplot <- function(...) {
 #} # usage: par(); plot(...)
 
 # auto-crop and embed fonts
-mydev.off <- function(plotname, which=dev.cur(), crop=T) {
+my_dev.off <- function(plotname, which=dev.cur(), crop=T) {
     type <- names(which) # "null device", "x11", "X11cairo", "png", "pdf", "cairo_pdf"
     if (F) message("mydev.off(): which = ", which, ", type = ", type)
     if (any(type == c("png", "pdf", "cairo_pdf"))) {
@@ -2718,7 +2718,7 @@ mydev.off <- function(plotname, which=dev.cur(), crop=T) {
         grDevices::dev.off(which=which) # default close
 
     } # which type
-} # mydev.off()
+} # my_dev.off()
 
 # paste my relevant plot options
 mypar <- function() {
