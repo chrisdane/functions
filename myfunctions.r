@@ -1629,6 +1629,14 @@ molCO2_to_kgC <- function(molCO2) {
 ppm_to_PgC <- function(ppm) {
     ppm * 2.124 # Tab.1 Friedlingstein et al. 2023; ref: Ballantyne et al. 2012
 }
+uatm_to_ppm <- function(uatm, p_atm=1, pH2O_atm=0.02) {
+    # approximate surface pCO2 in uatm -> dry air mole fraction xCO2 in ppm
+    # pCO2 = xCO2 * (p - pH2O); eq. C.2.4 in Zeebe and Wolf-Gladrow 2001 (p. 282)
+    # defaults: sea level pressure and 100% humidity at about 18 deg C
+    # --> pH2O is about 0.006 atm at 0 deg C and 0.04 atm at 30 deg C, i.e. up to +-2% error
+    # --> pass local p_atm and pH2O_atm for better values; fugacity correction (~0.3%) neglected
+    uatm / (p_atm - pH2O_atm)
+}
 
 # flux ctrl vs anomaly confusion
 flux_signs <- function(convention="downward_negative") {
