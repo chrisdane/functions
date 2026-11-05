@@ -1329,22 +1329,50 @@ are_equal <- function(x, y, significance=0.05, verbose=T) {
 #       = zwiers and von storch 1995 eq. 4
 #       = hannachi et al. 2007 after their eq. 18
 #       = n * ( 1 + 2 * sum_{k=1}^{n-1} (1-k/n) * rho(k) )^{-1}
-n_eff <- function(ts) {
+# method="sum": sum is truncated at the first lag with rho(k) <= 0, since the sample acf
+#               up to lag n-1 sums to -1/2 for a demeaned series and is very noisy at high lags
+# method="ar1": n_eff = n * (1 - rho(1)) / (1 + rho(1)) (e.g. santer et al. 2000 eq. 6);
+#               rho(1) < 0 is set to 0, i.e. n_eff <= n
+# for trend significance, apply to the residuals of the trend fit, not to the raw series
+# NA are allowed (e.g. gap years); n is the number of non-NA values
+n_eff <- function(ts, method="sum") {
     if (missing(ts)) ts <- stats::rnorm(n=100, mean=0, sd=1) # random normal distributed
     if (!is.null(dim(ts))) stop("ts must be vector")
-    n <- length(ts)
-    rho <- stats::acf(ts, lag.max=n-1, plot=F) # autocorrelation rho
-    rho <- rho$acf[seq_len(n - 1)]
-    k <- length(rho)
-    fac <- 1 - seq_len(k)/n
-    n*(1 + 2 * sum(fac*rho))^-1 # n_eff
+    if (!any(method == c("sum", "ar1"))) stop("`method` must be \"sum\" or \"ar1\"")
+    n <- length(which(!is.na(ts)))
+    rho <- stats::acf(ts, lag.max=length(ts)-1, plot=F, na.action=stats::na.pass) # autocorrelation rho
+    rho <- rho$acf[-1] # drop lag 0
+    if (method == "ar1") {
+        # correlation of consecutive non-NA pairs; stats::acf with na.pass is unstable for gappy series
+        pairs_ok <- which(!is.na(ts[-1]) & !is.na(ts[-length(ts)]))
+        rho1 <- NA
+        if (length(pairs_ok) > 2) rho1 <- stats::cor(ts[-length(ts)][pairs_ok], ts[-1][pairs_ok])
+        rho1 <- max(rho1, 0, na.rm=T)
+        return(n*(1 - rho1)/(1 + rho1))
+    }
+    k <- which(!(rho > 0))[1] - 1 # last lag before first rho(k) <= 0
+    if (is.na(k)) k <- length(rho)
+    if (k == 0) return(n)
+    fac <- 1 - seq_len(k)/length(ts)
+    n*(1 + 2 * sum(fac*rho[seq_len(k)]))^-1 # n_eff
 } # n_eff function
 
 # eigenvalue and -vector uncertainty after north et al. 1982
-# --> formulated as in hannachi et al. 2007
-north_etal_1982_rule <- function(eigenval, eigenvec=NULL) {
+# --> formulated as in hannachi et al. 2007: eigenval.err = eigenval * sqrt(2/n_eff)
+# n_eff is the effective number of independent time samples of the data the eofs were computed from:
+#   n:  provide n_eff (or the number of time steps if they are independent) directly, or
+#   ts: time series vector or matrix (time x series, e.g. the pcs) to estimate n_eff from via
+#       n_eff(..., method=method); for a matrix the smallest n_eff of all columns is used (conservative)
+north_etal_1982_rule <- function(eigenval, n=NULL, ts=NULL, method="ar1", eigenvec=NULL) {
     if (missing(eigenval)) stop("must provide eigenval")
-    neff <- neff(eigenval)
+    if (is.null(n) && is.null(ts)) stop("provide either `n` or `ts` to get the effective sample size")
+    if (!is.null(n) && !is.null(ts)) stop("provide either `n` or `ts`, not both")
+    if (!is.null(n)) {
+        neff <- n
+    } else {
+        if (is.null(dim(ts))) ts <- as.matrix(ts)
+        neff <- min(apply(ts, 2, n_eff, method=method))
+    }
     eigenval.err <- eigenval * sqrt(2/neff)
     # rest from sinkr::northTest
     upper.lim <- eigenval + eigenval.err
@@ -1360,9 +1388,9 @@ north_etal_1982_rule <- function(eigenval, eigenvec=NULL) {
                 sig[i] <- 0
         }
     }
-    result <- list(eigenval = eigenval, eigenval.err = eigenval.err,
+    result <- list(eigenval = eigenval, eigenval.err = eigenval.err, n_eff = neff,
         upper.lim = upper.lim, lower.lim = lower.lim, sig = sig,
-        n.sig = min(which(sig == 0)) - 1)
+        n.sig = if (any(sig == 0)) min(which(sig == 0)) - 1 else length(sig))
     if (!missing(eigenvec)) { # calc uncerstaintied of eigenvectors
         # todo
     }
@@ -1955,8 +1983,9 @@ identical_list <- function(x) {
 
 # irregular check from graphics::image()'s argument `useRaster` from graphics::image.default
 check_irregular <- function(x, y) {
-    dx <- diff(x)
-    dy <- diff(y)
+    # as.vector: drop dim attribute (e.g. ncdf4 1d arrays), otherwise all.equal is never TRUE
+    dx <- as.vector(diff(x))
+    dy <- as.vector(diff(y))
     # all.equal(target, current, ...) returns
     #   TRUE            if d <= tolereance with
     #                       tolerance <- sqrt(.Machine$double.eps)

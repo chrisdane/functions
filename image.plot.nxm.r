@@ -18,13 +18,13 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                            quiver_legend=NULL,
                            plot_type="active", plotname="testplot",
                            #cm_bottom=2, cm_left=2.5, cm_top=1, cm_right=4,
-                           cm_bottom=1.5, cm_left=2, cm_top=0.25, cm_right=3.5,
+                           cm_bottom=1.5, cm_left=2, cm_top=0.25, cm_right=3.75,
                            colorbar_width_cm=0.45, colorbar_dist_cm=0.2,
                            width_png=2000, height_png=1666, res=300,
                            width_pdf=7, height_pdf=7,
                            axis.args=NULL,
                            znames_method="text", znames_pos="topleft", znames_cex=1.25,
-                           legend.args=NULL, legend.line=3, legend.cex=0.85,
+                           legend.args=NULL, legend.line=3.5, legend.cex=0.85,
                            colorbar.cex=1.25,
                            family="sans", lwd=0.5, lwd.ticks=0.5,
                            verbose=F, ...) {
@@ -273,7 +273,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
     } else {
         proj <- "" # default: rectangular plot without projection
     }
-    if (is.null(legend.line)) legend.line <- 3
+    if (is.null(legend.line)) legend.line <- 3.5
 
     # check additional objects if provided
     if (any(dot_names == "image_list")) {
@@ -632,8 +632,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
     check_irregular <- function(x, y) { # defined inside graphics::image.default
         # todo: does not work for POSIX x,y objects
-        dx <- diff(x)
-        dy <- diff(y)
+        # as.vector: drop dim attribute (e.g. ncdf4 1d arrays), otherwise all.equal is never TRUE
+        dx <- as.vector(diff(x))
+        dy <- as.vector(diff(y))
         # all.equal(target, current, ...) returns
         #   TRUE            if d <= tolereance with
         #                       tolerance <- sqrt(.Machine$double.eps)
@@ -647,8 +648,8 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
         (length(dx) && !isTRUE(all.equal(dx, rep(dx[1], length(dx))))) ||
         (length(dy) && !isTRUE(all.equal(dy, rep(dy[1], length(dy)))))
     } # check_irregular
-    my_check_irregular <- function(vals) {
-        dvals <- diff(vals)
+    my_check_irregular <- function(vals) { # 1-axis version of graphics::image.default:::check_irregular
+        dvals <- as.vector(diff(vals)) # drop dim attribute, see check_irregular
         (length(dvals) && !isTRUE(all.equal(dvals, rep(dvals[1], length(dvals)))))
     } # my_check_irregular
 
@@ -746,10 +747,10 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                             if (check_irregular(image_list[[vi]][[i]]$x, image_list[[vi]][[i]]$y)) {
                                 image_list[[vi]][[i]]$x <- seq(min(image_list[[vi]][[i]]$x, na.rm=T),
                                                                max(image_list[[vi]][[i]]$x, na.rm=T),
-                                                               l=length(image_list[[vi]][[i]]$x))
+                                                               length.out=length(image_list[[vi]][[i]]$x))
                                 image_list[[vi]][[i]]$y <- seq(min(image_list[[vi]][[i]]$y, na.rm=T),
                                                                max(image_list[[vi]][[i]]$y, na.rm=T),
-                                                               l=length(image_list[[vi]][[i]]$y))
+                                                               length.out=length(image_list[[vi]][[i]]$y))
                             }
                         }
                     }
@@ -1603,10 +1604,12 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
 
                 # add land stuff to every plot
                 op <- par(no.readonly=T) # switch back to main plot with 'par(op)'
-                par(new=T)
-                base::plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, type="n",
-                           axes=F, xlab=NA, ylab=NA,
-                           xaxs="i", yaxs="i")
+                if (proj == "") { # with a projection, keep the coordinates of oce::mapPlot()
+                    par(new=T)
+                    base::plot(addland_list[[i]]$xlim, addland_list[[i]]$ylim, type="n",
+                               axes=F, xlab=NA, ylab=NA,
+                               xaxs="i", yaxs="i")
+                }
                 if (addland_list[[i]]$type == "map") {
                     if (proj == "") {
                         maps::map(addland_list[[i]]$data, interior=F, add=T, lwd=lwd)
@@ -1758,6 +1761,9 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
             # add axes and axes labels
             if (verbose) message("add axes to subplot using graphics::axis() or oce::mapAxis() ...")
             if (proj != "") {
+                # label style of oce:::formatLonLat: 1: -75, 60 (default); 2: -75W, 60N; 3: -75°, 60°; 4: 75°, 60°; 5: 75°W, 60°N
+                axisStyle <- 1
+                if (any(dot_names == "axisStyle")) axisStyle <- dot_list$axisStyle
                 # todo: oce::mapAxis does not support lwd, las: https://github.com/dankelley/oce/issues/1707
                 my_mapAxis <- function(side, ...) { # from oce::mapAxis:
                     if (missing(side)) stop("provide `side`")
@@ -1797,7 +1803,7 @@ image.plot.nxm <- function(x, y, z, n=NULL, m=NULL, dry=F,
                             at <- tfcn(labels)
                             if (any(is.finite(at))) {
                                 if (dot_list$labels) {
-                                    dot_list$labels <- oce:::formatLonLat(labels, formatLonLat_which, axisStyle=1)
+                                    dot_list$labels <- oce:::formatLonLat(labels, formatLonLat_which, axisStyle=axisStyle)
                                 }
                                 graphics::axis(side=side, at=at, labels=dot_list$labels,
                                                lwd=dot_list$lwd, lwd.ticks=dot_list$lwd.ticks,
