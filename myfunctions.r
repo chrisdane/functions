@@ -1112,6 +1112,82 @@ myma <- function(x, order, verbose=F, ...) {
     y <- stats::filter(x, filter=rep(1/order, times=order))
 }
 
+# centered running mean of odd width n whose window is truncated at both ends (no NA at start/end)
+# = zoo::rollapply(x, width=n, FUN=mean, na.rm=na.rm, align="center", partial=T), but much faster
+# (data.table::frollmean(adaptive=T) only works with align="right")
+# start: mean(x[1:(i+h)]); interior: mean(x[(i-h):(i+h)]); end: mean(x[(i-h):N]); h = (n-1)/2
+# matrix: applied column-wise (time = 1st dim)
+froll_center_partial <- function(x, n, na.rm=T) {
+    if (is.null(x)) return(NULL)
+    if (length(n) != 1 || n < 1 || n %% 2 != 1) stop("`n` = ", paste(n, collapse=", "), " must be one odd number")
+    if (!is.null(dim(x)) && length(dim(x)) > 2) stop("implement")
+    X <- if (!is.null(dim(x)) && length(dim(x)) == 2) x else matrix(as.vector(x), ncol=1)
+    y <- .froll_center_partial_mat(X, n=n, na.rm=na.rm)
+    .froll_restore_shape(y, x)
+} # froll_center_partial
+
+# internal: froll_center_partial of all columns of matrix X (time = rows) with only 3 data.table::frollmean calls
+# (frollmean of a list of vectors runs all columns in one call; avoids the per-call overhead of apply())
+.froll_center_partial_mat <- function(X, n, na.rm=T) {
+    N <- nrow(X); K <- ncol(X); h <- (n - 1) / 2
+    if (N == 0 || K == 0) return(X)
+    # thread start-up dominates for these small problems (e.g. 1000 x 1: 4.8 ms with 128 threads vs 0.5 ms with 8)
+    nthreads_old <- data.table::getDTthreads()
+    if (nthreads_old > 8) {
+        data.table::setDTthreads(8)
+        on.exit(data.table::setDTthreads(nthreads_old), add=T)
+    }
+    cols <- lapply(seq_len(K), function(k) X[,k])
+    y <- matrix(unlist(data.table::frollmean(cols, n=n, align="center", na.rm=na.rm)), nrow=N) # interior; NA at h first/last
+    if (h > 0) {
+        nadapt <- pmin(seq_len(N), n) # 1, 2, ..., n, n, ...
+        fwd <- matrix(unlist(data.table::frollmean(cols, n=nadapt, align="right", adaptive=T, na.rm=na.rm)), nrow=N) # fwd[j,] = mean(X[max(1,j-n+1):j,])
+        bwd <- matrix(unlist(data.table::frollmean(lapply(cols, rev), n=nadapt, align="right", adaptive=T, na.rm=na.rm)), nrow=N)[N:1,,drop=F] # bwd[k,] = mean(X[k:min(N,k+n-1),])
+        i <- seq_len(min(h, N))
+        y[i,] <- fwd[pmin(i + h, N),,drop=F] # start
+        i <- seq(max(1, N - h + 1), N)
+        y[i,] <- bwd[pmax(i - h, 1),,drop=F] # end
+    }
+    y
+} # .froll_center_partial_mat
+
+# internal: give result matrix y (time x columns) the shape of the input x (vector, 1d array or matrix)
+.froll_restore_shape <- function(y, x) {
+    if (!is.null(dim(x)) && length(dim(x)) == 2) {
+        dimnames(y) <- dimnames(x)
+        return(y)
+    }
+    y <- as.vector(y)
+    if (!is.null(dim(x))) y <- array(y, dim=dim(x), dimnames=dimnames(x)) # keep 1d array
+    y
+} # .froll_restore_shape
+
+# centered local linear regression (1st order loess/savitzky-golay) over the truncated window max(1,i-h):min(N,i+h), evaluated at i:
+# y[i] = mean(x) + b * (t[i] - mean(t)) with b = cov(t, x)/var(t) in the window; h = (n-1)/2
+# - interior with symmetric window (and no NA): mean(t) = t[i] --> y = centered mean = froll_center_partial
+# - start/end (one-sided window): the slope corrects the trend bias of the one-sided mean
+# - window means of x, t, x*t, t^2 (same valid (non-NA) set) of all columns in one .froll_center_partial_mat() call
+# - needs odd n; matrix: applied column-wise (time = 1st dim)
+# - check: = coef(lm(x[w] ~ t[w])) %*% c(1, t[i]) per window w (incl. NA)
+froll_center_partial_linear <- function(x, n, na.rm=T) {
+    if (is.null(x)) return(NULL)
+    if (length(n) != 1 || n < 1 || n %% 2 != 1) stop("`n` = ", paste(n, collapse=", "), " must be one odd number")
+    if (!is.null(dim(x)) && length(dim(x)) > 2) stop("implement")
+    X <- if (!is.null(dim(x)) && length(dim(x)) == 2) unname(x) else matrix(as.vector(x), ncol=1)
+    N <- nrow(X); K <- ncol(X)
+    tfull <- seq_len(N) - (N + 1)/2 # centered index to limit cancellation in t^2
+    Tm <- matrix(tfull, nrow=N, ncol=K)
+    Tm[is.na(X)] <- NA # same valid set for all window means
+    M <- .froll_center_partial_mat(cbind(X, Tm, X*Tm, Tm^2), n=n, na.rm=na.rm)
+    ik <- seq_len(K)
+    mx <- M[,ik,drop=F]; mt <- M[,K+ik,drop=F]; mxt <- M[,2*K+ik,drop=F]; mtt <- M[,3*K+ik,drop=F]
+    vart <- mtt - mt^2
+    b <- (mxt - mx*mt) / vart
+    b[!is.finite(b) | vart <= .Machine$double.eps * pmax(1, mtt)] <- 0 # window with < 2 valid values: no slope
+    y <- mx + b * (tfull - mt) # tfull recycled along rows
+    .froll_restore_shape(y, x)
+} # froll_center_partial_linear
+
 # standard deviation = sqrt(variance)
 # variance = standard deviation^2
 mysd <- function(x) {
@@ -1833,6 +1909,7 @@ find_open_brackets <- function(file) {
                        error=function(e) e,
                        warning=function(w) w)
     if (typeof(status) != "expression") { # some warning/error
+        message("\n", class(status)[1], ": ", conditionMessage(status)) # e.g. "unexpected 'else'" with line:col
         d <- getParseData(src)
         tokens_to_check <- c("'{'", "'}'", "'['", "']'", "'('", "')'")
         message("found some warning/error --> check ", length(tokens_to_check),
@@ -2056,7 +2133,7 @@ grl_nfigs2nwords <- function(nfigs=1:12, ntabs) {
     return(df)
 }
 
-# color2rgb
+# color2rgb --> deprecated: base::adjustcolor(..., alpha.f=) is doing the same
 col2rgba <- function(cols, alpha) {
     if (missing(cols)) stop("must provide colors")
     if (missing(alpha)) {
